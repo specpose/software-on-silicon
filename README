@@ -1,0 +1,10 @@
+To run:
+g++ ../include/software-on-silicon/*.hpp
+
+To install:
+mkdir build
+cd build
+mkdir -p ~/usr/local/
+cmake --install-prefix=`echo ~`/usr/local ../
+cmake --build . --clean-first --verbose
+cmake --install . --verbose
