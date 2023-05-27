@@ -18,32 +18,28 @@ struct Processor {
     bool* next_done = nullptr;
 };
 template<typename T, std::size_t N>struct Shuffle : public Processor {
-    std::array<T,N>::iterator_type start;
-    std::array<T,N>::iterator_type end;
+    typename std::array<T,N>::iterator_type start;
+    typename std::array<T,N>::iterator_type end;
 };
+namespace util {
 constexpr bool greaterThanZero(unsigned int number){
     return number>0;
-}
+}}
 template<
  typename ProcessorImplementation,
  unsigned int NumberOfProcessors = 0,
- typename T = typename std::enable_if<greaterThanZero(NumberOfProcessors),ProcessorImplementation>::type
+ typename T = typename std::enable_if<util::greaterThanZero(NumberOfProcessors),ProcessorImplementation>::type
 > struct ProcessorArray {
-std::array<T,NumberOfProcessors> processors = std::array<T,NumberOfProcessors>{Processor()};
+std::array<T,NumberOfProcessors> processors = std::array<T,NumberOfProcessors>{};
 };
 template<
  typename ProcessorImplementation,
  unsigned int NumberOfProcessors = 0
 > struct ShuffleArray : public ProcessorArray<ProcessorImplementation, NumberOfProcessors> {
 ShuffleArray() {
-    auto current = this->processors.begin();
-    auto end =  this->processors.end();
-    end--;
-    for(;current!=end;current++){
-        auto next=current;
-        next++;
-        current->next_busy=&next->busy;
-        current->next_done=&next->done;
+    for(auto current = this->processors.begin();current!=std::prev(this->processors.end());current++){
+        current->next_busy=&std::next(current)->busy;
+        current->next_done=&std::next(current)->done;
     }
 }
 int operator()(){
