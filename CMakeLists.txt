@@ -17,6 +17,12 @@ target_include_directories(test_TypedWires
     ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_TypedWires PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/TypedWires.cpp)
+add_executable(test_RingBuffer)
+target_include_directories(test_RingBuffer
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingBuffer.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}
