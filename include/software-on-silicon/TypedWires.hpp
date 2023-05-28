@@ -5,31 +5,21 @@
 
 namespace SOS{
     namespace MemoryView {
-        template<typename T> class TypedWires : public std::tuple<std::atomic<T>> {
-            
-        };
+        template<typename T> struct TypedWires : public std::tuple<std::atomic<T>> {};
     }
-    template<typename T> class Thread : private std::jthread {
-        public:
-        Thread(T functor) : functorCopy(functor) {
-            auto thread = std::jthread{std::mem_fn(&T::operator()),functorCopy};
-            this->swap(thread);
-        };
-        ~Thread() {this->join();}
-        virtual void operator()() final{
-            if (this->joinable())
-                this->join();
-        };
-        private:
-        T functorCopy;
-    };
     namespace Behavior {
-        template<typename T> class EventHandler {
+        template<typename T> class EventHandler : public std::jthread {
             public:
-            EventHandler(SOS::MemoryView::TypedWires<T>& databus) : _wires(databus) {}
-            virtual void operator()()=0;
+            using WireType = SOS::MemoryView::TypedWires<T>;
+            EventHandler(WireType& databus) : std::jthread{}, _intrinsic(databus) {
+                auto thread = std::jthread{std::mem_fn(&EventHandler<T>::eventloop),this};
+                this->swap(thread);
+            }
+            //~EventHandler() {this->join();}
             protected:
-            SOS::MemoryView::TypedWires<T>& _wires;
+            virtual void eventloop() =0;
+            virtual void operator()() =0;
+            WireType& _intrinsic;
         };
     }
 }
