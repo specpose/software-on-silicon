@@ -17,13 +17,17 @@ namespace SOS{
             public:
             //template<typename... Q>using WireType = SOS::MemoryView::TypedWires<Q...>;
             EventLoop(SOS::MemoryView::Signals<N>& databus) : std::jthread{}, _intrinsic(databus) {
-                auto thread = std::jthread{std::mem_fn(&EventLoop<N>::eventloop),this};
-                this->swap(thread);
+                start(*this);
             }
             protected:
             virtual void eventloop() =0;
             virtual void operator()() =0;
             SOS::MemoryView::Signals<N>& _intrinsic;
+            private:
+            template<typename S> void start(S& name) {
+                auto thread = std::jthread{std::mem_fn(&S::eventloop),this};
+                this->swap(thread);
+            }
         };
     }
 }
