@@ -1,16 +1,15 @@
 #include "software-on-silicon/TypedWires.hpp"
 
 enum {
-    updated,
-    next,
-    thread_current
+    updatedNext,
+    updatedThreadCurrent
 };
 
 namespace SOS {
-class RingBuffer : private SOS::Behavior::EventLoop<bool,size_t,size_t> {
+class RingBuffer : private SOS::Behavior::EventLoop<2> {
     public:
-    using WireType = SOS::MemoryView::TypedWires<bool,size_t,size_t>;
-    RingBuffer(WireType& databus) : SOS::Behavior::EventLoop<bool,size_t,size_t>(databus) {}
+    //using WireType = SOS::MemoryView::TypedWires<bool,size_t,size_t>;
+    RingBuffer(SOS::MemoryView::Signals<2>& databus) : SOS::Behavior::EventLoop<2>(databus) {}
     void eventloop(){
 
     }

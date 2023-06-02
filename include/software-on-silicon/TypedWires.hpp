@@ -5,23 +5,25 @@
 
 namespace SOS{
     namespace MemoryView {
+        template<size_t N> class Signals : public std::array<std::atomic_flag,N> {
+        };
         template<typename... T> struct TypedWires : public std::tuple<T...> {
+            //GCC
             using std::tuple<T...>::tuple;
         };
     }
     namespace Behavior {
-        template<typename... T> class EventLoop : public std::jthread {
+        template<size_t N> class EventLoop : public std::jthread {
             public:
-            template<typename... Q>using WireType = SOS::MemoryView::TypedWires<Q...>;
-            EventLoop(WireType<T...>& databus) : std::jthread{}, _intrinsic(databus) {
-                auto thread = std::jthread{std::mem_fn(&EventLoop<T...>::eventloop),this};
+            //template<typename... Q>using WireType = SOS::MemoryView::TypedWires<Q...>;
+            EventLoop(SOS::MemoryView::Signals<N>& databus) : std::jthread{}, _intrinsic(databus) {
+                auto thread = std::jthread{std::mem_fn(&EventLoop<N>::eventloop),this};
                 this->swap(thread);
             }
-            //~EventLoop() {this->join();}
             protected:
             virtual void eventloop() =0;
             virtual void operator()() =0;
-            WireType<T...>& _intrinsic;
+            SOS::MemoryView::Signals<N>& _intrinsic;
         };
     }
 }
