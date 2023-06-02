@@ -23,6 +23,12 @@ target_include_directories(test_RingBuffer
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingBuffer.cpp)
+add_executable(test_EventLoop)
+target_include_directories(test_EventLoop
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/EventLoop.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}
