@@ -18,20 +18,9 @@ class SignalsImpl : public SOS::MemoryView::Signals<1> {
     };
 };
 
-class EventLoopImpl {
-};
-
-//Last member of hierarchy
-template<> class SOS::Behavior::EventLoop<EventLoopImpl> {
+class BlinkLoop : public SOS::Behavior::EventLoopImpl<SignalsImpl> {
     public:
-    using SignalType = SignalsImpl;
-    EventLoop(SignalType& signalbus) : _intrinsic(signalbus) {
-        auto thread = std::thread{std::mem_fn(&EventLoop<EventLoopImpl>::event_loop),this};
-        _thread.swap(thread);
-    }
-    ~EventLoop(){
-        _thread.join();
-    }
+    using SOS::Behavior::EventLoopImpl<SignalsImpl>::EventLoopImpl;
     void event_loop(){
         const auto start = std::chrono::high_resolution_clock::now();
         while(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
@@ -50,12 +39,8 @@ template<> class SOS::Behavior::EventLoop<EventLoopImpl> {
         predicate();
     }
     private:
-    SignalType& _intrinsic;
-    std::thread _thread = std::thread{};
     MyFunctor predicate = MyFunctor();
 };
-
-//template<> class EventHandler<EventLoopImpl> {};
 
 int main () {
     auto mySignals = SignalsImpl{std::atomic_flag{}};
@@ -67,7 +52,7 @@ int main () {
     if (!stateQuery)
         std::get<SignalsImpl::blink>(mySignals).clear();
     std::cout<<"Wire before EventLoop start "<<stateQuery<<std::endl;
-    auto myHandler = SOS::Behavior::EventLoop<EventLoopImpl>(mySignals);
+    auto myHandler = BlinkLoop(mySignals);
     stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
     if (!stateQuery)
         std::get<SignalsImpl::blink>(mySignals).clear();
