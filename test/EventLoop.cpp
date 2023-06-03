@@ -20,10 +20,10 @@ class SignalsImpl : public SOS::MemoryView::Signals<1> {
     };
 };
 
-static bool get(SOS::MemoryView::Signals<1>& mySignals,size_t signal) {
-    auto stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
+static bool get(SOS::MemoryView::Signals<1>& mySignals) {
+    auto stateQuery = std::get<0>(mySignals).test_and_set();
     if (!stateQuery)
-        std::get<SignalsImpl::blink>(mySignals).clear();
+        std::get<0>(mySignals).clear();
     return stateQuery;
 }
 
@@ -58,22 +58,22 @@ class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
 };
 
 int main () {
-    auto mySignals = SignalsImpl{std::atomic_flag{}};
-    std::cout<<"Wire initialised to "<<get(mySignals,SignalsImpl::blink)<<std::endl;
-    std::cout<<"Wire before EventLoop start "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    auto mySignals = SignalsImpl{};
+    std::cout<<"Wire initialised to "<<get(mySignals)<<std::endl;
+    std::cout<<"Wire before EventLoop start "<<get(mySignals)<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(mySignals);
-    std::cout<<"Wire after EventLoop start "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    std::cout<<"Wire after EventLoop start "<<get(mySignals)<<std::endl;
     const auto start = high_resolution_clock::now();
     while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<3){
         //read as fast as possible to test atomic
-        get(mySignals,SignalsImpl::blink);
-        /*if(get(mySignals,SignalsImpl::blink)==true)
+        get(mySignals);
+        /*if(get(mySignals)==true)
             std::cout<<"*";
         else
             std::cout<<"_";*/
     }
     //std::cout<<std::endl;
-    std::cout<<"Wire before EventLoop teardown "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    std::cout<<"Wire before EventLoop teardown "<<get(mySignals)<<std::endl;
     delete myHandler;
-    std::cout<<"Wire after EventLoop teardown "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    std::cout<<"Wire after EventLoop teardown "<<get(mySignals)<<std::endl;
 }
