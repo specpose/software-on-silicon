@@ -29,6 +29,12 @@ target_include_directories(test_EventLoop
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
 target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/EventLoop.cpp)
+add_executable(test_Controller)
+target_include_directories(test_Controller
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}

@@ -1,11 +1,13 @@
 #include "software-on-silicon/EventLoop.hpp"
 #include <iostream>
 
+using namespace std::chrono;
+
 class MyFunctor {
     public:
     void operator()(){
         std::cout << message <<std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds{800});
+        std::this_thread::sleep_for(milliseconds{800});
     }
     private:
     std::string message = std::string{"Thread is (still) running."};
@@ -18,12 +20,24 @@ class SignalsImpl : public SOS::MemoryView::Signals<1> {
     };
 };
 
-class BlinkLoop : public SOS::Behavior::EventLoopImpl<SignalsImpl> {
+static bool get(SOS::MemoryView::Signals<1>& mySignals,size_t signal) {
+    auto stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
+    if (!stateQuery)
+        std::get<SignalsImpl::blink>(mySignals).clear();
+    return stateQuery;
+}
+
+class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
     public:
-    using SOS::Behavior::EventLoopImpl<SignalsImpl>::EventLoopImpl;
+    BlinkLoop(SOS::Behavior::EventLoop<SignalsImpl>::SignalType& signalbus) : SOS::Behavior::EventLoop<SignalsImpl>(signalbus) {
+        _thread=start(this);
+    }
+    ~BlinkLoop(){
+        _thread.join();
+    }
     void event_loop(){
-        const auto start = std::chrono::high_resolution_clock::now();
-        while(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
+        const auto start = high_resolution_clock::now();
+        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
             std::get<SignalsImpl::blink>(this->_intrinsic).test_and_set();
@@ -32,46 +46,34 @@ class BlinkLoop : public SOS::Behavior::EventLoopImpl<SignalsImpl> {
             //blink off
             std::get<SignalsImpl::blink>(this->_intrinsic).clear();
             //pause
-            std::this_thread::sleep_for(std::chrono::milliseconds{1200});
+            std::this_thread::sleep_for(milliseconds{1200});
         }
     }
     void operator()(){
         predicate();
     }
     private:
+    std::thread _thread = std::thread{};
     MyFunctor predicate = MyFunctor();
 };
 
 int main () {
     auto mySignals = SignalsImpl{std::atomic_flag{}};
-    auto stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
-    if (!stateQuery)
-        std::get<SignalsImpl::blink>(mySignals).clear();
-    std::cout<<"Wire initialised to "<<stateQuery<<std::endl;
-    stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
-    if (!stateQuery)
-        std::get<SignalsImpl::blink>(mySignals).clear();
-    std::cout<<"Wire before EventLoop start "<<stateQuery<<std::endl;
-    auto myHandler = BlinkLoop(mySignals);
-    stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
-    if (!stateQuery)
-        std::get<SignalsImpl::blink>(mySignals).clear();
-    std::cout<<"Wire after EventLoop start "<<stateQuery<<std::endl;
-    const auto start = std::chrono::high_resolution_clock::now();
-    while(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<3){
+    std::cout<<"Wire initialised to "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    std::cout<<"Wire before EventLoop start "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    BlinkLoop* myHandler = new BlinkLoop(mySignals);
+    std::cout<<"Wire after EventLoop start "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    const auto start = high_resolution_clock::now();
+    while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<3){
         //read as fast as possible to test atomic
-        auto stateQuery2 = std::get<SignalsImpl::blink>(mySignals).test_and_set();
-        if (!stateQuery2)
-            std::get<SignalsImpl::blink>(mySignals).clear();
-        if(stateQuery2==true)
-            std::cout<<"processing... ";
+        get(mySignals,SignalsImpl::blink);
+        /*if(get(mySignals,SignalsImpl::blink)==true)
+            std::cout<<"*";
         else
-            std::cout<<"halted... ";
+            std::cout<<"_";*/
     }
-    std::cout<<std::endl;
-    /*myHandler.join();
-    stateQuery = std::get<SignalsImpl::blink>(mySignals).test_and_set();
-    if (!stateQuery)
-        std::get<SignalsImpl::blink>(mySignals).clear();
-    std::cout<<"Wire after EventLoop end "<<stateQuery<<std::endl;*/
+    //std::cout<<std::endl;
+    std::cout<<"Wire before EventLoop teardown "<<get(mySignals,SignalsImpl::blink)<<std::endl;
+    delete myHandler;
+    std::cout<<"Wire after EventLoop teardown "<<get(mySignals,SignalsImpl::blink)<<std::endl;
 }
