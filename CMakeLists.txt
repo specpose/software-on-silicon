@@ -27,12 +27,14 @@ add_executable(test_EventLoop)
 target_include_directories(test_EventLoop
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/EventLoop.cpp)
 add_executable(test_Controller)
 target_include_directories(test_Controller
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
 

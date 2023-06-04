@@ -3,7 +3,6 @@
 namespace SOS {
     namespace Behavior {        
 
-        //Do not inherit from EventLoopImpl
         //thread start same as construction order: members and members that depend on members, then _thread
         template<typename T, typename S> class Controller : public EventLoop<T> {
             public:

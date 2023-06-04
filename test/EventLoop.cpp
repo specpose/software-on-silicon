@@ -53,8 +53,10 @@ class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
         predicate();
     }
     private:
-    std::thread _thread = std::thread{};
     MyFunctor predicate = MyFunctor();
+    //ALWAYS has to be private
+    //ALWAYS has to be member of the upper-most superclass where _thread.join() is
+    std::thread _thread = std::thread{};
 };
 
 int main () {

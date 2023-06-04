@@ -1,6 +1,3 @@
-To run:
-g++ ../include/software-on-silicon/*.hpp
-
 To install:
 mkdir build
 cd build

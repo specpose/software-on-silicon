@@ -1,3 +1,5 @@
+#include "stackable-functor-allocation/Thread.hpp"
+
 #include <atomic>
 #include <thread>
 #include <functional>
@@ -14,7 +16,7 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        template<typename T> class EventLoop {
+        template<typename T> class EventLoop : SFA::Lazy{
             public:
             using SignalType = T;
             EventLoop(SignalType& signalbus) : _intrinsic(signalbus) {}
