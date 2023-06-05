@@ -1,8 +1,11 @@
 #include "software-on-silicon/TypedWires.hpp"
 #include "stackable-functor-allocation/Thread.hpp"
+#include "software-on-silicon/helpers.hpp"
 
 #include <iostream>
 #include <chrono>
+
+using namespace SOS::MemoryView;
 
 class MyFunctor {
     public:
@@ -14,16 +17,9 @@ class MyFunctor {
     std::string message = std::string{"Thread is (still) running."};
 };
 
-class SignalsImpl : public SOS::MemoryView::Signals<1> {
-    public:
-    enum {
-        blink
-    };
-};
-
 class HandlerImpl : public SOS::Behavior::EventLoop<1> {
     public:
-    //using WireType = SOS::MemoryView::TypedWires<std::atomic<bool>>;
+    //using WireType = TypedWires<std::atomic<bool>>;
     HandlerImpl(SignalsImpl& databus) : SOS::Behavior::EventLoop<1>(databus) {}
     void operator()(){
         predicate();

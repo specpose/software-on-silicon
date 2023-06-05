@@ -6,17 +6,11 @@
 
 namespace SOS{
     namespace MemoryView {
-        template<size_t N> class Signals : public std::array<std::atomic_flag,N> {
-        };
-        class SignalsImpl : public SOS::MemoryView::Signals<1> {
-            public:
-            enum {
-                blink
-            };
-        };
+        template<size_t N> class Signals : public std::array<std::atomic_flag,N> {};
+        template<typename T, size_t N> class TypedWire : public std::array<std::atomic<T>,N>{};
     }
     namespace Behavior {
-        template<typename T> class EventLoop : SFA::Lazy{
+        template<typename T> class EventLoop{
             public:
             using SignalType = T;
             EventLoop(SignalType& signalbus) : _intrinsic(signalbus) {}

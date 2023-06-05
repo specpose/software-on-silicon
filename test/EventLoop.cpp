@@ -1,6 +1,8 @@
 #include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/helpers.hpp"
 #include <iostream>
 
+using namespace SOS::MemoryView;
 using namespace std::chrono;
 
 class MyFunctor {
@@ -12,20 +14,6 @@ class MyFunctor {
     private:
     std::string message = std::string{"Thread is (still) running."};
 };
-
-class SignalsImpl : public SOS::MemoryView::Signals<1> {
-    public:
-    enum {
-        blink
-    };
-};
-
-static bool get(SOS::MemoryView::Signals<1>& mySignals) {
-    auto stateQuery = std::get<0>(mySignals).test_and_set();
-    if (!stateQuery)
-        std::get<0>(mySignals).clear();
-    return stateQuery;
-}
 
 class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
     public:
@@ -61,21 +49,21 @@ class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
 
 int main () {
     auto mySignals = SignalsImpl{};
-    std::cout<<"Wire initialised to "<<get(mySignals)<<std::endl;
-    std::cout<<"Wire before EventLoop start "<<get(mySignals)<<std::endl;
+    std::cout<<"Wire initialised to "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
+    std::cout<<"Wire before EventLoop start "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(mySignals);
-    std::cout<<"Wire after EventLoop start "<<get(mySignals)<<std::endl;
+    std::cout<<"Wire after EventLoop start "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
     const auto start = high_resolution_clock::now();
     while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<3){
         //read as fast as possible to test atomic
-        get(mySignals);
+        get<SignalsImpl::blink>(mySignals);
         /*if(get(mySignals)==true)
             std::cout<<"*";
         else
             std::cout<<"_";*/
     }
     //std::cout<<std::endl;
-    std::cout<<"Wire before EventLoop teardown "<<get(mySignals)<<std::endl;
+    std::cout<<"Wire before EventLoop teardown "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
     delete myHandler;
-    std::cout<<"Wire after EventLoop teardown "<<get(mySignals)<<std::endl;
+    std::cout<<"Wire after EventLoop teardown "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
 }
