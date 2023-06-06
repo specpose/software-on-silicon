@@ -3,34 +3,22 @@
 
 namespace SOS {
     namespace MemoryView {
-        class Update : public SOS::MemoryView::Signals<1> {
-            public:
-            enum {
-                updated
-            };
-        };
         //construct the TypedWires from the Signals
-        class TypedWireImpl : public SOS::MemoryView::TypedWire<size_t,2> {
+        class RingBufferIndices : public SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>> {
             public:
+            using SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>>::TypedWire;
             enum {
                 Current,
                 ThreadCurrent
             };
         };
     }
-class RingBuffer : public SOS::Behavior::EventLoop<SOS::MemoryView::Update> {
+class RingBuffer : public SOS::Behavior::EventLoop<SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices>> {
     public:
-    RingBuffer(SOS::Behavior::EventLoop<SOS::MemoryView::Update>::SignalType& signalbus,
-    SOS::MemoryView::TypedWireImpl& databus) : 
-                                    SOS::Behavior::EventLoop<SOS::MemoryView::Update>(signalbus),
-                                    _foreignData(databus)
+    RingBuffer(SOS::Behavior::EventLoop<SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices>>::bus_type& bus) :
+                                    SOS::Behavior::EventLoop<SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices>>(bus)
                                     {
     }
     virtual ~RingBuffer(){}
-    virtual void eventloop(){};
-    //Indexes should match in signals and wires!
-    protected:
-    template<size_t SignalNumber> static void task(SOS::MemoryView::TypedWireImpl& wire){}
-    SOS::MemoryView::TypedWireImpl& _foreignData;
 };
 }

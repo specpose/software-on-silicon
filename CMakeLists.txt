@@ -10,13 +10,6 @@ project(software-on-silicon)
 add_executable(test_ProcessorArray)
 target_include_directories(test_ProcessorArray PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 target_sources(test_ProcessorArray PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/ProcessorArray.cpp)
-add_executable(test_TypedWires)
-target_include_directories(test_TypedWires
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
-)
-target_sources(test_TypedWires PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/TypedWires.cpp)
 add_executable(test_RingBuffer)
 target_include_directories(test_RingBuffer
     PRIVATE

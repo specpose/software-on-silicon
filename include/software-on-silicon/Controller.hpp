@@ -6,14 +6,14 @@ namespace SOS {
         //thread start same as construction order: members and members that depend on members, then _thread
         template<typename T, typename S> class Controller : public EventLoop<T> {
             public:
-            using SubControllerType = S;
-            Controller(EventLoop<T>::SignalType& signalbus) : EventLoop<T>(signalbus), _child(SubControllerType(_wires)) {}
+            Controller(EventLoop<T>::bus_type& bus) : EventLoop<T>(bus), _child(S(_foreign)) {}
             virtual ~Controller(){}
-            virtual void event_loop()=0;
             protected:
-            SubControllerType::SignalType _wires = typename S::SignalType{};
+            S::bus_type _foreign = make_bus(_signal,_data);
             private:
-            SubControllerType _child;
+            SOS::MemoryView::HandShake _signal = SOS::MemoryView::HandShake{};
+            S::bus_type::data_type _data = typename S::bus_type::data_type{};
+            S _child;
         };
     }
 }

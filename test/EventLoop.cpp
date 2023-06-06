@@ -15,9 +15,9 @@ class MyFunctor {
     std::string message = std::string{"Thread is (still) running."};
 };
 
-class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
+class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>>> {
     public:
-    BlinkLoop(SOS::Behavior::EventLoop<SignalsImpl>::SignalType& signalbus) : SOS::Behavior::EventLoop<SignalsImpl>(signalbus) {
+    BlinkLoop(SOS::Behavior::EventLoop<Bus<TypedWire<>>>::bus_type& signalbus) : SOS::Behavior::EventLoop<Bus<TypedWire<>>>(signalbus) {
         _thread=start(this);
     }
     ~BlinkLoop(){
@@ -28,11 +28,11 @@ class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<SignalsImpl::blink>(this->_intrinsic).test_and_set();
+            std::get<HandShake::Status::updated>(_intrinsic.signal).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<SignalsImpl::blink>(this->_intrinsic).clear();
+            std::get<HandShake::Status::updated>(_intrinsic.signal).clear();
             //pause
             std::this_thread::sleep_for(milliseconds{1200});
         }
@@ -48,22 +48,24 @@ class BlinkLoop : public SOS::Behavior::EventLoop<SignalsImpl> {
 };
 
 int main () {
-    auto mySignals = SignalsImpl{};
-    std::cout<<"Wire initialised to "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
-    std::cout<<"Wire before EventLoop start "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
-    BlinkLoop* myHandler = new BlinkLoop(mySignals);
-    std::cout<<"Wire after EventLoop start "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
+    auto mySignal = HandShake{};
+    auto myWire = TypedWire<>{};
+    auto myBus = make_bus(mySignal,myWire);
+    std::cout<<"Wire initialised to "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
+    std::cout<<"Wire before EventLoop start "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
+    BlinkLoop* myHandler = new BlinkLoop(myBus);
+    std::cout<<"Wire after EventLoop start "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
     const auto start = high_resolution_clock::now();
     while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<3){
         //read as fast as possible to test atomic
-        get<SignalsImpl::blink>(mySignals);
-        /*if(get(mySignals)==true)
+        get<HandShake::Status::updated>(myBus.signal);
+        /*if(get<HandShake::Status::updated>(myBus.signal)==true)
             std::cout<<"*";
         else
             std::cout<<"_";*/
     }
     //std::cout<<std::endl;
-    std::cout<<"Wire before EventLoop teardown "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
+    std::cout<<"Wire before EventLoop teardown "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
     delete myHandler;
-    std::cout<<"Wire after EventLoop teardown "<<get<SignalsImpl::blink>(mySignals)<<std::endl;
+    std::cout<<"Wire after EventLoop teardown "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
 }

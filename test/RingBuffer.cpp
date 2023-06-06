@@ -6,7 +6,7 @@ using namespace SOS::MemoryView;
 
 class RingBufferImpl : public SOS::RingBuffer {
     public:
-    RingBufferImpl(SOS::RingBuffer::SignalType& signalbus,TypedWireImpl& databus) : SOS::RingBuffer(signalbus,databus) {
+    RingBufferImpl(SOS::RingBuffer::bus_type& bus) : SOS::RingBuffer(bus) {
         _thread = start(this);
         std::cout<<"RingBuffer started"<<std::endl;
     }
@@ -14,47 +14,43 @@ class RingBufferImpl : public SOS::RingBuffer {
         _thread.join();
     }
     void event_loop(){
-        task<Update::updated>(_foreignData);
+        operator()();
     }
-    //Indexes should match in signals and wires!
-    template<size_t SignalNumber> static void task(TypedWireImpl& wire){
-        auto& signal = std::get<SignalNumber>(wire);
-        std::cout<<"Wire Current is "<<signal.load()<<std::endl;
+    void operator()(){
+        std::cout<<"Wire Current is "<<std::get<RingBufferIndices::Current>(_intrinsic.data).load()<<std::endl;
     }
-    /*template<> static void task<Update>(TypedWireImpl& wire) {
-        auto signal = std::get<Update>(wire);
-    }*/
     private:
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
 
-auto thread_current(TypedWireImpl& pos){
-    return std::get<TypedWireImpl::ThreadCurrent>(pos).load();
+auto thread_current(RingBufferIndices& pos){
+    return std::get<RingBufferIndices::ThreadCurrent>(pos).load();
 }
 
 int main(){
-    auto status = Update{false};
-    auto pos = TypedWireImpl{0,1};
-    RingBufferImpl* buffer = new RingBufferImpl(status,pos);
-    if (std::get<TypedWireImpl::Current>(pos).is_lock_free() &&
-    std::get<TypedWireImpl::ThreadCurrent>(pos).is_lock_free()){
+    auto status = HandShake{false,false};
+    auto pos = RingBufferIndices{std::atomic{0},std::atomic{1}};
+    auto bus = make_bus(status,pos);
+    RingBufferImpl* buffer = new RingBufferImpl(bus);
+    if (std::get<RingBufferIndices::Current>(pos).is_lock_free() &&
+    std::get<RingBufferIndices::ThreadCurrent>(pos).is_lock_free()){
         try {
         while (true) {
-        std::cout << "Before Update Current is " << std::get<TypedWireImpl::Current>(pos).load() << std::endl;
-        std::cout << "Before Update ThreadCurrent is " << std::get<TypedWireImpl::Current>(pos).load() << std::endl;
-        auto current = std::get<TypedWireImpl::Current>(pos).load();
+        std::cout << "Before Update Current is " << std::get<RingBufferIndices::Current>(pos).load() << std::endl;
+        std::cout << "Before Update ThreadCurrent is " << std::get<RingBufferIndices::ThreadCurrent>(pos).load() << std::endl;
+        auto current = std::get<RingBufferIndices::Current>(pos).load();
         if (current!=thread_current(pos)-1){
-            std::get<TypedWireImpl::Current>(pos).store(current++);
+            std::get<RingBufferIndices::Current>(pos).store(current++);
         } else {
-            std::get<TypedWireImpl::Current>(pos).store(current++);
+            std::get<RingBufferIndices::Current>(pos).store(current++);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        if (std::get<Update::updated>(status).test_and_set())
+        if (std::get<HandShake::Status::updated>(status).test_and_set())
             std::cout<<".";
-        std::cout << "After Update Current is " << std::get<TypedWireImpl::Current>(pos).load() << std::endl;
-        std::cout << "After Update ThreadCurrent is " << std::get<TypedWireImpl::Current>(pos).load() << std::endl;
+        std::cout << "After Update Current is " << std::get<RingBufferIndices::Current>(pos).load() << std::endl;
+        std::cout << "After Update ThreadCurrent is " << std::get<RingBufferIndices::ThreadCurrent>(pos).load() << std::endl;
         }
         } catch (std::exception& e) {
             delete buffer;
