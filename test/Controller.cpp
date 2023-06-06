@@ -80,7 +80,7 @@ DummySubController
 int main () {
     auto mySignal = std::array<std::atomic_flag,0>{};
     auto myWire = TypedWire<>{};
-    auto myBus = Bus{mySignal,myWire};
+    auto myBus = Bus<decltype(myWire),decltype(mySignal)>{mySignal,myWire};
     ControllerImpl* myController = new ControllerImpl(myBus);
     delete myController;
 }

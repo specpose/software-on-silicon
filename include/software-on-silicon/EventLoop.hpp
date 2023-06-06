@@ -19,7 +19,7 @@ namespace SOS{
             public:
             using Status = SOS::MemoryView::HandShakeStatus;
         };
-        template<typename TypedWire, typename SignalWire=SOS::MemoryView::HandShake> struct Bus {
+        template<typename TypedWire, typename SignalWire= typename SOS::MemoryView::HandShake> struct Bus {
             using data_type = TypedWire;
             SignalWire& signal;
             TypedWire& data;
