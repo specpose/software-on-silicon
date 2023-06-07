@@ -1,3 +1,4 @@
+#pragma once
 #include "stackable-functor-allocation/Thread.hpp"
 
 #include <atomic>
@@ -18,16 +19,19 @@ namespace SOS{
         class HandShake : public std::array<std::atomic_flag,2> {
             public:
             using Status = SOS::MemoryView::HandShakeStatus;
+            HandShake() : std::array<std::atomic_flag,2>{false,false} {}
         };
-        template<typename TypedWire, typename SignalWire= typename SOS::MemoryView::HandShake> struct Bus {
+        template<typename TypedWire, typename SignalWire> struct Bus {
             using data_type = TypedWire;
-            SignalWire& signal;
+            using signal_type = SignalWire;
             TypedWire& data;
+            SignalWire& signal;
         };
-        template<typename TypedWire> SOS::MemoryView::Bus<TypedWire> make_bus(
-            SOS::MemoryView::HandShake& twoLines,
-            TypedWire& wire) {
-            auto const bus = SOS::MemoryView::Bus<TypedWire>{twoLines, wire};
+        template<typename TypedWire> SOS::MemoryView::Bus<TypedWire,SOS::MemoryView::HandShake> make_bus(
+            TypedWire& wire,
+            SOS::MemoryView::HandShake& signal
+            ) {
+            auto const bus = SOS::MemoryView::Bus<TypedWire,SOS::MemoryView::HandShake>{wire, signal};
             return bus;
         };
     }

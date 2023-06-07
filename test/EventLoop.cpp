@@ -1,4 +1,3 @@
-#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/helpers.hpp"
 #include <iostream>
 
@@ -8,33 +7,34 @@ using namespace std::chrono;
 class MyFunctor {
     public:
     void operator()(){
-        std::cout << message <<std::endl;
-        std::this_thread::sleep_for(milliseconds{800});
+        std::this_thread::sleep_for(milliseconds{_duration});
     }
     private:
-    std::string message = std::string{"Thread is (still) running."};
+    unsigned int _duration = 1000;
 };
 
-class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>>> {
+class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>> {
     public:
-    BlinkLoop(SOS::Behavior::EventLoop<Bus<TypedWire<>>>::bus_type& signalbus) : SOS::Behavior::EventLoop<Bus<TypedWire<>>>(signalbus) {
+    BlinkLoop(SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>>::bus_type& signalbus) :
+    SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>>(signalbus) {
         _thread=start(this);
     }
     ~BlinkLoop(){
         _thread.join();
+        std::cout<<"Thread has ended normally."<<std::endl;
     }
     void event_loop(){
         const auto start = high_resolution_clock::now();
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<HandShake::Status::updated>(_intrinsic.signal).test_and_set();
+            std::get<0>(_intrinsic.signal).clear();
             //run
             operator()();
             //blink off
-            std::get<HandShake::Status::updated>(_intrinsic.signal).clear();
+            std::get<0>(_intrinsic.signal).test_and_set();
             //pause
-            std::this_thread::sleep_for(milliseconds{1200});
+            std::this_thread::sleep_for(milliseconds{1000});
         }
     }
     void operator()(){
@@ -48,24 +48,34 @@ class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>>> {
 };
 
 int main () {
-    auto mySignal = HandShake{};
+    auto waiterSignal = HandShake{};
+    auto waiterWire = TypedWire<>{};
+    auto waiterBus = make_bus(waiterWire,waiterSignal);
+    auto waiter = Timer<milliseconds,100>(waiterBus);
+
+    auto mySignal = std::array<std::atomic_flag,1>{};
     auto myWire = TypedWire<>{};
-    auto myBus = make_bus(mySignal,myWire);
-    std::cout<<"Wire initialised to "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
-    std::cout<<"Wire before EventLoop start "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
+    auto myBus = Bus<decltype(myWire),decltype(mySignal)>{myWire,mySignal};
+    std::cout<<"Thread running for 10s..."<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(myBus);
-    std::cout<<"Wire after EventLoop start "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
+    std::cout<<"main() loop running for 5s..."<<std::endl;
     const auto start = high_resolution_clock::now();
-    while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<3){
-        //read as fast as possible to test atomic
-        get<HandShake::Status::updated>(myBus.signal);
-        /*if(get<HandShake::Status::updated>(myBus.signal)==true)
-            std::cout<<"*";
-        else
-            std::cout<<"_";*/
+    while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
+        std::get<HandShake::Status::updated>(waiterBus.signal).test_and_set();
+        if (std::get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
+            std::get<HandShake::Status::ack>(waiterBus.signal).clear();
+            //Note: myBus.signal updated is not used in this example
+            /*if (std::get<0>(myBus.signal).test_and_set()) {
+                std::get<0>(myBus.signal).clear();
+                printf("*");
+            } else {
+                printf("_");
+            }*/
+            std::cout<<".";
+        } else {
+            std::get<HandShake::Status::ack>(waiterBus.signal).clear();
+        }
     }
-    //std::cout<<std::endl;
-    std::cout<<"Wire before EventLoop teardown "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
+    std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
     delete myHandler;
-    std::cout<<"Wire after EventLoop teardown "<<get<HandShake::Status::updated>(myBus.signal)<<std::endl;
 }

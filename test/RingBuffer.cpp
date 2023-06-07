@@ -30,9 +30,9 @@ auto thread_current(RingBufferIndices& pos){
 }
 
 int main(){
-    auto status = HandShake{false,false};
+    auto status = HandShake{};
     auto pos = RingBufferIndices{std::atomic{0},std::atomic{1}};
-    auto bus = make_bus(status,pos);
+    auto bus = make_bus(pos,status);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (std::get<RingBufferIndices::Current>(pos).is_lock_free() &&
     std::get<RingBufferIndices::ThreadCurrent>(pos).is_lock_free()){
