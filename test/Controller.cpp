@@ -21,13 +21,13 @@ class DummySubController : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<0>(_intrinsic.signal).clear();
+            std::get<0>(_intrinsic.signal).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<0>(_intrinsic.signal).test_and_set();
+            std::get<0>(_intrinsic.signal).clear();
             //pause
-            std::this_thread::sleep_for(milliseconds{1000});
+            std::this_thread::sleep_for(milliseconds{666});
         }
     };
     //SFA::Strict not constexpr
@@ -36,7 +36,7 @@ class DummySubController : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::
     }
     private:
     std::thread _thread = std::thread{};
-    unsigned int _duration = 1000;
+    unsigned int _duration = 333;
 };
 
 class ControllerImpl : public SOS::Behavior::Controller<
@@ -70,19 +70,19 @@ DummySubController
             } else {
                 std::get<HandShake::Status::ack>(waiterBus.signal).clear();
             }
+            std::this_thread::yield();
         }
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
     }
     //SFA::Strict not constexpr
     void operator()(){
         //Note: myBus.signal updated is not used in this example
-        /*if (std::get<0>(myBus.signal).test_and_set()) {
-            std::get<0>(myBus.signal).clear();
+        if (std::get<0>(_foreign.signal).test_and_set()) {
             printf("*");
         } else {
+            std::get<0>(_foreign.signal).clear();
             printf("_");
-        }*/
-        std::cout<<".";
+        }
     }
     private:
     std::thread _thread = std::thread{};

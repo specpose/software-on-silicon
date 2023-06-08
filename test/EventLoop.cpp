@@ -10,7 +10,7 @@ class MyFunctor {
         std::this_thread::sleep_for(milliseconds{_duration});
     }
     private:
-    unsigned int _duration = 1000;
+    unsigned int _duration = 333;
 };
 
 class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>> {
@@ -28,13 +28,13 @@ class BlinkLoop : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<0>(_intrinsic.signal).clear();
+            std::get<0>(_intrinsic.signal).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<0>(_intrinsic.signal).test_and_set();
+            std::get<0>(_intrinsic.signal).clear();
             //pause
-            std::this_thread::sleep_for(milliseconds{1000});
+            std::this_thread::sleep_for(milliseconds{666});
         }
     }
     void operator()(){
@@ -65,16 +65,16 @@ int main () {
         if (std::get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
             std::get<HandShake::Status::ack>(waiterBus.signal).clear();
             //Note: myBus.signal updated is not used in this example
-            /*if (std::get<0>(myBus.signal).test_and_set()) {
-                std::get<0>(myBus.signal).clear();
+            if (std::get<0>(myBus.signal).test_and_set()) {
                 printf("*");
             } else {
+                std::get<0>(myBus.signal).clear();
                 printf("_");
-            }*/
-            std::cout<<".";
+            }
         } else {
             std::get<HandShake::Status::ack>(waiterBus.signal).clear();
         }
+        std::this_thread::yield();
     }
     std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
     delete myHandler;
