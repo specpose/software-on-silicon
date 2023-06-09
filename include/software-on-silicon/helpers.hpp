@@ -7,17 +7,6 @@
 
 using namespace std::chrono;
 
-namespace SOS {
-    namespace MemoryView {
-        /*template<size_t Number,typename Signal>static bool get(Signal& mySignals) {
-            auto stateQuery = std::get<Number>(mySignals).test_and_set();
-            if (!stateQuery)
-                std::get<Number>(mySignals).clear();
-            return stateQuery;
-        }*/
-    }
-}
-
 //error: non-type template parameters of class type only available with ‘-std=c++20’ or ‘-std=gnu++20’
 //template<typename DurationType, typename DurationType::period> class Timer {
 template<typename DurationType,
@@ -48,17 +37,17 @@ template<typename DurationType,
     }
     void event_loop(){
         while(!stop_requested){
-        if (std::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).test_and_set()){
-            std::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).clear();
+        if (SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).test_and_set()){
+            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).clear();
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
             operator()();
             c_counter += clock() - c_start;
             t_counter += high_resolution_clock::now() - t_start;
             runCount++;
-            std::get<SOS::MemoryView::HandShake::Status::ack>(_intrinsic.signal).test_and_set();
+            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::ack>(_intrinsic.signal).test_and_set();
         } else {
-            std::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).clear();
+            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic.signal).clear();
         }
         }
     }

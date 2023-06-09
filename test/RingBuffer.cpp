@@ -47,7 +47,7 @@ int main(){
             std::get<RingBufferIndices::Current>(pos).store(current++);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        if (std::get<HandShake::Status::updated>(status).test_and_set())
+        if (get<HandShake::Status::updated>(status).test_and_set())
             std::cout<<".";
         std::cout << "After Update Current is " << std::get<RingBufferIndices::Current>(pos).load() << std::endl;
         std::cout << "After Update ThreadCurrent is " << std::get<RingBufferIndices::ThreadCurrent>(pos).load() << std::endl;

@@ -5,7 +5,6 @@
 
 namespace SOS {
     namespace MemoryView {
-        //construct the TypedWires from the Signals
         class RingBufferIndices : public SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>> {
             public:
             using SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>>::TypedWire;

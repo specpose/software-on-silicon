@@ -63,12 +63,12 @@ DummySubController
         std::cout<<"Controller loop running for 5s..."<<std::endl;
         const auto start = high_resolution_clock::now();
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
-            std::get<HandShake::Status::updated>(waiterBus.signal).test_and_set();
-            if (std::get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
-                std::get<HandShake::Status::ack>(waiterBus.signal).clear();
+            get<HandShake::Status::updated>(waiterBus.signal).test_and_set();
+            if (get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
+                get<HandShake::Status::ack>(waiterBus.signal).clear();
                 operator()();
             } else {
-                std::get<HandShake::Status::ack>(waiterBus.signal).clear();
+                get<HandShake::Status::ack>(waiterBus.signal).clear();
             }
             std::this_thread::yield();
         }

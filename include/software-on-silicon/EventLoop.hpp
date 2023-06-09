@@ -12,14 +12,16 @@ namespace SOS{
             using std::tuple<T...>::tuple;
         };
         //1+1=0
-        enum HandShakeStatus{
-            updated,
-            ack
-        };
         class HandShake : public std::array<std::atomic_flag,2> {
             public:
-            using Status = SOS::MemoryView::HandShakeStatus;
+            enum class Status : int {
+                updated,
+                ack
+            };
             HandShake() : std::array<std::atomic_flag,2>{false,false} {}
+        };
+        template<HandShake::Status index> auto& get(HandShake& signal){
+            return std::get<(int)index>(signal);
         };
         template<typename TypedWire, typename SignalWire> struct Bus {
             using data_type = TypedWire;
