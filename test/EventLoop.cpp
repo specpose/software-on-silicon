@@ -28,11 +28,11 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<0>(_intrinsic).test_and_set();
+            get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(_intrinsic).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<0>(_intrinsic).clear();
+            get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(_intrinsic).clear();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -69,10 +69,10 @@ int main () {
         if (get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
             get<HandShake::Status::ack>(waiterBus.signal).clear();
             //Note: myBus.signal updated is not used in this example
-            if (std::get<0>(myBus.signal).test_and_set()) {
+            if (get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(myBus.signal).test_and_set()) {
                 printf("*");
             } else {
-                std::get<0>(myBus.signal).clear();
+                get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(myBus.signal).clear();
                 printf("_");
             }
         } else {

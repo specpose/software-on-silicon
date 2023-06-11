@@ -22,7 +22,7 @@ class RingBufferImpl : public SOS::RingBuffer {
         operator()();
     }
     void operator()(){
-        std::cout<<"Wire Current is "<<std::get<0>(_intrinsic.wire).load()<<std::endl;
+        std::cout<<"Wire Current is "<<get<RingBufferBus::task_type::FieldName::Current>(_intrinsic.wire).load()<<std::endl;
     }
     private:
     RingBufferBus& _intrinsic;
@@ -33,29 +33,29 @@ class RingBufferImpl : public SOS::RingBuffer {
 };
 
 auto thread_current(RingBufferIndices& wire){
-    return std::get<1>(wire).load();
+    return get<RingBufferBus::task_type::FieldName::ThreadCurrent>(wire).load();
 }
 
 int main(){
     auto bus = RingBufferBus{HandShake{},RingBufferIndices{0,1}};
     RingBufferImpl* buffer = new RingBufferImpl(bus);
-    if (std::get<0>(bus.wire).is_lock_free() &&
-    std::get<1>(bus.wire).is_lock_free()){
+    if (get<RingBufferBus::task_type::FieldName::Current>(bus.wire).is_lock_free() &&
+    get<RingBufferBus::task_type::FieldName::ThreadCurrent>(bus.wire).is_lock_free()){
         try {
         while (true) {
-        std::cout << "Before Update Current is " << std::get<0>(bus.wire).load() << std::endl;
-        std::cout << "Before Update ThreadCurrent is " << std::get<1>(bus.wire).load() << std::endl;
-        auto current = std::get<0>(bus.wire).load();
+        std::cout << "Before Update Current is " << get<RingBufferBus::task_type::FieldName::Current>(bus.wire).load() << std::endl;
+        std::cout << "Before Update ThreadCurrent is " << get<RingBufferBus::task_type::FieldName::ThreadCurrent>(bus.wire).load() << std::endl;
+        auto current = get<RingBufferBus::task_type::FieldName::Current>(bus.wire).load();
         if (current!=thread_current(bus.wire)-1){
-            std::get<0>(bus.wire).store(current++);
+            get<RingBufferBus::task_type::FieldName::Current>(bus.wire).store(current++);
         } else {
-            std::get<0>(bus.wire).store(current++);
+            get<RingBufferBus::task_type::FieldName::Current>(bus.wire).store(current++);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        if (get<0>(bus.signal).test_and_set())
+        if (get<RingBufferBus::signal_type::Status::updated>(bus.signal).test_and_set())
             std::cout<<".";
-        std::cout << "After Update Current is " << std::get<0>(bus.wire).load() << std::endl;
-        std::cout << "After Update ThreadCurrent is " << std::get<1>(bus.wire).load() << std::endl;
+        std::cout << "After Update Current is " << get<RingBufferBus::task_type::FieldName::Current>(bus.wire).load() << std::endl;
+        std::cout << "After Update ThreadCurrent is " << get<RingBufferBus::task_type::FieldName::ThreadCurrent>(bus.wire).load() << std::endl;
         }
         } catch (std::exception& e) {
             delete buffer;

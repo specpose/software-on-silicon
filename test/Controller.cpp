@@ -21,11 +21,11 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<0>(_intrinsic).test_and_set();
+            get<BusNotifier<DummySubController>::signal_type::Status::notify>(_intrinsic).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<0>(_intrinsic).clear();
+            get<BusNotifier<DummySubController>::signal_type::Status::notify>(_intrinsic).clear();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -70,10 +70,10 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
     //SFA::Strict not constexpr
     void operator()(){
         //Note: myBus.signal updated is not used in this example
-        if (std::get<0>(_foreign.signal).test_and_set()) {
+        if (get<subcontroller_type::signal_type::Status::notify>(_foreign.signal).test_and_set()) {
             printf("*");
         } else {
-            std::get<0>(_foreign.signal).clear();
+            get<subcontroller_type::signal_type::Status::notify>(_foreign.signal).clear();
             printf("_");
         }
     }

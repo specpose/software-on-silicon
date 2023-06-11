@@ -19,6 +19,9 @@ namespace SOS{
             };
             Notify() : std::array<std::atomic_flag,1>{false} {}
         };
+        template<Notify::Status index> auto& get(Notify& signal){
+            return std::get<(int)index>(signal);
+        };
         //1+1=0
         class HandShake : public std::array<std::atomic_flag,2> {
             public:
