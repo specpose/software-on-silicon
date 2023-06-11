@@ -5,27 +5,23 @@
 
 namespace SOS {
     namespace MemoryView {
-        class RingBufferIndices : public SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>> {
+        class RingBufferIndices : public SOS::MemoryView::TypedWire<size_t,size_t> {
             public:
-            using SOS::MemoryView::TypedWire<std::atomic<size_t>,std::atomic<size_t>>::TypedWire;
             enum {
                 Current,
                 ThreadCurrent
             };
+            RingBufferIndices(size_t current,size_t threadcurrent) : SOS::MemoryView::TypedWire<size_t,size_t>{current,threadcurrent} {}
         };
     }
-class RingBuffer : public SOS::Behavior::EventLoop<
-SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices,SOS::MemoryView::HandShake>
-> {
+class RingBuffer : public SOS::Behavior::EventLoop {
     public:
-    RingBuffer(SOS::Behavior::EventLoop<
-    SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices,SOS::MemoryView::HandShake>
-    >::bus_type& bus) :
-            SOS::Behavior::EventLoop<
-            SOS::MemoryView::Bus<SOS::MemoryView::RingBufferIndices,SOS::MemoryView::HandShake>
-            >(bus)
+    RingBuffer(SOS::MemoryView::BusShaker<RingBuffer>& bus) :
+            SOS::Behavior::EventLoop(bus.signal), _intrinsic(bus)
             {
     }
     virtual ~RingBuffer(){}
+    private:
+    SOS::MemoryView::BusShaker<RingBuffer>& _intrinsic;
 };
 }

@@ -7,9 +7,17 @@
 
 namespace SOS{
     namespace MemoryView {
-        template<typename... T> class TypedWire : public std::tuple<T...> {
+        template<typename... T> class TypedWire : public std::tuple<std::atomic<T>...> {
             public:
-            using std::tuple<T...>::tuple;
+            using std::tuple<std::atomic<T>...>::tuple;
+            TypedWire(T... args) : std::tuple<std::atomic<T>...>{args...} {}
+        };
+        class Notify : public std::array<std::atomic_flag,1> {
+            public:
+            enum class Status : int {
+                notify
+            };
+            Notify() : std::array<std::atomic_flag,1>{false} {}
         };
         //1+1=0
         class HandShake : public std::array<std::atomic_flag,2> {
@@ -23,32 +31,49 @@ namespace SOS{
         template<HandShake::Status index> auto& get(HandShake& signal){
             return std::get<(int)index>(signal);
         };
-        template<typename TypedWire, typename SignalWire> struct Bus {
-            using data_type = TypedWire;
-            using signal_type = SignalWire;
-            TypedWire& data;
-            SignalWire& signal;
+        template<typename T> struct BusNotifier {
+            using signal_type = SOS::MemoryView::Notify;
+            signal_type signal;
         };
-        template<typename TypedWire> SOS::MemoryView::Bus<TypedWire,SOS::MemoryView::HandShake> make_bus(
-            TypedWire& wire,
-            SOS::MemoryView::HandShake& signal
-            ) {
-            auto const bus = SOS::MemoryView::Bus<TypedWire,SOS::MemoryView::HandShake>{wire, signal};
-            return bus;
+        template<typename T> struct BusShaker {
+            using signal_type = SOS::MemoryView::HandShake;
+            signal_type signal;
         };
     }
     namespace Behavior {
-        template<typename T> class EventLoop : public SFA::Lazy{
+        class RunLoop : public SFA::Lazy {
             public:
-            using bus_type = T;
-            EventLoop(bus_type& combinedbus) : _intrinsic(combinedbus) {}
+            RunLoop() {}
+            virtual ~RunLoop(){}
+            virtual void event_loop()=0;
+            protected:
+            template<typename C> std::thread start(C* startme){
+                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
+            }
+        };
+        class SimpleLoop : public SFA::Lazy {
+            public:
+            SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) : _intrinsic(ground) {}
+            virtual ~SimpleLoop(){}
+            virtual void event_loop()=0;
+            protected:
+            template<typename C> std::thread start(C* startme){
+                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
+            }
+            private:
+            typename SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& _intrinsic;
+        };
+        class EventLoop : public SFA::Lazy {
+            public:
+            EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) : _intrinsic(ground) {}
             virtual ~EventLoop(){}
             virtual void event_loop()=0;
             protected:
             template<typename C> std::thread start(C* startme){
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
-            bus_type& _intrinsic;
+            private:
+            typename SOS::MemoryView::BusShaker<EventLoop>::signal_type& _intrinsic;
         };
     }
 }

@@ -5,10 +5,10 @@
 using namespace SOS::MemoryView;
 using namespace std::chrono;
 
-class DummySubController : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>> {
+class DummySubController : public SOS::Behavior::SimpleLoop {
     public:
-    DummySubController(SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>>::bus_type& bus) :
-    SOS::Behavior::EventLoop<Bus<TypedWire<>,std::array<std::atomic_flag,1>>>(bus) {
+    DummySubController(BusNotifier<DummySubController>& bus) :
+    SOS::Behavior::SimpleLoop(bus.signal), _intrinsic(bus.signal) {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
     }
@@ -21,11 +21,11 @@ class DummySubController : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            std::get<0>(_intrinsic.signal).test_and_set();
+            std::get<0>(_intrinsic).test_and_set();
             //run
             operator()();
             //blink off
-            std::get<0>(_intrinsic.signal).clear();
+            std::get<0>(_intrinsic).clear();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -35,30 +35,23 @@ class DummySubController : public SOS::Behavior::EventLoop<Bus<TypedWire<>,std::
         std::this_thread::sleep_for(milliseconds{_duration});
     }
     private:
-    std::thread _thread = std::thread{};
     unsigned int _duration = 333;
+
+    BusNotifier<DummySubController>::signal_type& _intrinsic;
+    std::thread _thread = std::thread{};
 };
 
-class ControllerImpl : public SOS::Behavior::Controller<
-Bus<TypedWire<>,std::array<std::atomic_flag,0>>,
-DummySubController
-> {
+class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
     public:
-    ControllerImpl(SOS::Behavior::Controller<Bus<TypedWire<>,std::array<std::atomic_flag,0>>,DummySubController>::bus_type& bus) :
-    SOS::Behavior::Controller<
-    Bus<TypedWire<>,std::array<std::atomic_flag,0>>,
-    DummySubController
-    >(bus) {
+    ControllerImpl() : SOS::Behavior::Controller<DummySubController>() {
         _thread=start(this);
     }
     ~ControllerImpl(){
         _thread.join();
     }
     void event_loop(){
-        auto waiterSignal = HandShake{};
-        auto waiterWire = TypedWire<>{};
-        auto waiterBus = make_bus(waiterWire,waiterSignal);
-        auto waiter = Timer<milliseconds,100>(waiterBus);
+        auto waiterBus = TimerBus{};
+        auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
         std::cout<<"Controller loop running for 5s..."<<std::endl;
         const auto start = high_resolution_clock::now();
@@ -89,9 +82,6 @@ DummySubController
 };
 
 int main () {
-    auto mySignal = std::array<std::atomic_flag,0>{};
-    auto myWire = TypedWire<>{};
-    auto myBus = Bus<decltype(myWire),decltype(mySignal)>{myWire,mySignal};
-    ControllerImpl* myController = new ControllerImpl(myBus);
+    ControllerImpl* myController = new ControllerImpl();
     delete myController;
 }
