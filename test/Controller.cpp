@@ -12,7 +12,7 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
     }
-    ~DummySubController(){
+    ~DummySubController() final {
         _thread.join();
         std::cout<<"SubController has ended normally."<<std::endl;
     }
@@ -46,7 +46,7 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
     ControllerImpl() : SOS::Behavior::Controller<DummySubController>() {
         _thread=start(this);
     }
-    ~ControllerImpl(){
+    ~ControllerImpl() final {
         _thread.join();
     }
     void event_loop(){

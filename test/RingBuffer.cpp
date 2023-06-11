@@ -15,7 +15,7 @@ class RingBufferImpl : public SOS::RingBuffer {
         _thread = start(this);
         std::cout<<"RingBuffer started"<<std::endl;
     }
-    ~RingBufferImpl(){
+    ~RingBufferImpl() final{
         _thread.join();
     }
     void event_loop(){

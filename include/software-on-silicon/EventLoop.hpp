@@ -44,37 +44,31 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        class RunLoop : public SFA::Lazy {
+        class Loop {
             public:
-            RunLoop() {}
-            virtual ~RunLoop(){}
+            virtual ~Loop(){};
             virtual void event_loop()=0;
             protected:
             template<typename C> std::thread start(C* startme){
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
-        class SimpleLoop : public SFA::Lazy {
+        class RunLoop : public Loop, public SFA::Lazy {
+            public:
+            RunLoop() {}
+            virtual ~RunLoop() override {};
+        };
+        class SimpleLoop : public Loop {
             public:
             SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) : _intrinsic(ground) {}
-            virtual ~SimpleLoop(){}
-            virtual void event_loop()=0;
-            protected:
-            template<typename C> std::thread start(C* startme){
-                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-            }
+            virtual ~SimpleLoop() override {};
             private:
             typename SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& _intrinsic;
         };
-        class EventLoop : public SFA::Lazy {
+        class EventLoop : public Loop {
             public:
             EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) : _intrinsic(ground) {}
-            virtual ~EventLoop(){}
-            virtual void event_loop()=0;
-            protected:
-            template<typename C> std::thread start(C* startme){
-                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-            }
+            virtual ~EventLoop() override {};
             private:
             typename SOS::MemoryView::BusShaker<EventLoop>::signal_type& _intrinsic;
         };

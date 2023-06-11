@@ -19,7 +19,7 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
     SOS::Behavior::SimpleLoop(bussignal), _intrinsic(bussignal) {
         _thread=start(this);
     }
-    ~BlinkLoop(){
+    ~BlinkLoop() final {
         _thread.join();
         std::cout<<"Thread has ended normally."<<std::endl;
     }

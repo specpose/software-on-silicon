@@ -23,7 +23,7 @@ class RingBuffer : public SOS::Behavior::EventLoop {
             SOS::Behavior::EventLoop(bus.signal), _intrinsic(bus)
             {
     }
-    virtual ~RingBuffer(){}
+    virtual ~RingBuffer() override {};
     private:
     SOS::MemoryView::BusShaker<RingBuffer>& _intrinsic;
 };
