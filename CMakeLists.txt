@@ -7,9 +7,6 @@ add_subdirectory(stackable-functor-allocation)
 project(software-on-silicon)
 #find_library(stackable-functor-allocation_FOUND stackable-functor-allocation REQUIRED)
 
-add_executable(test_ProcessorArray)
-target_include_directories(test_ProcessorArray PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
-target_sources(test_ProcessorArray PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/ProcessorArray.cpp)
 add_executable(test_RingBuffer)
 target_include_directories(test_RingBuffer
     PRIVATE
