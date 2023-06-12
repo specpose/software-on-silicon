@@ -41,7 +41,7 @@ class RingBufferImpl : public SOS::RingBuffer {
 
 int main(){
     const size_t n = 1;
-    auto bus = RingBufferBusImpl{Notify{},RingBufferIndices{0,n},RingBufferBus<bool,1000>::data_type(n)};
+    auto bus = RingBufferBusImpl{Notify{},RingBufferIndices{0,1},RingBufferBus<bool,1000>::data_type(n)};
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).is_lock_free() &&
     get<RingBufferBusImpl::task_type::FieldName::ThreadCurrent>(bus.wire).is_lock_free()){
@@ -50,10 +50,11 @@ int main(){
         std::cout << "Before Update Current is " << get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).load() << std::endl;
         std::cout << "Before Update ThreadCurrent is " << get<RingBufferBusImpl::task_type::FieldName::ThreadCurrent>(bus.wire).load() << std::endl;
         auto current = get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).load();
-        if (current!=get<RingBufferBusImpl::task_type::FieldName::ThreadCurrent>(bus.wire).load()-1){
-            get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).store(current++);
+        if (current!=get<RingBufferBusImpl::task_type::FieldName::ThreadCurrent>(bus.wire).load()){
+            get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).store(++current);
+            std::cout<<"+";
         } else {
-            get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).store(current++);
+            get<RingBufferBusImpl::task_type::FieldName::Current>(bus.wire).store(++current);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
         if (get<RingBufferBusImpl::signal_type::Status::notify>(bus.signal).test_and_set())
