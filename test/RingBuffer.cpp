@@ -4,7 +4,7 @@
 
 using namespace SOS::MemoryView;
 
-struct RingBufferBus : public SOS::MemoryView::BusShaker<SOS::RingBuffer>{
+struct RingBufferBus : public SOS::MemoryView::BusNotifier<SOS::RingBuffer>{
     using task_type = SOS::MemoryView::RingBufferIndices;
     task_type wire;
 };
@@ -37,7 +37,7 @@ auto thread_current(RingBufferIndices& wire){
 }
 
 int main(){
-    auto bus = RingBufferBus{HandShake{},RingBufferIndices{0,1}};
+    auto bus = RingBufferBus{Notify{},RingBufferIndices{0,1}};
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (get<RingBufferBus::task_type::FieldName::Current>(bus.wire).is_lock_free() &&
     get<RingBufferBus::task_type::FieldName::ThreadCurrent>(bus.wire).is_lock_free()){
@@ -52,8 +52,8 @@ int main(){
             get<RingBufferBus::task_type::FieldName::Current>(bus.wire).store(current++);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        if (get<RingBufferBus::signal_type::Status::updated>(bus.signal).test_and_set())
-            std::cout<<".";
+        if (get<RingBufferBus::signal_type::Status::notify>(bus.signal).test_and_set())
+            std::cout<<"=";
         std::cout << "After Update Current is " << get<RingBufferBus::task_type::FieldName::Current>(bus.wire).load() << std::endl;
         std::cout << "After Update ThreadCurrent is " << get<RingBufferBus::task_type::FieldName::ThreadCurrent>(bus.wire).load() << std::endl;
         }

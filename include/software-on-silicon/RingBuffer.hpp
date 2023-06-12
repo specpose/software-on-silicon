@@ -17,14 +17,14 @@ namespace SOS {
             return std::get<(int)index>(signal);
         };
     }
-class RingBuffer : public SOS::Behavior::EventLoop {
+class RingBuffer : public SOS::Behavior::SimpleLoop {
     public:
-    RingBuffer(SOS::MemoryView::BusShaker<RingBuffer>& bus) :
-            SOS::Behavior::EventLoop(bus.signal), _intrinsic(bus)
+    RingBuffer(SOS::MemoryView::BusNotifier<RingBuffer>& bus) :
+            SOS::Behavior::SimpleLoop(bus.signal), _intrinsic(bus)
             {
     }
     virtual ~RingBuffer() override {};
     private:
-    SOS::MemoryView::BusShaker<RingBuffer>& _intrinsic;
+    SOS::MemoryView::BusNotifier<RingBuffer>& _intrinsic;
 };
 }
