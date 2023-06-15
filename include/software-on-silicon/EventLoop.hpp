@@ -44,12 +44,8 @@ namespace SOS{
         };
         template<typename... T> class Task {
             public:
-            Task(SOS::Behavior::TaskCable<T...>& taskitem) : _item(taskitem) {};
+            Task(SOS::Behavior::TaskCable<T...>& taskitem) {};
             virtual ~Task() {};
-            private:
-            //avoid duplicate memory!
-            //_item has to be in the same class as WireNames
-            SOS::Behavior::TaskCable<T...>& _item;
         };
         class Loop {
             public:
@@ -67,19 +63,13 @@ namespace SOS{
         };
         class SimpleLoop : public Loop {
             public:
-            SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) : _intrinsic(ground) {}
+            SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) {}
             virtual ~SimpleLoop() override {};
-            private:
-            //avoid duplicate memory!
-            typename SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& _intrinsic;
         };
         class EventLoop : public Loop {
             public:
-            EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) : _intrinsic(ground) {}
+            EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) {}
             virtual ~EventLoop() override {};
-            private:
-            //avoid duplicate memory!
-            typename SOS::MemoryView::BusShaker<EventLoop>::signal_type& _intrinsic;
         };
     }
 }

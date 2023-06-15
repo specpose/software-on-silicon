@@ -30,12 +30,9 @@ namespace SOS {
         public:
         using arithmetic_type = ArithmeticType;
         RingBufferLoop(SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop>::signal_type& signal) :
-                SOS::Behavior::SimpleLoop(signal), _intrinsic(signal)
+                SOS::Behavior::SimpleLoop(signal)
                 {
         }
         virtual ~RingBufferLoop() override {};
-        private:
-        //avoid duplicate memory!
-        typename SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop>::signal_type& _intrinsic;
     };
 }

@@ -50,15 +50,9 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
 };
 
 int main () {
-    /*auto waiterSignal = HandShake{};
-    auto waiterWire = TypedWire<>{};
-    auto waiterBus = make_bus(waiterWire,waiterSignal);*/
     auto waiterBus = TimerBus{};
     auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
-    /*auto mySignal = std::array<std::atomic_flag,1>{};
-    auto myWire = TypedWire<>{};
-    auto myBus = Bus<decltype(myWire),decltype(mySignal)>{myWire,mySignal};*/
     auto myBus = BusNotifier<BlinkLoop>{};
     std::cout<<"Thread running for 10s..."<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(myBus.signal);
@@ -68,7 +62,6 @@ int main () {
         get<HandShake::Status::updated>(waiterBus.signal).test_and_set();
         if (get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
             get<HandShake::Status::ack>(waiterBus.signal).clear();
-            //Note: myBus.signal updated is not used in this example
             if (get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(myBus.signal).test_and_set()) {
                 printf("*");
             } else {
