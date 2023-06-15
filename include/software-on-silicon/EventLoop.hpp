@@ -7,11 +7,6 @@
 
 namespace SOS{
     namespace MemoryView {
-        template<typename... T> class TypedWire : public std::tuple<std::atomic<T>...> {
-            public:
-            using std::tuple<std::atomic<T>...>::tuple;
-            TypedWire(T... args) : std::tuple<std::atomic<T>...>{args...} {}
-        };
         class Notify : public std::array<std::atomic_flag,1> {
             public:
             enum class Status : int {
@@ -44,12 +39,24 @@ namespace SOS{
         };
     }
     namespace Behavior {
+        template<typename... T> struct TaskCable : public std::tuple< std::atomic<T>... >{
+            using std::tuple< std::atomic<T>... >::tuple;
+        };
+        template<typename... T> class Task {
+            public:
+            Task(SOS::Behavior::TaskCable<T...>& taskitem) : _item(taskitem) {};
+            virtual ~Task() {};
+            private:
+            //avoid duplicate memory!
+            //_item has to be in the same class as WireNames
+            SOS::Behavior::TaskCable<T...>& _item;
+        };
         class Loop {
             public:
             virtual ~Loop(){};
             virtual void event_loop()=0;
             protected:
-            template<typename C> std::thread start(C* startme){
+            template<typename C> static std::thread start(C* startme){
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
@@ -63,6 +70,7 @@ namespace SOS{
             SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) : _intrinsic(ground) {}
             virtual ~SimpleLoop() override {};
             private:
+            //avoid duplicate memory!
             typename SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& _intrinsic;
         };
         class EventLoop : public Loop {
@@ -70,6 +78,7 @@ namespace SOS{
             EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) : _intrinsic(ground) {}
             virtual ~EventLoop() override {};
             private:
+            //avoid duplicate memory!
             typename SOS::MemoryView::BusShaker<EventLoop>::signal_type& _intrinsic;
         };
     }

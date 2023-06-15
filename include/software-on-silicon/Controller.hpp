@@ -13,6 +13,7 @@ namespace SOS {
             protected:
             typename SOS::MemoryView::BusNotifier<S> _foreign = subcontroller_type{};
             private:
+            //avoid duplicate memory!
             S _child;
         };
     }

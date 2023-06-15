@@ -1,10 +1,9 @@
 - [ ] Test structure for manual conversion to fpga descriptor language
-- [ ] Test compile to fpga descriptor language
+- [ ] Implement compile to fpga descriptor language
 - [ ] Finalize header interface
 - [x] Test gcc
 - [ ] Test MSVC
 - [ ] Test clang
-
 # Software On Silicon
 Is a refactoring pattern. It is trying to establish building blocks that can some day be run on an fpga. Eventually there could be a standard interface for integrating system on chip (SOC).
 ## Algorithm LifeCycle
@@ -15,10 +14,10 @@ Is a refactoring pattern. It is trying to establish building blocks that can som
    - SFA is a refactoring pattern which also has a Java-like call syntax. SOS specifically deals with signaling which theoretically could be compiled to Verilog wires. Applying stackable functor allocation may lead to code which is compatible to ranges, but ranges has a few abstractions which make it difficult to write low-level code. Although SOS presents an approach to run code on fpga, it is not the ideal language to translate to an fpga descriptor language. However, it may be easier to integrate with build systems and provide low-level C functionality, for example for compiling against templated extern static objects (handles).
    - It is object-oriented. It helps converting STL programs into something that ressembles a C program, but keep in mind that object-oriented design *directly* reflects the need to bind registers and memory controllers *locally* to functions. The class body is an abstraction of memory visibility and inheritance is an abstraction of behavior.
 3. Java5/SFA
-   - This is the method of choice for new algorithms. Java provides a Runnable class that adheres more strictly to the design pattern of the C++ thread. It enforces the separation of the creation of threads and the setup of communication between the threads. It also has Factory design patterns, Generics and introspection. An explicit definition of C++ atomic should not be needed, primitive data-types should automatically be atomic in Java.
-
-To install:
-```bash
+   - This is the method of choice for new algorithms. Java provides a Runnable class that adheres more strictly to the design pattern of the C++ thread. It enforces the separation of the creation of threads and the setup of communication between the threads. The Generics allow for perfect forwarding of the SubController. An explicit definition of C++ atomic should not be needed, primitive data-types should automatically be atomic in Java.
+   - Java's reflect machinery offers the (Class)this.getName() method. It is more convenient for throwing XML SignalDumps than the C typeid(this).name() method.
+### Installation
+```sh
 mkdir build
 cd build
 mkdir -p ~/usr/local/

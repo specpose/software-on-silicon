@@ -5,32 +5,37 @@
 
 namespace SOS {
     namespace MemoryView {
-        class RingBufferIndices : public SOS::MemoryView::TypedWire<size_t,size_t> {
-            public:
-            enum class FieldName : int{
-                Current,
-                ThreadCurrent
-            };
-            RingBufferIndices(size_t current,size_t threadcurrent) : SOS::MemoryView::TypedWire<size_t,size_t>{current,threadcurrent} {}
-            private:
-            size_t size;
+        enum class RingBufferTaskCableWireName : int{
+            Current,
+            ThreadCurrent
         };
-        template<RingBufferIndices::FieldName index> auto& get(RingBufferIndices& signal){
-            return std::get<(int)index>(signal);
-        };
-        template<typename T, size_t WordSize> struct RingBufferData : std::vector<std::array<T,WordSize>>{
-            public:
-            RingBufferData(size_t n) : std::vector<std::array<T,WordSize>>(n){}
-        };
-    }
-class RingBuffer : public SOS::Behavior::SimpleLoop {
-    public:
-    RingBuffer(SOS::MemoryView::BusNotifier<RingBuffer>& bus) :
-            SOS::Behavior::SimpleLoop(bus.signal), _intrinsic(bus)
+        template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::Behavior::TaskCable<ArithmeticType, ArithmeticType> {
+            RingBufferTaskCable(ArithmeticType current, ArithmeticType threadcurrent, const ArithmeticType end) :
+            SOS::Behavior::TaskCable< ArithmeticType, ArithmeticType > {current,threadcurrent},
+            end(end)
             {
+
+            }
+            const ArithmeticType end;
+        };
+        template<RingBufferTaskCableWireName index, typename ArithmeticType> auto& get(RingBufferTaskCable<ArithmeticType>& cable){
+            return std::get<(int)index>(cable);
+        };
+        template<typename ArithmeticType> struct TaskBus : public SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop> {
+            public:
+            using arithmetic_type = ArithmeticType;
+        };
     }
-    virtual ~RingBuffer() override {};
-    private:
-    SOS::MemoryView::BusNotifier<RingBuffer>& _intrinsic;
-};
+    template<typename ArithmeticType> class RingBufferLoop : public SOS::Behavior::SimpleLoop {
+        public:
+        using arithmetic_type = ArithmeticType;
+        RingBufferLoop(SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop>::signal_type& signal) :
+                SOS::Behavior::SimpleLoop(signal), _intrinsic(signal)
+                {
+        }
+        virtual ~RingBufferLoop() override {};
+        private:
+        //avoid duplicate memory!
+        typename SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop>::signal_type& _intrinsic;
+    };
 }
