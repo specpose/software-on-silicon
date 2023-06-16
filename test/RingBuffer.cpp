@@ -80,8 +80,10 @@ int main(){
             get<RingBufferTaskCableWireName::Current>(bus.task1).store(++current);
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        if (get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).test_and_set())
-            std::cout<<"=";
+        //if (!get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).test_and_set()){
+            get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).clear();
+            //std::cout<<"=";
+        //}
         std::cout << "After Update Current is " << get<RingBufferTaskCableWireName::Current>(bus.task1).load() << std::endl;
         std::cout << "After Update ThreadCurrent is " << get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).load() << std::endl;
         }
