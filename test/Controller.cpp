@@ -56,12 +56,9 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
         std::cout<<"Controller loop running for 5s..."<<std::endl;
         const auto start = high_resolution_clock::now();
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
-            get<HandShake::Status::updated>(waiterBus.signal).test_and_set();
-            if (get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
-                get<HandShake::Status::ack>(waiterBus.signal).clear();
+            get<HandShake::Status::updated>(waiterBus.signal).clear();
+            if (!get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
                 operator()();
-            } else {
-                get<HandShake::Status::ack>(waiterBus.signal).clear();
             }
             std::this_thread::yield();
         }

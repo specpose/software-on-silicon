@@ -40,17 +40,14 @@ template<typename DurationType,
     }
     void event_loop(){
         while(!stop_requested){
-        if (SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic).test_and_set()){
-            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic).clear();
+        if (!SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic).test_and_set()){
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
             operator()();
             c_counter += clock() - c_start;
             t_counter += high_resolution_clock::now() - t_start;
             runCount++;
-            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::ack>(_intrinsic).test_and_set();
-        } else {
-            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic).clear();
+            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::ack>(_intrinsic).clear();
         }
         }
     }

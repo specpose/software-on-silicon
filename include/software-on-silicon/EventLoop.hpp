@@ -24,7 +24,7 @@ namespace SOS{
                 updated,
                 ack
             };
-            HandShake() : std::array<std::atomic_flag,2>{false,false} {}
+            HandShake() : std::array<std::atomic_flag,2>{true,true} {}
         };
         template<HandShake::Status index> auto& get(HandShake& signal){
             return std::get<(int)index>(signal);
