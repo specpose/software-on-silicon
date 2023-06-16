@@ -10,13 +10,14 @@ namespace SOS {
             ThreadCurrent
         };
         template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::Behavior::TaskCable<ArithmeticType, ArithmeticType> {
-            RingBufferTaskCable(ArithmeticType current, ArithmeticType threadcurrent, const ArithmeticType end) :
+            RingBufferTaskCable(ArithmeticType current, ArithmeticType threadcurrent, const ArithmeticType start, const ArithmeticType end) :
             SOS::Behavior::TaskCable< ArithmeticType, ArithmeticType > {current,threadcurrent},
+            start(start),
             end(end)
             {
 
             }
-            const ArithmeticType end;
+            const ArithmeticType start, end;
         };
         template<RingBufferTaskCableWireName index, typename ArithmeticType> auto& get(RingBufferTaskCable<ArithmeticType>& cable){
             return std::get<(int)index>(cable);

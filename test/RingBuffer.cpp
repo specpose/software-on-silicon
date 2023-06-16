@@ -1,6 +1,8 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "stackable-functor-allocation/error.h"
 #include <iostream>
+#include <chrono>
+#include <ratio>
 
 using namespace SOS::MemoryView;
 
@@ -15,8 +17,14 @@ template<> struct RingBufferBus< buffer_iterator > : public TaskBus<buffer_itera
     public:
     RingBufferBus() :
     buffer(std::array<double,1000>{}),
-    task1(RingBufferTaskCable<buffer_iterator>{buffer.begin(),buffer.begin(),buffer.end()})
-    {}
+    task1(RingBufferTaskCable<buffer_iterator>(buffer.begin(),buffer.begin(),buffer.begin(),buffer.end()))
+    {
+        if(std::distance(task1.start,task1.end)<2)
+            //should be logic_error
+            throw SFA::util::runtime_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
+        auto next = task1.start;
+        get<RingBufferTaskCableWireName::Current>(task1).store(++next);
+    }
     RingBufferTaskCable<buffer_iterator> task1;
     private:
     std::array<double,1000> buffer;
@@ -28,8 +36,16 @@ class RingBufferTask : private SOS::Behavior::Task<buffer_iterator,buffer_iterat
     SOS::Behavior::Task<buffer_iterator,buffer_iterator>(indices),
     _item(indices)
     {}
-    void print_status() {
-        std::cout<<"Wire Current is "<<get<RingBufferTaskCableWireName::Current>(_item).load()<<std::endl;
+    void read_loop() {
+        auto threadcurrent = get<RingBufferTaskCableWireName::ThreadCurrent>(_item).load();
+        auto current = get<RingBufferTaskCableWireName::Current>(_item).load();
+        auto counter=0;
+        while(!(++threadcurrent==current)){
+            std::cout<<"+";//to be done: read
+            //counter++;
+            get<RingBufferTaskCableWireName::ThreadCurrent>(_item).store(threadcurrent);
+        }
+        //std::cout<<counter;
     }
     private:
     RingBufferTaskCable<buffer_iterator>& _item;
@@ -47,13 +63,20 @@ class RingBufferImpl : private SOS::RingBufferLoop<buffer_iterator>, private Rin
         std::cout<<"RingBuffer started"<<std::endl;
     }
     ~RingBufferImpl() final{
+        stop_requested=true;
         _thread.join();
+        std::cout<<"RingBuffer shutdown"<<std::endl;
     }
     void event_loop(){
-        print_status();
+        while(!stop_requested){
+            if(!get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(_intrinsic).test_and_set()){
+                read_loop();
+            }
+        }
     }
 
     private:
+    bool stop_requested = false;
     SOS::MemoryView::BusNotifier<RingBufferBus<buffer_iterator>>::signal_type& _intrinsic;
 
     //ALWAYS has to be private
@@ -61,35 +84,40 @@ class RingBufferImpl : private SOS::RingBufferLoop<buffer_iterator>, private Rin
     std::thread _thread = std::thread{};
 };
 
+using namespace std::chrono;
+
 int main(){
-    const size_t n = 1;
     auto bus = RingBufferBus<buffer_iterator>();
-    //auto bus = RingBufferBusImpl{Notify{},std::array<size_t,2>{0,1},RingBufferBus<bool,1000>::data_type(n)};
     RingBufferImpl* buffer = new RingBufferImpl(bus);
+    auto test = bus.task1.start;
+    if (test!=get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).load())
+        throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
+    if (++test!=get<RingBufferTaskCableWireName::Current>(bus.task1).load())
+        throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
     if (get<RingBufferTaskCableWireName::Current>(bus.task1).is_lock_free() &&
     get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).is_lock_free()){
         try {
-        while (true) {
-        std::cout << "Before Update Current is " << get<RingBufferTaskCableWireName::Current>(bus.task1).load() << std::endl;
-        std::cout << "Before Update ThreadCurrent is " << get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).load() << std::endl;
+        auto loopstart = high_resolution_clock::now();
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
+        const auto start = high_resolution_clock::now();
         auto current = get<RingBufferTaskCableWireName::Current>(bus.task1).load();
         if (current!=get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).load()){
+            std::cout<<"=";//to be done: write directly
             get<RingBufferTaskCableWireName::Current>(bus.task1).store(++current);
-            std::cout<<"+";
+            get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).clear();
         } else {
-            get<RingBufferTaskCableWireName::Current>(bus.task1).store(++current);
+            //get<RingBufferTaskCableWireName::Current>(bus.task1).store(current);
+            std::cout<<std::endl;
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
-        //if (!get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).test_and_set()){
-            get<RingBufferBus<buffer_iterator>::signal_type::Status::notify>(bus.signal).clear();
-            //std::cout<<"=";
-        //}
-        std::cout << "After Update Current is " << get<RingBufferTaskCableWireName::Current>(bus.task1).load() << std::endl;
-        std::cout << "After Update ThreadCurrent is " << get<RingBufferTaskCableWireName::ThreadCurrent>(bus.task1).load() << std::endl;
+        std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
+        std::cout<<std::endl;
         } catch (std::exception& e) {
             delete buffer;
-            std::cout << "RingBuffer shutdown"<<std::endl;
+            buffer = nullptr;
         }
+        if (buffer!=nullptr)
+            delete buffer;
     }
 }
