@@ -29,26 +29,42 @@ namespace SOS{
         template<HandShake::Status index> auto& get(HandShake& signal){
             return std::get<(int)index>(signal);
         };
-        template<typename T> struct BusNotifier {
-            using signal_type = SOS::MemoryView::Notify;
-            signal_type signal;
-        };
-        template<typename T> struct BusShaker {
-            using signal_type = SOS::MemoryView::HandShake;
-            signal_type signal;
-        };
-    }
-    namespace Behavior {
         template<typename... T> struct TaskCable : public std::tuple< std::atomic<T>... >{
             using std::tuple< std::atomic<T>... >::tuple;
         };
-        template<typename... T> class Task {
+        struct Bus {
+            using signal_type = std::array<std::atomic_flag,0>;
+            using cables_type = std::tuple< >;
+            signal_type signal;
+            cables_type cables;
+        };
+        template<typename Bus> struct bus_traits {
+            using signal_type = typename Bus::signal_type;
+            using cables_type = typename Bus::cables_type;
+        };
+        struct BusNotifier{
+            using signal_type = SOS::MemoryView::Notify;
+            using cables_type = bus_traits<Bus>::cables_type;
+            signal_type signal;
+            cables_type cables;
+        };
+        struct BusShaker{
+            using signal_type = SOS::MemoryView::HandShake;
+            using cables_type = bus_traits<Bus>::cables_type;
+            signal_type signal;
+            cables_type cables;
+        };
+    }
+    namespace Behavior {
+        template<typename ArithmeticType, typename... T> class Task {
             public:
-            Task(SOS::Behavior::TaskCable<T...>& taskitem) {};
+            //using arithmetic_type = ArithmeticType;
+            Task(SOS::MemoryView::TaskCable<T...>& taskitem) {};
             virtual ~Task() {};
         };
         class Loop {
             public:
+            using bus_type = SOS::MemoryView::Bus;
             virtual ~Loop(){};
             virtual void event_loop()=0;
             protected:
@@ -58,17 +74,20 @@ namespace SOS{
         };
         class RunLoop : public Loop, public SFA::Lazy {
             public:
+            using bus_type = SOS::MemoryView::Bus;
             RunLoop() {}
             virtual ~RunLoop() override {};
         };
         class SimpleLoop : public Loop {
             public:
-            SimpleLoop(SOS::MemoryView::BusNotifier<SimpleLoop>::signal_type& ground) {}
+            using bus_type = SOS::MemoryView::BusNotifier;
+            SimpleLoop(bus_type::signal_type& ground) {}
             virtual ~SimpleLoop() override {};
         };
         class EventLoop : public Loop {
             public:
-            EventLoop(SOS::MemoryView::BusShaker<EventLoop>::signal_type& ground) {}
+            using bus_type = SOS::MemoryView::BusShaker;
+            EventLoop(bus_type::signal_type& ground) {}
             virtual ~EventLoop() override {};
         };
     }

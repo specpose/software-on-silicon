@@ -15,7 +15,7 @@ class MyFunctor {
 
 class BlinkLoop : public SOS::Behavior::SimpleLoop {
     public:
-    BlinkLoop(BusNotifier<BlinkLoop>::signal_type& bussignal) :
+    BlinkLoop(BusNotifier::signal_type& bussignal) :
     SOS::Behavior::SimpleLoop(bussignal), _intrinsic(bussignal) {
         _thread=start(this);
     }
@@ -28,11 +28,11 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(_intrinsic).clear();
+            get<BusNotifier::signal_type::Status::notify>(_intrinsic).clear();
             //run
             operator()();
             //blink off
-            get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(_intrinsic).test_and_set();
+            get<BusNotifier::signal_type::Status::notify>(_intrinsic).test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -43,17 +43,17 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
     private:
     MyFunctor predicate = MyFunctor();
 
-    typename BusNotifier<BlinkLoop>::signal_type& _intrinsic;
+    typename BusNotifier::signal_type& _intrinsic;
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
 
 int main () {
-    auto waiterBus = TimerBus{};
+    auto waiterBus = SOS::MemoryView::BusShaker{};
     auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
-    auto myBus = BusNotifier<BlinkLoop>{};
+    auto myBus = BusNotifier{};
     std::cout<<"Thread running for 10s..."<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(myBus.signal);
     std::cout<<"main() loop running for 5s..."<<std::endl;
@@ -61,8 +61,8 @@ int main () {
     while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
         get<HandShake::Status::updated>(waiterBus.signal).clear();
         if (!get<HandShake::Status::ack>(waiterBus.signal).test_and_set()){
-            if (!get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(myBus.signal).test_and_set()) {
-                get<BusNotifier<BlinkLoop>::signal_type::Status::notify>(myBus.signal).clear();
+            if (!get<BusNotifier::signal_type::Status::notify>(myBus.signal).test_and_set()) {
+                get<BusNotifier::signal_type::Status::notify>(myBus.signal).clear();
                 printf("*");
             } else {
                 printf("_");

@@ -7,11 +7,6 @@
 
 using namespace std::chrono;
 
-struct TimerBus : public SOS::MemoryView::BusShaker<SOS::Behavior::EventLoop>{
-    using task_type = std::tuple< std::tuple<> >;
-    task_type wire;
-};
-
 //error: non-type template parameters of class type only available with ‘-std=c++20’ or ‘-std=gnu++20’
 //template<typename DurationType, typename DurationType::period> class Timer {
 template<typename DurationType,
@@ -21,7 +16,7 @@ template<typename DurationType,
             >::type
         > class Timer : public SOS::Behavior::EventLoop {
     public:
-    Timer(TimerBus::signal_type& bussignal) :
+    Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
     SOS::Behavior::EventLoop(bussignal), _intrinsic(bussignal) {
         _thread = start(this);
     }
@@ -55,7 +50,7 @@ template<typename DurationType,
         std::this_thread::sleep_for(DurationType{Period});;
     }
     private:
-    TimerBus::signal_type& _intrinsic;
+    SOS::MemoryView::BusShaker::signal_type& _intrinsic;
 
     int runCount = 0;
     clock_t c_counter = 0;

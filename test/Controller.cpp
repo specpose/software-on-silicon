@@ -7,7 +7,7 @@ using namespace std::chrono;
 
 class DummySubController : public SOS::Behavior::SimpleLoop {
     public:
-    DummySubController(BusNotifier<DummySubController>& bus) :
+    DummySubController(BusNotifier& bus) :
     SOS::Behavior::SimpleLoop(bus.signal), _intrinsic(bus.signal) {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
@@ -21,11 +21,11 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            get<BusNotifier<DummySubController>::signal_type::Status::notify>(_intrinsic).clear();
+            get<BusNotifier::signal_type::Status::notify>(_intrinsic).clear();
             //run
             operator()();
             //blink off
-            get<BusNotifier<DummySubController>::signal_type::Status::notify>(_intrinsic).test_and_set();
+            get<BusNotifier::signal_type::Status::notify>(_intrinsic).test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -37,7 +37,7 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
     private:
     unsigned int _duration = 333;
 
-    BusNotifier<DummySubController>::signal_type& _intrinsic;
+    BusNotifier::signal_type& _intrinsic;
     std::thread _thread = std::thread{};
 };
 
@@ -50,7 +50,7 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
         _thread.join();
     }
     void event_loop(){
-        auto waiterBus = TimerBus{};
+        auto waiterBus = SOS::MemoryView::BusShaker{};
         auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
         std::cout<<"Controller loop running for 5s..."<<std::endl;
@@ -67,8 +67,8 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
     //SFA::Strict not constexpr
     void operator()(){
         //Note: myBus.signal updated is not used in this example
-        if (!get<subcontroller_type::signal_type::Status::notify>(_foreign.signal).test_and_set()) {
-            get<subcontroller_type::signal_type::Status::notify>(_foreign.signal).clear();
+        if (!get<subcontroller_type::bus_type::signal_type::Status::notify>(_foreign.signal).test_and_set()) {
+            get<subcontroller_type::bus_type::signal_type::Status::notify>(_foreign.signal).clear();
             printf("*");
         } else {
             printf("_");

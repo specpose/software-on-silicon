@@ -5,32 +5,23 @@
 
 namespace SOS {
     namespace MemoryView {
-        enum class RingBufferTaskCableWireName : int{
+        enum RingBufferTaskCableWireName : int{
             Current,
             ThreadCurrent
         };
-        template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::Behavior::TaskCable<ArithmeticType, ArithmeticType> {
-            RingBufferTaskCable(ArithmeticType current, ArithmeticType threadcurrent, const ArithmeticType start, const ArithmeticType end) :
-            SOS::Behavior::TaskCable< ArithmeticType, ArithmeticType > {current,threadcurrent},
-            start(start),
-            end(end)
-            {
-
-            }
-            const ArithmeticType start, end;
-        };
-        template<RingBufferTaskCableWireName index, typename ArithmeticType> auto& get(RingBufferTaskCable<ArithmeticType>& cable){
+        /*template<RingBufferTaskCableWireName index, typename ArithmeticType> auto& get(RingBufferTaskCable<ArithmeticType>& cable){
             return std::get<(int)index>(cable);
-        };
-        template<typename ArithmeticType> struct TaskBus : public SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop> {
-            public:
-            using arithmetic_type = ArithmeticType;
+        };*/
+        struct TaskBus {
+            using signal_type = bus_traits<SOS::MemoryView::BusNotifier>::signal_type;
+            using cables_type = std::tuple< TaskCable<> >;
+            signal_type signal;
+            cables_type cables;
         };
     }
-    template<typename ArithmeticType> class RingBufferLoop : public SOS::Behavior::SimpleLoop {
+    class RingBufferLoop : public SOS::Behavior::SimpleLoop {
         public:
-        using arithmetic_type = ArithmeticType;
-        RingBufferLoop(SOS::MemoryView::BusNotifier<SOS::Behavior::SimpleLoop>::signal_type& signal) :
+        RingBufferLoop(SOS::MemoryView::BusNotifier::signal_type& signal) :
                 SOS::Behavior::SimpleLoop(signal)
                 {
         }
