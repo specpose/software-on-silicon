@@ -29,8 +29,10 @@ namespace SOS{
         template<HandShake::Status index> auto& get(HandShake& signal){
             return std::get<(int)index>(signal);
         };
-        template<typename... T> struct TaskCable : public std::tuple< std::atomic<T>... >{
-            using std::tuple< std::atomic<T>... >::tuple;
+        template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
+            //using std::array<std::atomic<T>,N>::array;
+            using wire_names = enum class empty : unsigned char{} ;
+            using cable_arithmetic = T;
         };
         struct Bus {
             using signal_type = std::array<std::atomic_flag,0>;
@@ -56,10 +58,12 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        template<typename ArithmeticType, typename... T> class Task {
+        //ArithmeticType derived from SubController::MemoryController::OutputBuffer
+        template<typename MemoryControllerTypeIterator, typename T, size_t N> class Task {
             public:
-            //using arithmetic_type = ArithmeticType;
-            Task(SOS::MemoryView::TaskCable<T...>& taskitem) {};
+            //arithmetic_type derived from Controller::HostMemory::Bus
+            using cable_arithmetic = typename SOS::MemoryView::TaskCable<T,N>::cable_arithmetic;
+            Task(SOS::MemoryView::TaskCable<T,N>& taskitem) {};
             virtual ~Task() {};
         };
         class Loop {
