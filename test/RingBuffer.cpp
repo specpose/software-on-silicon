@@ -6,8 +6,6 @@
 
 using namespace SOS::MemoryView;
 
-//bus arithmetic_type is not guaranteed to match taskX cable_type
-//using buffer_iterator = std::array<double,1000>::iterator;
 template<typename ArithmeticType> struct RingBufferBus {
     using signal_type = bus_traits<TaskBus>::signal_type;
     using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<ArithmeticType> >;
@@ -32,34 +30,42 @@ template<typename ArithmeticType> struct RingBufferBus {
     const ArithmeticType start,end;
 };
 
-template<typename ArithmeticType> class RingBufferTask : private SOS::Behavior::Task<ArithmeticType, ArithmeticType, 2> {
+class RingBufferTask;
+
+//bus arithmetic_type is not guaranteed to match taskX cable_type
+//using buffer_iterator = std::array<double,1000>::iterator;
+template<> struct SOS::Behavior::task_traits<RingBufferTask> {
+    using cable_type = typename SOS::MemoryView::RingBufferTaskCable<std::array<double,1000>::iterator>;
+};
+
+class RingBufferTask : private SOS::Behavior::Task {
     public:
-    using cable_arithmetic = typename RingBufferTaskCable<ArithmeticType>::cable_arithmetic;
-    RingBufferTask(SOS::MemoryView::TaskCable<ArithmeticType, 2>& indices) :
-    SOS::Behavior::Task<ArithmeticType, ArithmeticType, 2>(indices),
+    using cable_type = typename SOS::Behavior::task_traits<RingBufferTask>::cable_type;
+    RingBufferTask(cable_type& indices) :
+    //SOS::Behavior::Task(indices),
     _item(indices)
     {}
     void read_loop() {
-        auto threadcurrent = std::get<RingBufferTaskCable<ArithmeticType>::wire_names::ThreadCurrent>(_item).load();
-        auto current = std::get<RingBufferTaskCable<ArithmeticType>::wire_names::Current>(_item).load();
+        auto threadcurrent = std::get<cable_type::wire_names::ThreadCurrent>(_item).load();
+        auto current = std::get<cable_type::wire_names::Current>(_item).load();
         auto counter=0;
         while(!(++threadcurrent==current)){
             std::cout<<"+";//to be done: read
             //counter++;
-            std::get<RingBufferTaskCable<ArithmeticType>::wire_names::ThreadCurrent>(_item).store(threadcurrent);
+            std::get<cable_type::wire_names::ThreadCurrent>(_item).store(threadcurrent);
         }
         //std::cout<<counter;
     }
     private:
-    SOS::MemoryView::TaskCable<ArithmeticType, 2>& _item;
+    cable_type& _item;
 };
 
 //OutputBufferType goes into MemoryControllerTask read, write
-template<typename OutputBufferType> class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask<typename OutputBufferType::iterator> {
+template<typename OutputBufferType> class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
     public:
     RingBufferImpl(RingBufferBus<typename OutputBufferType::iterator>& bus) :
     SOS::RingBufferLoop(bus.signal),
-    RingBufferTask<typename OutputBufferType::iterator>(std::get<0>(bus.cables)),
+    RingBufferTask(std::get<0>(bus.cables)),
     _intrinsic(bus.signal)
     {
         _thread = start(this);
@@ -73,7 +79,7 @@ template<typename OutputBufferType> class RingBufferImpl : private SOS::RingBuff
     void event_loop(){
         while(!stop_requested){
             if(!get<RingBufferBus<typename OutputBufferType::iterator>::signal_type::Status::notify>(_intrinsic).test_and_set()){
-                RingBufferTask<typename OutputBufferType::iterator>::read_loop();
+                RingBufferTask::read_loop();
             }
         }
     }

@@ -58,13 +58,17 @@ namespace SOS{
         };
     }
     namespace Behavior {
+        template<typename Task> struct task_traits {
+            using cable_type = SOS::MemoryView::TaskCable<void,0>;
+        };
         //ArithmeticType derived from SubController::MemoryController::OutputBuffer
-        template<typename MemoryControllerTypeIterator, typename T, size_t N> class Task {
+        class Task {
             public:
             //arithmetic_type derived from Controller::HostMemory::Bus
-            using cable_arithmetic = typename SOS::MemoryView::TaskCable<T,N>::cable_arithmetic;
-            Task(SOS::MemoryView::TaskCable<T,N>& taskitem) {};
-            virtual ~Task() {};
+            //using cable_arithmetic = typename SOS::MemoryView::TaskCable<T,N>::cable_arithmetic;
+            using cable_type = typename task_traits<Task>::cable_type;
+            //Task(cable_type& taskitem) {};
+            //virtual ~Task() {};
         };
         class Loop {
             public:
