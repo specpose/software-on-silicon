@@ -1,5 +1,5 @@
 #pragma once
-#include "stackable-functor-allocation/Thread.hpp"
+#include "stackable-functor-allocation/sfa.hpp"
 
 #include <atomic>
 #include <thread>
@@ -30,7 +30,6 @@ namespace SOS{
             return std::get<(int)index>(signal);
         };
         template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
-            //using std::array<std::atomic<T>,N>::array;
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
@@ -61,11 +60,8 @@ namespace SOS{
         template<typename Task> struct task_traits {
             using cable_type = SOS::MemoryView::TaskCable<void,0>;
         };
-        //ArithmeticType derived from SubController::MemoryController::OutputBuffer
         class Task {
             public:
-            //arithmetic_type derived from Controller::HostMemory::Bus
-            //using cable_arithmetic = typename SOS::MemoryView::TaskCable<T,N>::cable_arithmetic;
             using cable_type = typename task_traits<Task>::cable_type;
             //Task(cable_type& taskitem) {};
             //virtual ~Task() {};
@@ -80,7 +76,7 @@ namespace SOS{
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
-        class RunLoop : public Loop, public SFA::Lazy {
+        class RunLoop : public Loop {//, public SFA::Lazy<void> {
             public:
             using bus_type = SOS::MemoryView::Bus;
             RunLoop() {}

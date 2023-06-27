@@ -32,8 +32,6 @@ template<typename ArithmeticType> struct RingBufferBus {
 
 class RingBufferTask;
 
-//bus arithmetic_type is not guaranteed to match taskX cable_type
-//using buffer_iterator = std::array<double,1000>::iterator;
 template<> struct SOS::Behavior::task_traits<RingBufferTask> {
     using cable_type = typename SOS::MemoryView::RingBufferTaskCable<std::array<double,1000>::iterator>;
 };
@@ -86,7 +84,6 @@ template<typename OutputBufferType> class RingBufferImpl : private SOS::RingBuff
 
     private:
     bool stop_requested = false;
-    //remove BusNotifier template
     typename SOS::MemoryView::BusNotifier::signal_type& _intrinsic;
 
     //ALWAYS has to be private
