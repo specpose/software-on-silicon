@@ -41,9 +41,9 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
     std::thread _thread = std::thread{};
 };
 
-class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
+class ControllerImpl : public SOS::Behavior::Local<DummySubController> {
     public:
-    ControllerImpl() : SOS::Behavior::Controller<DummySubController>() {
+    ControllerImpl(SOS::Behavior::SimpleLoop::bus_type::signal_type& signal) : SOS::Behavior::Local<DummySubController>(signal) {//not being used
         _thread=start(this);
     }
     ~ControllerImpl() final {
@@ -79,6 +79,7 @@ class ControllerImpl : public SOS::Behavior::Controller<DummySubController> {
 };
 
 int main () {
-    ControllerImpl* myController = new ControllerImpl();
+    auto notused = SOS::MemoryView::Notify{};
+    ControllerImpl* myController = new ControllerImpl(notused);
     delete myController;
 }

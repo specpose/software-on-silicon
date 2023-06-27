@@ -28,6 +28,12 @@ target_include_directories(test_Controller
     ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
+add_executable(test_MemoryController)
+target_include_directories(test_MemoryController
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/MemoryController.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}

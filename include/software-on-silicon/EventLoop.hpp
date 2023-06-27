@@ -1,5 +1,5 @@
 #pragma once
-#include "stackable-functor-allocation/sfa.hpp"
+//#include "stackable-functor-allocation/sfa.hpp"
 
 #include <atomic>
 #include <thread>
@@ -60,6 +60,7 @@ namespace SOS{
         template<typename Task> struct task_traits {
             using cable_type = SOS::MemoryView::TaskCable<void,0>;
         };
+        //struct
         class Task {
             public:
             using cable_type = typename task_traits<Task>::cable_type;
