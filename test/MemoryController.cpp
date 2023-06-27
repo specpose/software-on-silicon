@@ -3,7 +3,6 @@
 
 int main(){
     auto writerBus = SOS::MemoryView::BusNotifier{};
-    using OutputBufferType = std::array<double,10000>;
-    auto readerBus = SOS::MemoryView::ReaderBus<OutputBufferType::iterator>{};
+    auto readerBus = SOS::MemoryView::ReaderBus{};
     auto controller = SOS::Behavior::WritePriority(writerBus,readerBus);
 }

@@ -57,7 +57,7 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        template<typename Task> struct task_traits {
+        /*template<typename Task> struct task_traits {
             using cable_type = SOS::MemoryView::TaskCable<void,0>;
         };
         //struct
@@ -66,7 +66,7 @@ namespace SOS{
             using cable_type = typename task_traits<Task>::cable_type;
             //Task(cable_type& taskitem) {};
             //virtual ~Task() {};
-        };
+        };*/
         class Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
