@@ -1,3 +1,4 @@
+#include "software-on-silicon/Controller.hpp"
 #include "software-on-silicon/helpers.hpp"
 #include <iostream>
 
@@ -13,10 +14,10 @@ class MyFunctor {
     unsigned int _duration = 333;
 };
 
-class BlinkLoop : public SOS::Behavior::SimpleLoop {
+class BlinkLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     public:
     BlinkLoop(BusNotifier::signal_type& bussignal) :
-    SOS::Behavior::SimpleLoop(bussignal) {
+    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bussignal) {
         _thread=start(this);
     }
     ~BlinkLoop() final {

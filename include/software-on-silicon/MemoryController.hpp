@@ -19,13 +19,13 @@ namespace SOS{
         /*template<> struct task_traits<Reader> {
             using cable_type = SOS::MemoryView::TaskCable<std::array<double,0>::iterator,2>;
         };*/
-        class Reader : public SOS::Behavior::SimpleLoop {//, protected SOS::Behavior::Task {
+        class Reader : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {//, protected SOS::Behavior::Task {
             public:
             //from SimpleLoop
             using bus_type = SOS::MemoryView::ReaderBus;
             //from Task
             //using cable_type = typename SOS::Behavior::task_traits<Reader>::cable_type;
-            Reader(bus_type& outside) : SOS::Behavior::SimpleLoop(outside.signal) {};
+            Reader(bus_type& outside) : SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(outside.signal) {};
             void event_loop(){};
         };
         class WriteTask {
@@ -37,12 +37,12 @@ namespace SOS{
             std::array<char,10000> memorycontroller = std::array<char,10000>{"_"};
             std::array<char,10000>::iterator pos = memorycontroller.begin();
         };
-        class WritePriority : private SOS::Behavior::Remote<Reader>, private WriteTask {
+        class WritePriority : private SOS::Behavior::RemoteSimple<Reader>, private WriteTask {
             public:
             WritePriority(
-                typename SOS::Behavior::Remote<Reader>::bus_type& myBus,
-                typename SOS::Behavior::Remote<Reader>::subcontroller_type::bus_type& passThru
-                ) : Remote<Reader>(myBus.signal, passThru) {};
+                typename SOS::Behavior::RemoteSimple<Reader>::bus_type& myBus,
+                typename SOS::Behavior::RemoteSimple<Reader>::subcontroller_type::bus_type& passThru
+                ) : RemoteSimple<Reader>(myBus.signal, passThru) {};
             virtual ~WritePriority(){};
             void event_loop(){
                 if (!SOS::MemoryView::get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set()){

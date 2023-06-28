@@ -78,23 +78,26 @@ namespace SOS{
             }
         };
         Loop::~Loop(){}
-        class RunLoop : public Loop {//, public SFA::Lazy<void> {
+        template<typename S> class RunLoop : public Loop {//, public SFA::Lazy<void> {
             public:
             using bus_type = SOS::MemoryView::Bus;
+            using subcontroller_type = S;
             RunLoop() {}
             virtual ~RunLoop() override {};
         };
-        class SimpleLoop : public Loop {
+        template<typename S> class SimpleLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
+            using subcontroller_type = S;
             SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
             virtual ~SimpleLoop() override {};
             protected:
             bus_type::signal_type& _intrinsic;
         };
-        class EventLoop : public Loop {
+        template<typename S> class EventLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
+            using subcontroller_type = S;
             EventLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
             virtual ~EventLoop() override {};
             protected:

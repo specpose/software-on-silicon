@@ -3,27 +3,32 @@
 
 namespace SOS {
     namespace Behavior {        
-
-        //thread start same as construction order: members and members that depend on members, then _thread
-        template<typename S> class Controller : public SOS::Behavior::SimpleLoop {
+        class SubController {
             public:
-            using subcontroller_type = S;
-            Controller(bus_type::signal_type& signal) : SOS::Behavior::SimpleLoop(signal) {}
-            virtual ~Controller(){}
+            using bus_type = SOS::MemoryView::Bus;
         };
-        template<typename S> class Local : public Controller<S> {
+        //thread start same as construction order: members and members that depend on members, then _thread
+        template<typename S> class LocalRun : public RunLoop<S> {
             public:
-            Local(SOS::Behavior::SimpleLoop::bus_type::signal_type& signal) : Controller<S>(signal), _child(S(_foreign)) {}
+            LocalRun() : RunLoop<S>(), _child(S(_foreign)) {}
             protected:
-            typename S::bus_type _foreign = typename S::bus_type{};
+            typename RunLoop<S>::subcontroller_type::bus_type _foreign = typename RunLoop<S>::subcontroller_type::bus_type{};
             private:
             S _child;
         };
-        template<typename S> class Remote : public Controller<S> {
+        /*template<typename S> class LocalSimple : public SimpleLoop<S> {
             public:
-            Remote(SOS::Behavior::SimpleLoop::bus_type::signal_type& signal,typename S::bus_type& remote) : Controller<S>(signal), _foreign(remote), _child(S(_foreign)) {}
+            LocalSimple(typename SOS::Behavior::SimpleLoop<S>::bus_type::signal_type& signal) : SimpleLoop<S>(signal), _child(S(_foreign)) {}
             protected:
-            typename S::bus_type& _foreign;
+            typename SimpleLoop<S>::subcontroller_type::bus_type _foreign = typename SimpleLoop<S>::subcontroller_type::bus_type{};
+            private:
+            S _child;
+        };*/
+        template<typename S> class RemoteSimple : public SimpleLoop<S> {
+            public:
+            RemoteSimple(typename SOS::Behavior::SimpleLoop<S>::bus_type::signal_type& signal,typename S::bus_type& remote) : SimpleLoop<S>(signal), _foreign(remote), _child(S(_foreign)) {}
+            protected:
+            typename SimpleLoop<S>::subcontroller_type::bus_type& _foreign;
             private:
             S _child;
         };

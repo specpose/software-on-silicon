@@ -1,6 +1,6 @@
 #pragma once
 
-#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/Controller.hpp"
 #include <iostream>
 
 namespace SOS {
@@ -16,10 +16,10 @@ namespace SOS {
             cables_type cables;
         };
     }
-    class RingBufferLoop : public SOS::Behavior::SimpleLoop {
+    class RingBufferLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
         public:
         RingBufferLoop(SOS::MemoryView::BusNotifier::signal_type& signal) :
-                SOS::Behavior::SimpleLoop(signal)
+                SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(signal)
                 {
         }
         virtual ~RingBufferLoop() override {};
