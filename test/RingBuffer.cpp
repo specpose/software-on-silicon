@@ -18,13 +18,13 @@ struct RingBufferBus {
     end(afterlast)
     {
         //explicitly initialize wires
-        std::get<RingBufferTaskCable<_arithmetic_type>::wire_names::ThreadCurrent>(std::get<0>(cables)).store(begin);
+        get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::ThreadCurrent>(std::get<0>(cables)).store(begin);
         std::cout << "RingBufferBus ArithmeticType is " << typeid(end).name() << std::endl;
         if(std::distance(start,end)<2)
             //should be logic_error
             throw SFA::util::runtime_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
         auto next = start;
-        std::get<RingBufferTaskCable<_arithmetic_type>::wire_names::Current>(std::get<0>(cables)).store(++next);
+        get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::Current>(std::get<0>(cables)).store(++next);
     }
     signal_type signal;
     cables_type cables;
@@ -45,13 +45,13 @@ class RingBufferTask {//: private SOS::Behavior::Task {
     _item(indices)
     {}
     void read_loop() {
-        auto threadcurrent = std::get<cable_type::wire_names::ThreadCurrent>(_item).load();
-        auto current = std::get<cable_type::wire_names::Current>(_item).load();
+        auto threadcurrent = get<cable_type::cable_arithmetic, cable_type::wire_names::ThreadCurrent>(_item).load();
+        auto current = get<cable_type::cable_arithmetic, cable_type::wire_names::Current>(_item).load();
         auto counter=0;
         while(!(++threadcurrent==current)){
             std::cout<<"+";//to be done: read
             //counter++;
-            std::get<cable_type::wire_names::ThreadCurrent>(_item).store(threadcurrent);
+            get<cable_type::cable_arithmetic, cable_type::wire_names::ThreadCurrent>(_item).store(threadcurrent);
         }
         //std::cout<<counter;
     }
@@ -94,25 +94,26 @@ using namespace std::chrono;
 
 int main(){
     auto hostmemory = std::array<double,1000>{};
+    using h_mem_iter = decltype(hostmemory)::iterator;
     auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
-    std::cout << "RingBufferBus current type is" << typeid(std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).load()).name() << std::endl;
-    std::cout << "RingBufferBus threadcurrent type is " << typeid(std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()).name() << std::endl;
+    std::cout << "RingBufferBus current type is" << typeid(get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load()).name() << std::endl;
+    std::cout << "RingBufferBus threadcurrent type is " << typeid(get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()).name() << std::endl;
     auto test = bus.start;
-    if (test!=std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load())
+    if (test!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load())
         throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
-    if (++test!=std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).load())
+    if (++test!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load())
         throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
-    if (std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).is_lock_free() &&
-    std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).is_lock_free()){
+    if (get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).is_lock_free() &&
+    get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).is_lock_free()){
         try {
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto start = high_resolution_clock::now();
-        auto current = std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).load();
-        if (current!=std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()){
+        auto current = get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load();
+        if (current!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()){
             std::cout<<"=";//to be done: write directly
-            std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).store(++current);
+            get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).store(++current);
             get<RingBufferBus::signal_type::signal::notify>(bus.signal).clear();
         } else {
             //get<RingBufferTaskCableWireName::Current>(std::get<0>(bus.cables)).store(current);

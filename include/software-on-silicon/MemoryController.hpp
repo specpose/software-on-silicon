@@ -4,7 +4,12 @@ namespace SOS{
     namespace MemoryView{
         template<typename ArithmeticType> struct ReaderCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            enum wire_names : unsigned char{ Start, AfterLast} ;
+            enum class wire_names : unsigned char{ Start, AfterLast} ;
+        };
+        template<typename ArithmeticType, typename ReaderCable<ArithmeticType>::wire_names index> auto& get(
+            ReaderCable<ArithmeticType>& cable
+            ){
+            return std::get<(unsigned char)index>(cable);
         };
         //memorycontroller =>
         struct ReaderBus {
@@ -15,8 +20,8 @@ namespace SOS{
         };
     }
     namespace Behavior{
-        class Reader;
-        /*template<> struct task_traits<Reader> {
+        /*class Reader;
+        template<> struct task_traits<Reader> {
             using cable_type = SOS::MemoryView::TaskCable<std::array<double,0>::iterator,2>;
         };*/
         class Reader : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {//, protected SOS::Behavior::Task {

@@ -7,7 +7,12 @@ namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            enum wire_names : unsigned char{ Current, ThreadCurrent} ;
+            enum class wire_names : unsigned char{ Current, ThreadCurrent} ;
+        };
+        template<typename ArithmeticType, typename RingBufferTaskCable<ArithmeticType>::wire_names index> auto& get(
+            RingBufferTaskCable<ArithmeticType>& cable
+            ){
+            return std::get<(unsigned char)index>(cable);
         };
         struct TaskBus {
             using signal_type = bus_traits<SOS::MemoryView::BusNotifier>::signal_type;
