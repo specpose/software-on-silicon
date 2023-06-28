@@ -9,25 +9,25 @@ namespace SOS{
     namespace MemoryView {
         class Notify : public std::array<std::atomic_flag,1> {
             public:
-            enum class Status : int {
+            enum class signal : unsigned char {
                 notify
             };
             Notify() : std::array<std::atomic_flag,1>{true} {}
         };
-        template<Notify::Status index> auto& get(Notify& signal){
-            return std::get<(int)index>(signal);
+        template<Notify::signal index> auto& get(Notify& signal){
+            return std::get<(unsigned char)index>(signal);
         };
         //1+1=0
         class HandShake : public std::array<std::atomic_flag,2> {
             public:
-            enum class Status : int {
+            enum class signal : unsigned char {
                 updated,
-                ack
+                acknowledge
             };
             HandShake() : std::array<std::atomic_flag,2>{true,true} {}
         };
-        template<HandShake::Status index> auto& get(HandShake& signal){
-            return std::get<(int)index>(signal);
+        template<HandShake::signal index> auto& get(HandShake& signal){
+            return std::get<(unsigned char)index>(signal);
         };
         template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
             using wire_names = enum class empty : unsigned char{} ;
@@ -70,13 +70,14 @@ namespace SOS{
         class Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
-            virtual ~Loop(){};
+            virtual ~Loop()=0;
             virtual void event_loop()=0;
             protected:
             template<typename C> static std::thread start(C* startme){
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
+        Loop::~Loop(){}
         class RunLoop : public Loop {//, public SFA::Lazy<void> {
             public:
             using bus_type = SOS::MemoryView::Bus;

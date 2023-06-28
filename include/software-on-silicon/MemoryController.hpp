@@ -4,7 +4,7 @@ namespace SOS{
     namespace MemoryView{
         template<typename ArithmeticType> struct ReaderCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            using wire_names = enum indices : unsigned char{ Start, AfterLast} ;
+            enum wire_names : unsigned char{ Start, AfterLast} ;
         };
         //memorycontroller =>
         struct ReaderBus {
@@ -45,7 +45,7 @@ namespace SOS{
                 ) : Remote<Reader>(myBus.signal, passThru) {};
             virtual ~WritePriority(){};
             void event_loop(){
-                if (!SOS::MemoryView::get<SOS::MemoryView::BusNotifier::signal_type::Status::notify>(_intrinsic).test_and_set()){
+                if (!SOS::MemoryView::get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set()){
                     write("*");
                 }
             };

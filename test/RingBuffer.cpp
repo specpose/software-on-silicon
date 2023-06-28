@@ -75,7 +75,7 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
     }
     void event_loop(){
         while(!stop_requested){
-            if(!get<RingBufferBus::signal_type::Status::notify>(_intrinsic).test_and_set()){
+            if(!get<RingBufferBus::signal_type::signal::notify>(_intrinsic).test_and_set()){
                 RingBufferTask::read_loop();
             }
         }
@@ -113,7 +113,7 @@ int main(){
         if (current!=std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()){
             std::cout<<"=";//to be done: write directly
             std::get<RingBufferTaskCable<std::array<double,1000>::iterator>::wire_names::Current>(std::get<0>(bus.cables)).store(++current);
-            get<RingBufferBus::signal_type::Status::notify>(bus.signal).clear();
+            get<RingBufferBus::signal_type::signal::notify>(bus.signal).clear();
         } else {
             //get<RingBufferTaskCableWireName::Current>(std::get<0>(bus.cables)).store(current);
             std::cout<<std::endl;

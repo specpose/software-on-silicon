@@ -17,7 +17,7 @@ template<typename DurationType,
         > class Timer : public SOS::Behavior::EventLoop {
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
-    SOS::Behavior::EventLoop(bussignal), _intrinsic(bussignal) {
+    SOS::Behavior::EventLoop(bussignal) {
         _thread = start(this);
     }
     ~Timer(){
@@ -35,14 +35,14 @@ template<typename DurationType,
     }
     void event_loop(){
         while(!stop_requested){
-        if (!SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::updated>(_intrinsic).test_and_set()){
+        if (!SOS::MemoryView::get<SOS::MemoryView::HandShake::signal::updated>(_intrinsic).test_and_set()){
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
             operator()();
             c_counter += clock() - c_start;
             t_counter += high_resolution_clock::now() - t_start;
             runCount++;
-            SOS::MemoryView::get<SOS::MemoryView::HandShake::Status::ack>(_intrinsic).clear();
+            SOS::MemoryView::get<SOS::MemoryView::HandShake::signal::acknowledge>(_intrinsic).clear();
         }
         }
     }
@@ -50,8 +50,6 @@ template<typename DurationType,
         std::this_thread::sleep_for(DurationType{Period});;
     }
     private:
-    SOS::MemoryView::BusShaker::signal_type& _intrinsic;
-
     int runCount = 0;
     clock_t c_counter = 0;
     high_resolution_clock::duration t_counter = high_resolution_clock::duration{};
