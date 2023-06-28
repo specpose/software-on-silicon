@@ -16,7 +16,7 @@ class MyFunctor {
 class BlinkLoop : public SOS::Behavior::SimpleLoop {
     public:
     BlinkLoop(BusNotifier::signal_type& bussignal) :
-    SOS::Behavior::SimpleLoop(bussignal), _intrinsic(bussignal) {
+    SOS::Behavior::SimpleLoop(bussignal) {
         _thread=start(this);
     }
     ~BlinkLoop() final {
@@ -43,7 +43,6 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop {
     private:
     MyFunctor predicate = MyFunctor();
 
-    typename BusNotifier::signal_type& _intrinsic;
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};

@@ -8,7 +8,7 @@ using namespace std::chrono;
 class DummySubController : public SOS::Behavior::SimpleLoop {
     public:
     DummySubController(BusNotifier& bus) :
-    SOS::Behavior::SimpleLoop(bus.signal), _intrinsic(bus.signal) {
+    SOS::Behavior::SimpleLoop(bus.signal) {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
     }
@@ -37,7 +37,6 @@ class DummySubController : public SOS::Behavior::SimpleLoop {
     private:
     unsigned int _duration = 333;
 
-    BusNotifier::signal_type& _intrinsic;
     std::thread _thread = std::thread{};
 };
 

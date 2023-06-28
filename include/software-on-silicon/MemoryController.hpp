@@ -28,14 +28,27 @@ namespace SOS{
             Reader(bus_type& outside) : SOS::Behavior::SimpleLoop(outside.signal) {};
             void event_loop(){};
         };
-        class WritePriority : private SOS::Behavior::Remote<Reader> {
+        class WriteTask {
+            protected:
+            void write(const char* character){
+                *(pos++)=*character;
+            }
+            private:
+            std::array<char,10000> memorycontroller = std::array<char,10000>{"_"};
+            std::array<char,10000>::iterator pos = memorycontroller.begin();
+        };
+        class WritePriority : private SOS::Behavior::Remote<Reader>, private WriteTask {
             public:
             WritePriority(
                 typename SOS::Behavior::Remote<Reader>::bus_type& myBus,
                 typename SOS::Behavior::Remote<Reader>::subcontroller_type::bus_type& passThru
                 ) : Remote<Reader>(myBus.signal, passThru) {};
             virtual ~WritePriority(){};
-            void event_loop(){};
+            void event_loop(){
+                if (!SOS::MemoryView::get<SOS::MemoryView::BusNotifier::signal_type::Status::notify>(_intrinsic).test_and_set()){
+                    write("*");
+                }
+            };
         };
     }
 }

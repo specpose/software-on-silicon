@@ -86,14 +86,18 @@ namespace SOS{
         class SimpleLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            SimpleLoop(bus_type::signal_type& ground) {}
+            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
             virtual ~SimpleLoop() override {};
+            protected:
+            bus_type::signal_type& _intrinsic;
         };
         class EventLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            EventLoop(bus_type::signal_type& ground) {}
+            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
             virtual ~EventLoop() override {};
+            protected:
+            bus_type::signal_type& _intrinsic;
         };
     }
 }
