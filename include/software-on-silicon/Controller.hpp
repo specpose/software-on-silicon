@@ -24,13 +24,13 @@ namespace SOS {
             private:
             S _child;
         };*/
-        template<typename S> class RemoteSimple : public SimpleLoop<S> {
+        /*template<typename S> class RemoteSimple : public SimpleLoop<S> {
             public:
             RemoteSimple(typename SOS::Behavior::SimpleLoop<S>::bus_type::signal_type& signal,typename S::bus_type& remote) : SimpleLoop<S>(signal), _foreign(remote), _child(S(_foreign)) {}
             protected:
             typename SimpleLoop<S>::subcontroller_type::bus_type& _foreign;
             private:
             S _child;
-        };
+        };*/
     }
 }
