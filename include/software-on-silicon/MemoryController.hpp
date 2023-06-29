@@ -1,5 +1,6 @@
 #include "software-on-silicon/Controller.hpp"
 #include <chrono>
+#include "stackable-functor-allocation/error.h"
 
 using namespace std::chrono;
 
@@ -7,7 +8,7 @@ namespace SOS{
     namespace MemoryView{
         struct ReaderCable : public SOS::MemoryView::TaskCable<std::array<char,0>::iterator,2> {
             using SOS::MemoryView::TaskCable<std::array<char,0>::iterator, 2>::TaskCable;
-            enum class wire_names : unsigned char{ Offset, Length} ;
+            enum class wire_names : unsigned char{ startPos, afterLast} ;
         };
         template<typename ReaderCable::wire_names index> auto& get(
             ReaderCable& cable
@@ -18,12 +19,21 @@ namespace SOS{
         struct ReaderBus {
             using signal_type = SOS::MemoryView::bus_traits<SOS::MemoryView::BusShaker>::signal_type;
             using cables_type = std::tuple< ReaderCable >;
+            ReaderBus(std::array<char,0>::iterator begin, std::array<char,0>::iterator end) :
+            start(begin),
+            end(end){
+                get<ReaderCable::wire_names::startPos>(get<0>(cables)).store(begin);
+                if (std::distance(start,end)<0)
+                    throw SFA::util::runtime_error("Invalid Read Destination",__FILE__,__func__);
+                get<ReaderCable::wire_names::afterLast>(get<0>(cables)).store(end);
+            }
             signal_type signal;
             cables_type cables;
+            std::array<char,0>::iterator start,end;
         };
-        struct BlockerCable : public SOS::MemoryView::TaskCable<std::array<char,0>::iterator,1> {
-            using SOS::MemoryView::TaskCable<std::array<char,0>::iterator, 1>::TaskCable;
-            enum class wire_names : unsigned char{ readerPos } ;
+        struct BlockerCable : public SOS::MemoryView::TaskCable<std::array<char,0>::iterator,2> {
+            using SOS::MemoryView::TaskCable<std::array<char,0>::iterator, 2>::TaskCable;
+            enum class wire_names : unsigned char{ readerPos, pos } ;
         };
         template<typename SOS::MemoryView::BlockerCable::wire_names index> auto& get(
             SOS::MemoryView::BlockerCable& cable
@@ -48,13 +58,9 @@ namespace SOS{
             using bus_type = SOS::MemoryView::ReaderBus;
             //from Task
             //using cable_type = typename SOS::Behavior::task_traits<Reader>::cable_type;
-            Reader(bus_type& outside, SOS::MemoryView::BlockerBus& blockerbus) :
-            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
-            _blocked(blockerbus)
-            {};
+            Reader(bus_type& outside) :
+            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal){};
             void event_loop(){};
-            protected:
-            SOS::MemoryView::BlockerBus& _blocked;
         };
         template<typename S> class WritePriority : public SimpleLoop<S> {
         public:
