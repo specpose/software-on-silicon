@@ -1,6 +1,5 @@
 #include "software-on-silicon/MemoryController.hpp"
-#include "software-on-silicon/RingBuffer.hpp"
-#include "stackable-functor-allocation/error.h"
+#include "software-on-silicon/error.hpp"
 #include <iostream>
 #include <chrono>
 
@@ -9,46 +8,43 @@ using namespace std::chrono;
 
 class ReadTask {
     public:
-    ReadTask(ReaderBus::cables_type& cables,SOS::MemoryView::BlockerBus& blockerbus) : _item(cables), _blocked(blockerbus) {
+    ReadTask(ReaderBus::cables_type& cables,BlockerBus& blockerbus) : _item(cables), _blocked(blockerbus) {
 
     }
     protected:
     void read(){
         auto current = get<ReadLength::wire_names::startPos>(std::get<0>(_item)).load();
         auto end = get<ReadLength::wire_names::afterLast>(std::get<0>(_item)).load();
-        const auto readOffset = SOS::MemoryView::get<SOS::MemoryView::ReadOffset::wire_names::readOffset>(std::get<1>(_item)).load();
+        const auto readOffset = get<ReadOffset::wire_names::readOffset>(std::get<1>(_item)).load();
         if (std::distance(_blocked.start,_blocked.end)<(std::distance(current,end)+readOffset))
             throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-        SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(
+        get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(
                 _blocked.start
                 +readOffset
                 );
         while (current!=get<ReadLength::wire_names::afterLast>(std::get<0>(_item)).load()) {//can adjust -> vector possible
-            if (!get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_blocked.signal).test_and_set()) {
-                get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_blocked.signal).clear();
+            if (!get<BusNotifier::signal_type::signal::notify>(_blocked.signal).test_and_set()) {
+                get<BusNotifier::signal_type::signal::notify>(_blocked.signal).clear();
             } else {
-                //auto p = SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::pos>(std::get<0>(_blocked.cables)).load();
-                auto rP = SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
-                //if (p!=rP){
-                    *current = *rP;
-                    SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(++rP);
-                    get<ReadLength::wire_names::startPos>(std::get<0>(_item)).store(++current);
-                //}
+                auto rP = get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
+                *current = *rP;
+                get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(++rP);
+                get<ReadLength::wire_names::startPos>(std::get<0>(_item)).store(++current);
             }
         }
-        std::cout << "Reader finished." << std::endl;
+        std::cout << "Read finished." << std::endl;
     }
     private:
     ReaderBus::cables_type& _item;
-    SOS::MemoryView::BlockerBus& _blocked;
+    BlockerBus& _blocked;
 };
 class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
     public:
-    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus& blockerbus) :
+    ReaderImpl(bus_type& outside, BlockerBus& blockerbus) :
     SOS::Behavior::Reader(outside.signal),
     ReadTask(outside.cables,blockerbus)
     {
-        std::cout << "Reader reading sections 1/s..." << std::endl;
+        std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -59,10 +55,10 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
         std::cout << "Starting ReaderImpl event_loop." << std::endl;
         while(!stop_requested){
             const auto start = high_resolution_clock::now();
-            if (!get<SOS::MemoryView::BusShaker::signal_type::signal::updated>(_intrinsic).test_and_set()){
+            if (!get<BusShaker::signal_type::signal::updated>(_intrinsic).test_and_set()){
                 std::cout << "Starting read." << std::endl;
                 read();
-                get<SOS::MemoryView::BusShaker::signal_type::signal::acknowledge>(_intrinsic).clear();
+                get<BusShaker::signal_type::signal::acknowledge>(_intrinsic).clear();
             }
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(seconds{1}));
         }
@@ -73,32 +69,32 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
 };
 class WriteTask {
     public:
-    WriteTask(SOS::MemoryView::BlockerBus& blockerbus) : _item(blockerbus) {
+    WriteTask(BlockerBus& blockerbus) : _item(blockerbus) {
         memorycontroller.fill('-');
         _item.start=memorycontroller.begin();
         _item.end=memorycontroller.end();
-        SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
-        SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::readerPos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
+        get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
+        get<BlockerCable::wire_names::readerPos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
     }
     protected:
     void write(const char character){
-        auto pos = SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).load();
+        auto pos = get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).load();
         if (pos!=memorycontroller.end()) {
-            get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_item.signal).clear();
+            get<BusNotifier::signal_type::signal::notify>(_item.signal).clear();
             *(pos++)=character;
-            SOS::MemoryView::get<SOS::MemoryView::BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
-            get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_item.signal).test_and_set();
+            get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
+            get<BusNotifier::signal_type::signal::notify>(_item.signal).test_and_set();
         } else {
             /*auto print = memorycontroller.begin();
             while (print!=memorycontroller.end())
                 std::cout << *print++;
             std::cout << std::endl;*/
             //throw causes memory access violation in Reader
-            throw SFA::util::runtime_error("Writer Buffer full",__FILE__,__func__);
+            throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
         }
     }
     private:
-    SOS::MemoryView::BlockerBus& _item;
+    BlockerBus& _item;
     std::array<char,10000> memorycontroller = std::array<char,10000>{};
 };
 class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, private WriteTask {
@@ -108,7 +104,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
         ) : SOS::Behavior::WritePriority<ReaderImpl>(writer.signal, passThruHostMem), WriteTask(_blocker) {
             
-            std::cout << "Writer writing 10000 times at rate 1/ms..." << std::endl;
+            std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
@@ -121,7 +117,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
         std::cout << "Starting WritePriorityImpl event_loop." << std::endl;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
-        if (!SOS::MemoryView::get<SOS::MemoryView::BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set()){
+        if (!get<BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set()){
             if (blink)
                 write('*');
             else
@@ -157,7 +153,7 @@ int main(){
             while (pos!=hostmemory.end())
                 std::cout << *pos++;
             std::cout << std::endl;
-            get<SOS::MemoryView::ReadLength::wire_names::startPos>(std::get<0>(readerBus.cables)).store(hostmemory.begin());
+            get<ReadLength::wire_names::startPos>(std::get<0>(readerBus.cables)).store(hostmemory.begin());
             get<BusShaker::signal_type::signal::updated>(readerBus.signal).clear();
         }
     }

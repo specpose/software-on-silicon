@@ -1,7 +1,6 @@
 #pragma once
 
 #include "software-on-silicon/EventLoop.hpp"
-#include <ratio>
 #include <chrono>
 #include <iostream>
 

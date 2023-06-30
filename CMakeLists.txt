@@ -2,8 +2,6 @@ cmake_minimum_required (VERSION 3.23)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_subdirectory(stackable-functor-allocation)
-
 project(software-on-silicon)
 #find_library(stackable-functor-allocation_FOUND stackable-functor-allocation REQUIRED)
 
@@ -11,28 +9,24 @@ add_executable(test_RingBuffer)
 target_include_directories(test_RingBuffer
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingBuffer.cpp)
 add_executable(test_EventLoop)
 target_include_directories(test_EventLoop
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/EventLoop.cpp)
 add_executable(test_Controller)
 target_include_directories(test_Controller
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
 add_executable(test_MemoryController)
 target_include_directories(test_MemoryController
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/stackable-functor-allocation/include/
 )
 target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/MemoryController.cpp)
 

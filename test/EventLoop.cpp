@@ -1,4 +1,4 @@
-#include "software-on-silicon/Controller.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/helpers.hpp"
 #include <iostream>
 

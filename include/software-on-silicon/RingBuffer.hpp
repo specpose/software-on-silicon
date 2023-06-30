@@ -1,7 +1,7 @@
 #pragma once
 
-#include "software-on-silicon/Controller.hpp"
-#include <iostream>
+#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/error.hpp"
 
 namespace SOS {
     namespace MemoryView {
@@ -14,11 +14,27 @@ namespace SOS {
             ){
             return std::get<(unsigned char)index>(cable);
         };
-        struct TaskBus {
+        struct RingBufferBus {
             using signal_type = bus_traits<SOS::MemoryView::BusNotifier>::signal_type;
-            using cables_type = std::tuple< TaskCable<void,0> >;
+            using _arithmetic_type = std::array<char,0>::iterator;
+            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_arithmetic_type> >;
+            RingBufferBus(_arithmetic_type begin, _arithmetic_type afterlast) :
+            //tuple requires copy constructor for any tuple that isn't default constructed
+            cables{std::tuple< RingBufferTaskCable<_arithmetic_type> >{}
+            },
+            start(begin),
+            end(afterlast)
+            {
+                //explicitly initialize wires
+                get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::ThreadCurrent>(std::get<0>(cables)).store(begin);
+                if(std::distance(start,end)<2)
+                    throw SFA::util::logic_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
+                auto next = start;
+                get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::Current>(std::get<0>(cables)).store(++next);
+            }
             signal_type signal;
             cables_type cables;
+            const _arithmetic_type start,end;
         };
     }
     class RingBufferLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {

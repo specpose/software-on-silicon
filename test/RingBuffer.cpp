@@ -1,47 +1,13 @@
 #include "software-on-silicon/RingBuffer.hpp"
-#include "stackable-functor-allocation/error.h"
 #include <iostream>
 #include <chrono>
-#include <ratio>
 
 using namespace SOS::MemoryView;
 
-struct RingBufferBus {
-    using signal_type = bus_traits<TaskBus>::signal_type;
-    using _arithmetic_type = std::array<double,0>::iterator;
-    using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_arithmetic_type> >;
-    RingBufferBus(_arithmetic_type begin, _arithmetic_type afterlast) :
-    //tuple requires copy constructor for any tuple that isn't default constructed
-    cables{std::tuple< RingBufferTaskCable<_arithmetic_type> >{}
-    },
-    start(begin),
-    end(afterlast)
-    {
-        //explicitly initialize wires
-        get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::ThreadCurrent>(std::get<0>(cables)).store(begin);
-        std::cout << "RingBufferBus ArithmeticType is " << typeid(end).name() << std::endl;
-        if(std::distance(start,end)<2)
-            //should be logic_error
-            throw SFA::util::runtime_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
-        auto next = start;
-        get<_arithmetic_type,RingBufferTaskCable<_arithmetic_type>::wire_names::Current>(std::get<0>(cables)).store(++next);
-    }
-    signal_type signal;
-    cables_type cables;
-    const _arithmetic_type start,end;
-};
-
-class RingBufferTask;
-
-/*template<> struct SOS::Behavior::task_traits<RingBufferTask> {
-    using cable_type = typename SOS::MemoryView::RingBufferTaskCable<std::array<double,1000>::iterator>;
-};*/
-
-class RingBufferTask {//: private SOS::Behavior::Task {
+class RingBufferTask {
     public:
     using cable_type = std::tuple_element<0,RingBufferBus::cables_type>::type;
     RingBufferTask(cable_type& indices) :
-    //SOS::Behavior::Task(indices),
     _item(indices)
     {}
     void read_loop() {
@@ -82,7 +48,6 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
     }
 
     private:
-    std::array<double,10000> memorycontroller = std::array<double,10000>{};
     bool stop_requested = false;
 
     //ALWAYS has to be private
@@ -93,16 +58,10 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
 using namespace std::chrono;
 
 int main(){
-    auto hostmemory = std::array<double,1000>{};
+    auto hostmemory = std::array<char,1000>{};
     using h_mem_iter = decltype(hostmemory)::iterator;
     auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
-    std::cout << "RingBufferBus current type is" << typeid(get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load()).name() << std::endl;
-    std::cout << "RingBufferBus threadcurrent type is " << typeid(get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()).name() << std::endl;
     auto test = bus.start;
-    if (test!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load())
-        throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
-    if (++test!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load())
-        throw SFA::util::runtime_error("Initialization Error",__FILE__,__func__);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).is_lock_free() &&
     get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).is_lock_free()){

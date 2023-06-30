@@ -1,6 +1,6 @@
-#include "software-on-silicon/Controller.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include <chrono>
-#include "stackable-functor-allocation/error.h"
+#include "software-on-silicon/error.hpp"
 
 using namespace std::chrono;
 
@@ -56,16 +56,9 @@ namespace SOS{
         };
     }
     namespace Behavior{
-        /*class Reader;
-        template<> struct task_traits<Reader> {
-            using cable_type = SOS::MemoryView::TaskCable<std::array<double,0>::iterator,2>;
-        };*/
-        class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {//, protected SOS::Behavior::Task {
+        class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
             public:
-            //from SimpleLoop
             using bus_type = SOS::MemoryView::ReaderBus;
-            //from Task
-            //using cable_type = typename SOS::Behavior::task_traits<Reader>::cable_type;
             Reader(bus_type::signal_type& outsideSignal) :
             SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outsideSignal){};
             void event_loop(){};

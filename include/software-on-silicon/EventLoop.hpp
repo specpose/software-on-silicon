@@ -1,5 +1,4 @@
 #pragma once
-//#include "stackable-functor-allocation/sfa.hpp"
 
 #include <atomic>
 #include <thread>
@@ -57,16 +56,6 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        /*template<typename Task> struct task_traits {
-            using cable_type = SOS::MemoryView::TaskCable<void,0>;
-        };
-        //struct
-        class Task {
-            public:
-            using cable_type = typename task_traits<Task>::cable_type;
-            //Task(cable_type& taskitem) {};
-            //virtual ~Task() {};
-        };*/
         class Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
@@ -78,7 +67,7 @@ namespace SOS{
             }
         };
         Loop::~Loop(){}
-        template<typename S> class RunLoop : public Loop {//, public SFA::Lazy<void> {
+        template<typename S> class RunLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
             using subcontroller_type = S;
@@ -88,6 +77,11 @@ namespace SOS{
             typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
             private:
             S _child;
+        };
+        class SubController {
+            public:
+            using bus_type = SOS::MemoryView::Bus;
+            SubController(bus_type& bus){}
         };
         template<typename S> class SimpleLoop : public Loop {
             public:

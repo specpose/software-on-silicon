@@ -1,4 +1,4 @@
-#include "software-on-silicon/Controller.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/helpers.hpp"
 #include <iostream>
 
@@ -30,7 +30,6 @@ class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubCo
             std::this_thread::sleep_for(milliseconds{666});
         }
     };
-    //SFA::Strict not constexpr
     void operator()(){
         std::this_thread::sleep_for(milliseconds{_duration});
     }
@@ -63,9 +62,7 @@ class ControllerImpl : public SOS::Behavior::RunLoop<DummySubController> {
         }
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
     }
-    //SFA::Strict not constexpr
     void operator()(){
-        //Note: myBus.signal updated is not used in this example
         if (!get<subcontroller_type::bus_type::signal_type::signal::notify>(_foreign.signal).test_and_set()) {
             get<subcontroller_type::bus_type::signal_type::signal::notify>(_foreign.signal).clear();
             printf("*");
