@@ -82,26 +82,36 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::Bus;
             using subcontroller_type = S;
-            RunLoop() {}
+            RunLoop() : _child(S(_foreign)) {}
             virtual ~RunLoop() override {};
+            protected:
+            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            private:
+            S _child;
         };
         template<typename S> class SimpleLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = S;
-            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
+            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(S(_foreign)) {}
             virtual ~SimpleLoop() override {};
             protected:
             bus_type::signal_type& _intrinsic;
+            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            private:
+            S _child;
         };
         template<typename S> class EventLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = S;
-            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
+            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(S(_foreign)) {}
             virtual ~EventLoop() override {};
             protected:
             bus_type::signal_type& _intrinsic;
+            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            private:
+            S _child;
         };
     }
 }

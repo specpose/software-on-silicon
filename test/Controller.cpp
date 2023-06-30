@@ -40,9 +40,9 @@ class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubCo
     std::thread _thread = std::thread{};
 };
 
-class ControllerImpl : public SOS::Behavior::LocalRun<DummySubController> {
+class ControllerImpl : public SOS::Behavior::RunLoop<DummySubController> {
     public:
-    ControllerImpl() : SOS::Behavior::LocalRun<DummySubController>() {
+    ControllerImpl() : SOS::Behavior::RunLoop<DummySubController>() {
         _thread=start(this);
     }
     ~ControllerImpl() final {
