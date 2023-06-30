@@ -8,28 +8,29 @@ using namespace std::chrono;
 
 class ReadTask {
     public:
-    ReadTask(ReaderBus::cables_type& cables,BlockerBus& blockerbus) : _item(cables), _blocked(blockerbus) {
-
-    }
+    using reader_length_ct = std::tuple_element<0,ReaderBus::cables_type>::type;
+    using reader_offset_ct = std::tuple_element<1,ReaderBus::cables_type>::type;
+    using blocker_ct = std::tuple_element<0,BlockerBus::cables_type>::type;
+    ReadTask(ReaderBus::cables_type& cables,BlockerBus& blockerbus) : _item(cables), _blocked(blockerbus) {}
     protected:
     void read(){
-        auto current = get<ReadLength::wire_names::startPos>(std::get<0>(_item)).load();
-        auto end = get<ReadLength::wire_names::afterLast>(std::get<0>(_item)).load();
-        const auto readOffset = get<ReadOffset::wire_names::readOffset>(std::get<1>(_item)).load();
+        auto current = get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::startPos>(std::get<0>(_item)).load();
+        auto end = get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::afterLast>(std::get<0>(_item)).load();
+        const auto readOffset = get<reader_offset_ct::cable_arithmetic,reader_offset_ct::wire_names::readOffset>(std::get<1>(_item)).load();
         if (std::distance(_blocked.start,_blocked.end)<(std::distance(current,end)+readOffset))
             throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-        get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(
+        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(
                 _blocked.start
                 +readOffset
                 );
-        while (current!=get<ReadLength::wire_names::afterLast>(std::get<0>(_item)).load()) {//can adjust -> vector possible
+        while (current!=get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::afterLast>(std::get<0>(_item)).load()) {//can adjust -> vector possible
             if (!get<BusNotifier::signal_type::signal::notify>(_blocked.signal).test_and_set()) {
                 get<BusNotifier::signal_type::signal::notify>(_blocked.signal).clear();
             } else {
-                auto rP = get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
+                auto rP = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
                 *current = *rP;
-                get<BlockerCable::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(++rP);
-                get<ReadLength::wire_names::startPos>(std::get<0>(_item)).store(++current);
+                get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(++rP);
+                get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::startPos>(std::get<0>(_item)).store(++current);
             }
         }
         std::cout << "Read finished." << std::endl;
@@ -69,20 +70,21 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
 };
 class WriteTask {
     public:
+    using blocker_ct = std::tuple_element<0,BlockerBus::cables_type>::type;
     WriteTask(BlockerBus& blockerbus) : _item(blockerbus) {
         memorycontroller.fill('-');
         _item.start=memorycontroller.begin();
         _item.end=memorycontroller.end();
-        get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
-        get<BlockerCable::wire_names::readerPos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
+        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
+        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
     }
     protected:
     void write(const char character){
-        auto pos = get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).load();
+        auto pos = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).load();
         if (pos!=memorycontroller.end()) {
             get<BusNotifier::signal_type::signal::notify>(_item.signal).clear();
             *(pos++)=character;
-            get<BlockerCable::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
+            get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
             get<BusNotifier::signal_type::signal::notify>(_item.signal).test_and_set();
         } else {
             /*auto print = memorycontroller.begin();
@@ -142,6 +144,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
 int main(){
     auto writerBus = BusNotifier{};
     auto hostmemory = std::array<char,1000>{};
+    using h_mem_iter = decltype(hostmemory)::iterator;
     auto readerBus = ReaderBus(hostmemory.begin(),hostmemory.end());
     auto controller = new WritePriorityImpl(writerBus,readerBus);
     readerBus.setOffset(9000);
@@ -153,7 +156,7 @@ int main(){
             while (pos!=hostmemory.end())
                 std::cout << *pos++;
             std::cout << std::endl;
-            get<ReadLength::wire_names::startPos>(std::get<0>(readerBus.cables)).store(hostmemory.begin());
+            get<h_mem_iter,ReadLength<h_mem_iter>::wire_names::startPos>(std::get<0>(readerBus.cables)).store(hostmemory.begin());
             get<BusShaker::signal_type::signal::updated>(readerBus.signal).clear();
         }
     }
