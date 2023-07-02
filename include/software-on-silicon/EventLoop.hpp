@@ -28,6 +28,10 @@ namespace SOS{
         template<HandShake::signal index> auto& get(HandShake& signal){
             return std::get<(unsigned char)index>(signal);
         };
+        template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
+            using wire_names = enum class empty : unsigned char{} ;
+            using cable_arithmetic = T;
+        };
         template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;

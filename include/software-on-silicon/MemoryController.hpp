@@ -6,8 +6,8 @@ using namespace std::chrono;
 
 namespace SOS{
     namespace MemoryView{
-        template<typename ArithmeticType> struct ReadLength : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
-            using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
+        template<typename ArithmeticType> struct ReadLength : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
+            ReadLength(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
             enum class wire_names : unsigned char { startPos, afterLast };
         };
         template<typename ArithmeticType, typename ReadLength<ArithmeticType>::wire_names index> auto& get(ReadLength<ArithmeticType>& cable){
@@ -24,21 +24,29 @@ namespace SOS{
             using signal_type = SOS::MemoryView::bus_traits<SOS::MemoryView::BusShaker>::signal_type;
             using _pointer_type = std::array<char,0>::iterator;
             using _difference_type = std::array<char,0>::difference_type;
-            using cables_type = std::tuple< ReadLength<_pointer_type>, ReadOffset<_difference_type> >;
-            ReaderBus(_pointer_type begin, _pointer_type end) :
-            start(begin),
-            end(end){
-                get<_pointer_type,ReadLength<_pointer_type>::wire_names::startPos>(get<0>(cables)).store(begin);
-                if (std::distance(start,end)<0)
+            using cables_type = std::tuple< ReadOffset<_difference_type> >;
+            //hostmemory access ranges are not subject to change, but Subcontrollerbus should only use default constructor
+            //=> hostmemory access is limited to Controller
+            //=> hostmemory const_cables should be optional Controller constructor argument
+            //=> Controller could even implement SFA::Strict if OutputBuffer was allocated in host, not controller memory
+            //=> Controller has bus, optional passthrus and const_cables copy in constructor? NO
+            //=> Controller only has bus and optional passthru buses in constructor
+            //=> const_cables has to be in a specific hostmemory access bus: this
+            using const_cables_type = std::tuple< ReadLength<_pointer_type> >;
+            ReaderBus(const _pointer_type begin, const _pointer_type end)
+            : const_cables(
+                std::tuple< ReadLength<_pointer_type> >{ReadLength<_pointer_type>(begin,end)}
+                )
+            {
+                if (std::distance(begin,end)<0)
                     throw SFA::util::runtime_error("Invalid Read Destination",__FILE__,__func__);
-                get<_pointer_type,ReadLength<_pointer_type>::wire_names::afterLast>(get<0>(cables)).store(end);
             }
             void setOffset(_difference_type offset){
-                get<_difference_type,ReadOffset<_difference_type>::wire_names::readOffset>(std::get<1>(cables)).store(offset);
+                get<_difference_type,ReadOffset<_difference_type>::wire_names::readOffset>(std::get<0>(cables)).store(offset);
             }
             signal_type signal;
             cables_type cables;
-            _pointer_type start,end;
+            const_cables_type const_cables;
         };
         template<typename ArithmeticType> struct BlockerCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
