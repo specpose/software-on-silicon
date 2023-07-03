@@ -147,8 +147,8 @@ int main(){
     auto hostmemory = std::array<char,1000>{};
     using h_mem_iter = decltype(hostmemory)::iterator;
     auto readerBus = ReaderBus(hostmemory.begin(),hostmemory.end());
-    auto controller = new WritePriorityImpl(writerBus,readerBus);
     readerBus.setOffset(9000);
+    auto controller = new WritePriorityImpl(writerBus,readerBus);
     get<BusShaker::signal_type::signal::updated>(readerBus.signal).clear();
     while (true){
         get<BusNotifier::signal_type::signal::notify>(writerBus.signal).clear();

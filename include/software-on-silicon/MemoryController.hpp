@@ -40,6 +40,7 @@ namespace SOS{
             {
                 if (std::distance(begin,end)<0)
                     throw SFA::util::runtime_error("Invalid Read Destination",__FILE__,__func__);
+                setOffset(0);
             }
             void setOffset(_difference_type offset){
                 get<_difference_type,ReadOffset<_difference_type>::wire_names::readOffset>(std::get<0>(cables)).store(offset);
