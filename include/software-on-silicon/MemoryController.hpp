@@ -39,12 +39,9 @@ namespace SOS{
         };
         template<typename ArithmeticType> struct BlockerCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            enum class wire_names : unsigned char{ readerPos, pos } ;
-        };
-        template<typename ArithmeticType, typename SOS::MemoryView::BlockerCable<ArithmeticType>::wire_names index> auto& get(
-            SOS::MemoryView::BlockerCable<ArithmeticType>& cable
-            ){
-            return std::get<(unsigned char)index>(cable);
+            auto& getBKReaderPosRef(){return std::get<0>(*this);}
+            auto& getBKPosRef(){return std::get<1>(*this);}
+
         };
         struct BlockerBus{
             using signal_type = SOS::MemoryView::Notify;

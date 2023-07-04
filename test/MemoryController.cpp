@@ -19,7 +19,7 @@ class ReadTask {
         const auto readOffset = _offset.getReadOffsetRef().load();
         if (std::distance(_blocked.start,_blocked.end)<(std::distance(current,end)+readOffset))
             throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(
+        std::get<0>(_blocked.cables).getBKReaderPosRef().store(
                 _blocked.start
                 +readOffset
                 );
@@ -27,9 +27,9 @@ class ReadTask {
             if (!_blocked.signal.getNotifyRef().test_and_set()) {
                 _blocked.signal.getNotifyRef().clear();
             } else {
-                auto rP = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
+                auto rP = std::get<0>(_blocked.cables).getBKReaderPosRef().load();
                 *current = *rP;
-                get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(++rP);
+                std::get<0>(_blocked.cables).getBKReaderPosRef().store(++rP);
                 ++current;
             }
         }
@@ -76,16 +76,16 @@ class WriteTask {
         memorycontroller.fill('-');
         _item.start=memorycontroller.begin();
         _item.end=memorycontroller.end();
-        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
-        get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_item.cables)).store(memorycontroller.begin());
+        std::get<0>(_item.cables).getBKPosRef().store(memorycontroller.begin());
+        std::get<0>(_item.cables).getBKReaderPosRef().store(memorycontroller.begin());
     }
     protected:
     void write(const char character){
-        auto pos = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).load();
+        auto pos = std::get<0>(_item.cables).getBKPosRef().load();
         if (pos!=memorycontroller.end()) {
             _item.signal.getNotifyRef().clear();
             *(pos++)=character;
-            get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
+            std::get<0>(_item.cables).getBKPosRef().store(pos);
             _item.signal.getNotifyRef().test_and_set();
         } else {
             /*auto print = memorycontroller.begin();
