@@ -72,7 +72,6 @@ int main(){
         const auto start = std::get<0>(bus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(bus.const_cables).getWriterEndRef();
         const auto writeLength = std::get<1>(bus.cables).getWriteLengthRef().load();
-        //std::cout << "Current is "<<(void*)current<<" start is "<<(void*)start<<" end is "<<(void*)end<<std::endl;
         //try {
         if (writeLength>=std::distance(current,end)+std::distance(start,current)){
             throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
