@@ -7,26 +7,37 @@ using namespace SOS::MemoryView;
 class RingBufferTask {
     public:
     using cable_type = std::tuple_element<0,RingBufferBus::cables_type>::type;
-    RingBufferTask(cable_type& indices) :
-    _item(indices)
+    using const_cable_type = std::tuple_element<0,RingBufferBus::const_cables_type>::type;
+    RingBufferTask(cable_type& indices, const_cable_type& bounds) :
+    _item(indices),
+    _bounds(bounds)
     {}
     void read_loop() {
         auto threadcurrent = _item.getThreadCurrentRef().load();
         auto current = _item.getCurrentRef().load();
-        while(!(++threadcurrent==current)){//if: possible less writes than reads
-            std::cout<<*threadcurrent;
-            _item.getThreadCurrentRef().store(threadcurrent);
+        bool stop = false;
+        while(!stop){//if: possible less writes than reads
+            ++threadcurrent;
+            if (threadcurrent==_bounds.getWriterEndRef())
+                threadcurrent=_bounds.getWriterStartRef();
+            if (threadcurrent!=current) {
+                std::cout<<*threadcurrent;
+                _item.getThreadCurrentRef().store(threadcurrent);
+            } else {
+                stop = true;
+            }
         }
     }
     private:
     cable_type& _item;
+    const_cable_type& _bounds;
 };
 
 class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
     public:
     RingBufferImpl(RingBufferBus& bus) :
     SOS::RingBufferLoop(bus.signal),
-    RingBufferTask(std::get<0>(bus.cables))
+    RingBufferTask(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
         std::cout<<"RingBuffer started"<<std::endl;
@@ -70,7 +81,10 @@ template<typename Piece> class PieceWriter {
             std::cout<<"=";
             //write directly to HOSTmemory
             *current='+';
-            std::get<0>(myBus.cables).getCurrentRef().store(++current);
+            ++current;
+            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
+                current = std::get<0>(myBus.const_cables).getWriterStartRef();
+            std::get<0>(myBus.cables).getCurrentRef().store(current);
             myBus.signal.getNotifyRef().clear();
         } else {
             //*current='+';
@@ -86,7 +100,7 @@ template<typename Piece> class PieceWriter {
 using namespace std::chrono;
 
 int main(){
-    auto hostmemory = std::array<char,9000>{};//<9000 stack smashing detection (Reader), <57 RingBuffer too small (PieceWriter)
+    auto hostmemory = std::array<char,33>{};
     auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
@@ -94,7 +108,7 @@ int main(){
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
     const auto beginning = high_resolution_clock::now();
     //try {
-    hostwriter.writePiece(0,1);
+    hostwriter.writePiece(0,32);
     std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
     }
     std::cout<<std::endl;
