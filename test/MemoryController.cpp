@@ -145,7 +145,6 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
 int main(){
     auto writerBus = BusNotifier{};
     auto hostmemory = std::array<char,1000>{};
-    using h_mem_iter = decltype(hostmemory)::iterator;
     auto readerBus = ReaderBus(hostmemory.begin(),hostmemory.end());
     readerBus.setOffset(9000);
     auto controller = new WritePriorityImpl(writerBus,readerBus);

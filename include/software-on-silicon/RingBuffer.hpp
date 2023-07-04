@@ -19,11 +19,15 @@ namespace SOS {
             auto& getCurrentRef(){return std::get<0>(*this);}
             auto& getThreadCurrentRef(){return std::get<1>(*this);}
         };
+        template<typename ArithmeticType> struct SamplePosition : public SOS::MemoryView::TaskCable<ArithmeticType,1> {
+            using SOS::MemoryView::TaskCable<ArithmeticType, 1>::TaskCable;
+            auto& getSamplePositionRef(){return std::get<0>(*this);}
+        };
         struct RingBufferBus {
             using signal_type = bus_traits<SOS::MemoryView::BusNotifier>::signal_type;
             using _pointer_type = std::array<char,0>::iterator;
             using _difference_type = std::array<char,0>::difference_type;
-            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type>,WriteLength<_difference_type> >;
+            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type>,WriteLength<_difference_type>,SamplePosition<_difference_type> >;
             using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
             RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
             //tuple requires copy constructor for any tuple that isn't default constructed
@@ -34,10 +38,14 @@ namespace SOS {
                 if(std::distance(begin,afterlast)<2)
                     throw SFA::util::logic_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
                 //=>explicitly initialize wires
+                setSamplePosition(0);//not used with continuous sources
                 setLength(1);
                 std::get<0>(cables).getThreadCurrentRef().store(begin);
                 auto next = begin;
                 std::get<0>(cables).getCurrentRef().store(++next);
+            }
+            void setSamplePosition(_difference_type position){
+                    std::get<2>(cables).getSamplePositionRef().store(position);
             }
             void setLength (_difference_type length){
                 std::get<1>(cables).getWriteLengthRef().store(length);
