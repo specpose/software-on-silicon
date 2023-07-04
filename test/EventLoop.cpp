@@ -29,11 +29,11 @@ class BlinkLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            get<BusNotifier::signal_type::signal::notify>(_intrinsic).clear();
+            _intrinsic.getNotifyRef().clear();
             //run
             operator()();
             //blink off
-            get<BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set();
+            _intrinsic.getNotifyRef().test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -59,10 +59,10 @@ int main () {
     std::cout<<"main() loop running for 5s..."<<std::endl;
     const auto start = high_resolution_clock::now();
     while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
-        get<HandShake::signal::updated>(waiterBus.signal).clear();
-        if (!get<HandShake::signal::acknowledge>(waiterBus.signal).test_and_set()){
-            if (!get<BusNotifier::signal_type::signal::notify>(myBus.signal).test_and_set()) {
-                get<BusNotifier::signal_type::signal::notify>(myBus.signal).clear();
+        waiterBus.signal.getUpdatedRef().clear();
+        if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
+            if (!myBus.signal.getNotifyRef().test_and_set()) {
+                myBus.signal.getNotifyRef().clear();
                 printf("*");
             } else {
                 printf("_");

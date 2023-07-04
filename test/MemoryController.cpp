@@ -24,8 +24,8 @@ class ReadTask {
                 +readOffset
                 );
         while (current!=end){
-            if (!get<BusNotifier::signal_type::signal::notify>(_blocked.signal).test_and_set()) {
-                get<BusNotifier::signal_type::signal::notify>(_blocked.signal).clear();
+            if (!_blocked.signal.getNotifyRef().test_and_set()) {
+                _blocked.signal.getNotifyRef().clear();
             } else {
                 auto rP = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).load();
                 *current = *rP;
@@ -57,10 +57,10 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
         std::cout << "Starting ReaderImpl event_loop." << std::endl;
         while(!stop_requested){
             const auto start = high_resolution_clock::now();
-            if (!get<BusShaker::signal_type::signal::updated>(_intrinsic).test_and_set()){
+            if (!_intrinsic.getUpdatedRef().test_and_set()){
                 std::cout << "Starting read." << std::endl;
                 read();
-                get<BusShaker::signal_type::signal::acknowledge>(_intrinsic).clear();
+                _intrinsic.getAcknowledgeRef().clear();
             }
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(seconds{1}));
         }
@@ -83,10 +83,10 @@ class WriteTask {
     void write(const char character){
         auto pos = get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).load();
         if (pos!=memorycontroller.end()) {
-            get<BusNotifier::signal_type::signal::notify>(_item.signal).clear();
+            _item.signal.getNotifyRef().clear();
             *(pos++)=character;
             get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::pos>(std::get<0>(_item.cables)).store(pos);
-            get<BusNotifier::signal_type::signal::notify>(_item.signal).test_and_set();
+            _item.signal.getNotifyRef().test_and_set();
         } else {
             /*auto print = memorycontroller.begin();
             while (print!=memorycontroller.end())
@@ -120,7 +120,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
         std::cout << "Starting WritePriorityImpl event_loop." << std::endl;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
-        if (!get<BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set()){
+        if (!_intrinsic.getNotifyRef().test_and_set()){
             if (blink)
                 write('*');
             else
@@ -149,15 +149,15 @@ int main(){
     auto readerBus = ReaderBus(hostmemory.begin(),hostmemory.end());
     readerBus.setOffset(9000);
     auto controller = new WritePriorityImpl(writerBus,readerBus);
-    get<BusShaker::signal_type::signal::updated>(readerBus.signal).clear();
+    readerBus.signal.getUpdatedRef().clear();
     while (true){
-        get<BusNotifier::signal_type::signal::notify>(writerBus.signal).clear();
-        if(!get<BusShaker::signal_type::signal::acknowledge>(readerBus.signal).test_and_set()){
+        writerBus.signal.getNotifyRef().clear();
+        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
             auto print = hostmemory.begin();
             while (print!=hostmemory.end())
                 std::cout << *print++;
             std::cout << std::endl;
-            get<BusShaker::signal_type::signal::updated>(readerBus.signal).clear();
+            readerBus.signal.getUpdatedRef().clear();
         }
     }
     if (controller!=nullptr)

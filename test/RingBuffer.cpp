@@ -41,7 +41,7 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTask {
     }
     void event_loop(){
         while(!stop_requested){
-            if(!get<RingBufferBus::signal_type::signal::notify>(_intrinsic).test_and_set()){
+            if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
         }
@@ -62,7 +62,7 @@ int main(){
     using h_mem_iter = decltype(hostmemory)::iterator;
     using h_mem_diff = decltype(hostmemory)::difference_type;
     auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
-    bus.setLength(2);
+    bus.setLength(1);
     //auto test = bus.start;
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).is_lock_free() &&
@@ -83,7 +83,7 @@ int main(){
         if (current!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()){
             std::cout<<"=";//to be done: write directly
             get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).store(++current);
-            get<RingBufferBus::signal_type::signal::notify>(bus.signal).clear();
+            bus.signal.getNotifyRef().clear();
         } else {
             //get<RingBufferTaskCableWireName::Current>(std::get<0>(bus.cables)).store(current);
             std::cout<<std::endl;

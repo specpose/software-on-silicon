@@ -21,11 +21,11 @@ class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubCo
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
             //acquire new data through a wire
             //blink on
-            get<BusNotifier::signal_type::signal::notify>(_intrinsic).clear();
+            _intrinsic.getNotifyRef().clear();
             //run
             operator()();
             //blink off
-            get<BusNotifier::signal_type::signal::notify>(_intrinsic).test_and_set();
+            _intrinsic.getNotifyRef().test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
@@ -54,8 +54,8 @@ class ControllerImpl : public SOS::Behavior::RunLoop<DummySubController> {
         std::cout<<"Controller loop running for 5s..."<<std::endl;
         const auto start = high_resolution_clock::now();
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
-            get<HandShake::signal::updated>(waiterBus.signal).clear();
-            if (!get<HandShake::signal::acknowledge>(waiterBus.signal).test_and_set()){
+            waiterBus.signal.getUpdatedRef().clear();
+            if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 operator()();
             }
             std::this_thread::yield();
@@ -63,8 +63,8 @@ class ControllerImpl : public SOS::Behavior::RunLoop<DummySubController> {
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
     }
     void operator()(){
-        if (!get<subcontroller_type::bus_type::signal_type::signal::notify>(_foreign.signal).test_and_set()) {
-            get<subcontroller_type::bus_type::signal_type::signal::notify>(_foreign.signal).clear();
+        if (!_foreign.signal.getNotifyRef().test_and_set()) {
+            _foreign.signal.getNotifyRef().clear();
             printf("*");
         } else {
             printf("_");

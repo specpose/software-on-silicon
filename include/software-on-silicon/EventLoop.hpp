@@ -8,26 +8,29 @@ namespace SOS{
     namespace MemoryView {
         class Notify : public std::array<std::atomic_flag,1> {
             public:
-            enum class signal : unsigned char {
+            /*enum class signal : unsigned char {
                 notify
-            };
+            };*/
             Notify() : std::array<std::atomic_flag,1>{true} {}
+            auto& getNotifyRef(){return std::get<0>(*this);}
         };
-        template<Notify::signal index> auto& get(Notify& signal){
+        /*template<Notify::signal index> auto& get(Notify& signal){
             return std::get<(unsigned char)index>(signal);
-        };
+        };*/
         //1+1=0
         class HandShake : public std::array<std::atomic_flag,2> {
             public:
-            enum class signal : unsigned char {
+            /*enum class signal : unsigned char {
                 updated,
                 acknowledge
-            };
+            };*/
             HandShake() : std::array<std::atomic_flag,2>{true,true} {}
+            auto& getUpdatedRef(){return std::get<0>(*this);}
+            auto& getAcknowledgeRef(){return std::get<1>(*this);}
         };
-        template<HandShake::signal index> auto& get(HandShake& signal){
+        /*template<HandShake::signal index> auto& get(HandShake& signal){
             return std::get<(unsigned char)index>(signal);
-        };
+        };*/
         template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
