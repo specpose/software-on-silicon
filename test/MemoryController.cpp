@@ -14,9 +14,9 @@ class ReadTask {
     ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,BlockerBus& blockerbus) : _length(Length),_offset(Offset), _blocked(blockerbus) {}
     protected:
     void read(){
-        auto current = get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::startPos>(_length);
-        const auto end = get<reader_length_ct::cable_arithmetic,reader_length_ct::wire_names::afterLast>(_length);
-        const auto readOffset = get<reader_offset_ct::cable_arithmetic,reader_offset_ct::wire_names::readOffset>(_offset).load();
+        auto current = _length.getReadBufferStartRef();
+        const auto end = _length.getReadBufferAfterLastRef();
+        const auto readOffset = _offset.getReadOffsetRef().load();
         if (std::distance(_blocked.start,_blocked.end)<(std::distance(current,end)+readOffset))
             throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
         get<blocker_ct::cable_arithmetic,blocker_ct::wire_names::readerPos>(std::get<0>(_blocked.cables)).store(

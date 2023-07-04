@@ -8,18 +8,21 @@ namespace SOS{
     namespace MemoryView{
         template<typename ArithmeticType> struct ReadLength : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
             ReadLength(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
-            enum class wire_names : unsigned char { startPos, afterLast };
+            //enum class wire_names : unsigned char { startPos, afterLast };
+            auto& getReadBufferStartRef(){return std::get<0>(*this);}
+            auto& getReadBufferAfterLastRef(){return std::get<1>(*this);}
         };
-        template<typename ArithmeticType, typename ReadLength<ArithmeticType>::wire_names index> auto& get(ReadLength<ArithmeticType>& cable){
+        /*template<typename ArithmeticType, typename ReadLength<ArithmeticType>::wire_names index> auto& get(ReadLength<ArithmeticType>& cable){
             return std::get<(unsigned char)index>(cable);
-        };
+        };*/
         template<typename ArithmeticType> struct ReadOffset : public SOS::MemoryView::TaskCable<ArithmeticType,1> {
             using SOS::MemoryView::TaskCable<ArithmeticType,1>::TaskCable;
-            enum class wire_names : unsigned char{ readOffset } ;
+            //enum class wire_names : unsigned char{ readOffset } ;
+            auto& getReadOffsetRef(){return std::get<0>(*this);}
         };
-        template<typename ArithmeticType, typename ReadOffset<ArithmeticType>::wire_names index> auto& get(ReadOffset<ArithmeticType>& cable){
+        /*template<typename ArithmeticType, typename ReadOffset<ArithmeticType>::wire_names index> auto& get(ReadOffset<ArithmeticType>& cable){
             return std::get<(unsigned char)index>(cable);
-        };
+        };*/
         struct ReaderBus {
             using signal_type = SOS::MemoryView::bus_traits<SOS::MemoryView::BusShaker>::signal_type;
             using _pointer_type = std::array<char,0>::iterator;
@@ -43,7 +46,7 @@ namespace SOS{
                 setOffset(0);
             }
             void setOffset(_difference_type offset){
-                get<_difference_type,ReadOffset<_difference_type>::wire_names::readOffset>(std::get<0>(cables)).store(offset);
+                std::get<0>(cables).getReadOffsetRef().store(offset);
             }
             signal_type signal;
             cables_type cables;

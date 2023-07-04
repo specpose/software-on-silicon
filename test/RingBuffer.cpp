@@ -11,13 +11,13 @@ class RingBufferTask {
     _item(indices)
     {}
     void read_loop() {
-        auto threadcurrent = get<cable_type::cable_arithmetic, cable_type::wire_names::ThreadCurrent>(_item).load();
-        auto current = get<cable_type::cable_arithmetic, cable_type::wire_names::Current>(_item).load();
+        auto threadcurrent = _item.getThreadCurrentRef().load();
+        auto current = _item.getCurrentRef().load();
         auto counter=0;
         while(!(++threadcurrent==current)){
             std::cout<<"+";//to be done: read
             //counter++;
-            get<cable_type::cable_arithmetic, cable_type::wire_names::ThreadCurrent>(_item).store(threadcurrent);
+            _item.getThreadCurrentRef().store(threadcurrent);
         }
         //std::cout<<counter;
     }
@@ -63,26 +63,24 @@ int main(){
     using h_mem_diff = decltype(hostmemory)::difference_type;
     auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
     bus.setLength(1);
-    //auto test = bus.start;
     RingBufferImpl* buffer = new RingBufferImpl(bus);
-    if (get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).is_lock_free() &&
-    get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).is_lock_free()){
-        //try {
+    if (std::get<0>(bus.cables).getCurrentRef().is_lock_free() && std::get<0>(bus.cables).getThreadCurrentRef().is_lock_free()){
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
-        auto current = get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).load();
-        const auto start = get<h_mem_iter,WriteSize<h_mem_iter>::wire_names::startPos>(std::get<0>(bus.const_cables));
-        const auto end = get<h_mem_iter,WriteSize<h_mem_iter>::wire_names::afterLast>(std::get<0>(bus.const_cables));
-        const auto writeLength = get<h_mem_diff,WriteLength<h_mem_diff>::wire_names::WriteLength>(std::get<1>(bus.cables)).load();
+        auto current = std::get<0>(bus.cables).getCurrentRef().load();
+        const auto start = std::get<0>(bus.const_cables).getWriterStartRef();
+        const auto end = std::get<0>(bus.const_cables).getWriterEndRef();
+        const auto writeLength = std::get<1>(bus.cables).getWriteLengthRef().load();
         //std::cout << "Current is "<<(void*)current<<" start is "<<(void*)start<<" end is "<<(void*)end<<std::endl;
+        //try {
         if (writeLength>=std::distance(current,end)+std::distance(start,current)){
             throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
         }
         for (h_mem_diff i= 0; i<writeLength;i++){
-        if (current!=get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::ThreadCurrent>(std::get<0>(bus.cables)).load()){
+        if (current!=std::get<0>(bus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";//to be done: write directly
-            get<h_mem_iter,RingBufferTaskCable<h_mem_iter>::wire_names::Current>(std::get<0>(bus.cables)).store(++current);
+            std::get<0>(bus.cables).getCurrentRef().store(++current);
             bus.signal.getNotifyRef().clear();
         } else {
             //get<RingBufferTaskCableWireName::Current>(std::get<0>(bus.cables)).store(current);
