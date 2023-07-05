@@ -17,6 +17,12 @@ target_include_directories(test_Controller
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
+add_executable(test_RingToMemory)
+target_include_directories(test_RingToMemory
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingToMemory.cpp)
 add_executable(test_RingBuffer)
 target_include_directories(test_RingBuffer
     PRIVATE

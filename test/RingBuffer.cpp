@@ -4,7 +4,7 @@
 
 using namespace SOS::MemoryView;
 
-class RingBufferTask {
+class RingBufferTask : private SOS::Behavior::MemoryControllerWrite {
     public:
     using cable_type = std::tuple_element<0,RingBufferBus::cables_type>::type;
     using const_cable_type = std::tuple_element<0,RingBufferBus::const_cables_type>::type;
@@ -21,7 +21,7 @@ class RingBufferTask {
             if (threadcurrent==_bounds.getWriterEndRef())
                 threadcurrent=_bounds.getWriterStartRef();
             if (threadcurrent!=current) {
-                std::cout<<*threadcurrent;
+                write(*threadcurrent);
                 _item.getThreadCurrentRef().store(threadcurrent);
             } else {
                 stop = true;
@@ -29,6 +29,7 @@ class RingBufferTask {
         }
     }
     private:
+    void write(const char character) override {std::cout<<character;}
     cable_type& _item;
     const_cable_type& _bounds;
 };

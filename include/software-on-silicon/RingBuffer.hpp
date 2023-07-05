@@ -1,6 +1,6 @@
 #pragma once
 
-#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/RingToMemory.hpp"
 #include "software-on-silicon/error.hpp"
 
 namespace SOS {

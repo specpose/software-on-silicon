@@ -4,7 +4,6 @@
 #include <chrono>
 
 using namespace SOS::MemoryView;
-using namespace std::chrono;
 
 class ReadTask {
     public:
@@ -68,7 +67,7 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTask {
+class WriteTask : protected SOS::Behavior::MemoryControllerWrite {
     public:
     using blocker_ct = std::tuple_element<0,BlockerBus::cables_type>::type;
     using blocker_buffer_size = std::tuple_element<1,BlockerBus::cables_type>::type;
@@ -80,7 +79,7 @@ class WriteTask {
         _item.getBKReaderPosRef().store(memorycontroller.begin());
     }
     protected:
-    void write(const char character){
+    void write(const char character) override {
         auto pos = _item.getBKPosRef().load();
         if (pos!=memorycontroller.end()) {
             *(pos++)=character;
@@ -99,6 +98,7 @@ class WriteTask {
     blocker_buffer_size& _size;
     std::array<char,10000> memorycontroller = std::array<char,10000>{};
 };
+using namespace std::chrono;
 class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, private WriteTask {
     public:
     WritePriorityImpl(
@@ -141,6 +141,8 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
     bool stop_requested = false;
     std::thread _thread;
 };
+
+using namespace std::chrono;
 
 int main(){
     auto writerBus = BusNotifier{};
