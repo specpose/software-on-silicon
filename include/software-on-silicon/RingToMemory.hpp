@@ -1,3 +1,4 @@
+#pragma once
 #include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/error.hpp"
 
@@ -23,6 +24,11 @@ namespace SOS {
         };
     }
     namespace Behavior {
+        /*class RingToMemoryWrite {
+            protected:
+            //should be private
+            virtual void write(const char character)=0;
+        };*/
         template<typename MemoryControllerType> class MemoryControllerWrite {
             public:
             using blocker_ct = std::tuple_element<0,SOS::MemoryView::BlockerBus::cables_type>::type;

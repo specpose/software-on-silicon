@@ -63,4 +63,36 @@ namespace SOS {
         }
         virtual ~RingBufferLoop() override {};
     };
+    namespace Behavior {
+        class RingBufferTask {
+            public:
+            using cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::cables_type>::type;
+            using const_cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::const_cables_type>::type;
+            RingBufferTask(cable_type& indices, const_cable_type& bounds) :
+            _item(indices),
+            _bounds(bounds)
+            {}
+            void read_loop() {
+                auto threadcurrent = _item.getThreadCurrentRef().load();
+                auto current = _item.getCurrentRef().load();
+                bool stop = false;
+                while(!stop){//if: possible less writes than reads
+                    ++threadcurrent;
+                    if (threadcurrent==_bounds.getWriterEndRef())
+                        threadcurrent=_bounds.getWriterStartRef();
+                    if (threadcurrent!=current) {
+                        write(*threadcurrent);
+                        _item.getThreadCurrentRef().store(threadcurrent);
+                    } else {
+                        stop = true;
+                    }
+                }
+            }
+            protected:
+            virtual void write(const char character)=0;
+            private:
+            cable_type& _item;
+            const_cable_type& _bounds;
+        };
+    }
 }
