@@ -62,16 +62,14 @@ namespace SOS{
         };
         template<typename S> class WritePriority : public Loop {
         public:
-        using bus_type = typename SimpleLoop<S>::bus_type;
+        using bus_type = typename RunLoop<S>::bus_type;
         using subcontroller_type = S;
         WritePriority(
-            typename SOS::Behavior::SimpleLoop<S>::bus_type::signal_type& mySignal,
-            typename SOS::Behavior::SimpleLoop<S>::subcontroller_type::bus_type& passThru
-            ) : _intrinsic(mySignal), _child(S(passThru,_blocker)) {};
+            typename SOS::Behavior::RunLoop<S>::subcontroller_type::bus_type& passThru
+            ) : _child(S(passThru,_blocker)) {};
         virtual ~WritePriority(){};
         void event_loop(){}
         protected:
-        typename bus_type::signal_type& _intrinsic;
         SOS::MemoryView::BlockerBus _blocker = SOS::MemoryView::BlockerBus{};
         private:
         S _child;

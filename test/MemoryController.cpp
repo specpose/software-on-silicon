@@ -105,7 +105,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
     WritePriorityImpl(
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::bus_type& writer,
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
-        ) : SOS::Behavior::WritePriority<ReaderImpl>(writer.signal, passThruHostMem), WriteTask(_blocker) {
+        ) : SOS::Behavior::WritePriority<ReaderImpl>(passThruHostMem), WriteTask(_blocker) {
             
             std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
             _thread = start(this);
@@ -120,7 +120,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
         std::cout << "Starting WritePriorityImpl event_loop." << std::endl;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
-        if (!_intrinsic.getNotifyRef().test_and_set()){
+        //if (!_intrinsic.getNotifyRef().test_and_set()){
             if (blink)
                 write('*');
             else
@@ -133,7 +133,7 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
                 blink = true;
                 counter=0;
             }
-        }
+        //}
         std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
     };
@@ -150,7 +150,7 @@ int main(){
     auto controller = new WritePriorityImpl(writerBus,readerBus);
     readerBus.signal.getUpdatedRef().clear();
     while (true){
-        writerBus.signal.getNotifyRef().clear();
+        //writerBus.signal.getNotifyRef().clear();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
             auto print = hostmemory.begin();
             while (print!=hostmemory.end())
