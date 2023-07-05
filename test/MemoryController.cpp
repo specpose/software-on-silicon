@@ -35,7 +35,6 @@ class ReadTask {
                 ++current;
             }
         }
-        std::cout << "Read finished." << std::endl;
     }
     private:
     reader_length_ct& _length;
@@ -56,15 +55,13 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
         _thread.join();
     }
     void event_loop(){
-        std::cout << "Starting ReaderImpl event_loop." << std::endl;
         while(!stop_requested){
-            const auto start = high_resolution_clock::now();
             if (!_intrinsic.getUpdatedRef().test_and_set()){
-                std::cout << "Starting read." << std::endl;
+                std::cout << "S";
                 read();
+                std::cout << "F";
                 _intrinsic.getAcknowledgeRef().clear();
             }
-            std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(seconds{1}));
         }
     }
     private:
@@ -86,10 +83,8 @@ class WriteTask {
     void write(const char character){
         auto pos = _item.getBKPosRef().load();
         if (pos!=memorycontroller.end()) {
-            //_item.signal.getNotifyRef().clear();
             *(pos++)=character;
             _item.getBKPosRef().store(pos);
-            //_item.signal.getNotifyRef().test_and_set();
         } else {
             /*auto print = memorycontroller.begin();
             while (print!=memorycontroller.end())
@@ -121,7 +116,6 @@ class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, priv
     void event_loop(){
         int counter = 0;
         bool blink = true;
-        std::cout << "Starting WritePriorityImpl event_loop." << std::endl;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
         char data;
@@ -156,13 +150,15 @@ int main(){
     auto controller = new WritePriorityImpl(writerBus,readerBus);
     readerBus.signal.getUpdatedRef().clear();
     while (true){
+        const auto start = high_resolution_clock::now();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
+            readerBus.signal.getUpdatedRef().clear();
             auto print = hostmemory.begin();
             while (print!=hostmemory.end())
                 std::cout << *print++;
             std::cout << std::endl;
-            readerBus.signal.getUpdatedRef().clear();
         }
+        std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(seconds{1}));
     }
     if (controller!=nullptr)
         delete controller;
