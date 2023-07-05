@@ -4,13 +4,18 @@
 
 using namespace SOS::MemoryView;
 
-class RingBufferTask : private SOS::Behavior::MemoryControllerWrite {
+class MemoryControllerWriteDummy {
+    protected:
+    virtual void write(const char character) {}
+};
+class RingBufferTask : private MemoryControllerWriteDummy {
     public:
     using cable_type = std::tuple_element<0,RingBufferBus::cables_type>::type;
     using const_cable_type = std::tuple_element<0,RingBufferBus::const_cables_type>::type;
     RingBufferTask(cable_type& indices, const_cable_type& bounds) :
     _item(indices),
-    _bounds(bounds)
+    _bounds(bounds),
+    MemoryControllerWriteDummy{}
     {}
     void read_loop() {
         auto threadcurrent = _item.getThreadCurrentRef().load();
@@ -28,8 +33,10 @@ class RingBufferTask : private SOS::Behavior::MemoryControllerWrite {
             }
         }
     }
-    private:
+    protected:
+    //should be private
     void write(const char character) override {std::cout<<character;}
+    private:
     cable_type& _item;
     const_cable_type& _bounds;
 };

@@ -1,4 +1,5 @@
 #include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/error.hpp"
 
 namespace SOS {
     namespace MemoryView {
@@ -22,8 +23,31 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        class MemoryControllerWrite {
-            virtual void write(const char character)=0;
+        template<typename MemoryControllerType> class MemoryControllerWrite {
+            public:
+            using blocker_ct = std::tuple_element<0,SOS::MemoryView::BlockerBus::cables_type>::type;
+            using blocker_buffer_size = std::tuple_element<1,SOS::MemoryView::BlockerBus::cables_type>::type;
+            MemoryControllerWrite(blocker_ct& posBlocker,blocker_buffer_size& bufferSize) : _item(posBlocker),_size(bufferSize) {
+                _size.getBKStartRef()=memorycontroller.begin();
+                _size.getBKEndRef()=memorycontroller.end();
+                _item.getBKPosRef().store(memorycontroller.begin());
+                _item.getBKReaderPosRef().store(memorycontroller.begin());
+            }
+            protected:
+            virtual void write(const char character) {
+                auto pos = _item.getBKPosRef().load();
+                if (pos!=memorycontroller.end()) {
+                    *(pos++)=character;
+                    _item.getBKPosRef().store(pos);
+                } else {
+                    throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
+                }
+            }
+            //should be private
+            MemoryControllerType memorycontroller = MemoryControllerType{};
+            private:
+            blocker_ct& _item;
+            blocker_buffer_size& _size;
         };
     }
 }

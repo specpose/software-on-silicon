@@ -67,36 +67,12 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTask : protected SOS::Behavior::MemoryControllerWrite {
+class WriteTask : protected SOS::Behavior::MemoryControllerWrite<std::array<char,10000>> {
     public:
-    using blocker_ct = std::tuple_element<0,BlockerBus::cables_type>::type;
-    using blocker_buffer_size = std::tuple_element<1,BlockerBus::cables_type>::type;
-    WriteTask(blocker_ct& posBlocker,blocker_buffer_size& bufferSize) : _item(posBlocker),_size(bufferSize) {
+    WriteTask(blocker_ct& posBlocker,blocker_buffer_size& bufferSize) :
+     SOS::Behavior::MemoryControllerWrite<std::array<char,10000>>(posBlocker,bufferSize) {
         memorycontroller.fill('-');
-        _size.getBKStartRef()=memorycontroller.begin();
-        _size.getBKEndRef()=memorycontroller.end();
-        _item.getBKPosRef().store(memorycontroller.begin());
-        _item.getBKReaderPosRef().store(memorycontroller.begin());
     }
-    protected:
-    void write(const char character) override {
-        auto pos = _item.getBKPosRef().load();
-        if (pos!=memorycontroller.end()) {
-            *(pos++)=character;
-            _item.getBKPosRef().store(pos);
-        } else {
-            /*auto print = memorycontroller.begin();
-            while (print!=memorycontroller.end())
-                std::cout << *print++;
-            std::cout << std::endl;*/
-            //throw causes memory access violation in Reader
-            throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
-        }
-    }
-    private:
-    blocker_ct& _item;
-    blocker_buffer_size& _size;
-    std::array<char,10000> memorycontroller = std::array<char,10000>{};
 };
 using namespace std::chrono;
 class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, private WriteTask {
