@@ -23,10 +23,10 @@ namespace SOS {
             using SOS::MemoryView::TaskCable<ArithmeticType, 1>::TaskCable;
             auto& getSamplePositionRef(){return std::get<0>(*this);}
         };
-        struct RingBufferBus {
-            using signal_type = bus_traits<SOS::MemoryView::BusNotifier>::signal_type;
-            using _pointer_type = std::array<char,0>::iterator;
-            using _difference_type = std::array<char,0>::difference_type;
+        template<typename OutputBuffer> struct RingBufferBus : public SOS::MemoryView::BusNotifier {
+            //using signal_type = typename SOS::MemoryView::BusNotifier::signal_type;
+            using _pointer_type = typename OutputBuffer::iterator;
+            using _difference_type = typename OutputBuffer::difference_type;
             using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type>,WriteLength<_difference_type>,SamplePosition<_difference_type> >;
             using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
             RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
@@ -50,7 +50,7 @@ namespace SOS {
             void setLength (_difference_type length){
                 std::get<1>(cables).getWriteLengthRef().store(length);
             }
-            signal_type signal;
+            //signal_type signal;
             cables_type cables;
             const_cables_type const_cables;
         };
@@ -63,36 +63,4 @@ namespace SOS {
         }
         virtual ~RingBufferLoop() override {};
     };
-    namespace Behavior {
-        class RingBufferTask {
-            public:
-            using cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::cables_type>::type;
-            using const_cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::const_cables_type>::type;
-            RingBufferTask(cable_type& indices, const_cable_type& bounds) :
-            _item(indices),
-            _bounds(bounds)
-            {}
-            void read_loop() {
-                auto threadcurrent = _item.getThreadCurrentRef().load();
-                auto current = _item.getCurrentRef().load();
-                bool stop = false;
-                while(!stop){//if: possible less writes than reads
-                    ++threadcurrent;
-                    if (threadcurrent==_bounds.getWriterEndRef())
-                        threadcurrent=_bounds.getWriterStartRef();
-                    if (threadcurrent!=current) {
-                        write(*threadcurrent);
-                        _item.getThreadCurrentRef().store(threadcurrent);
-                    } else {
-                        stop = true;
-                    }
-                }
-            }
-            protected:
-            virtual void write(const char character)=0;
-            private:
-            cable_type& _item;
-            const_cable_type& _bounds;
-        };
-    }
 }

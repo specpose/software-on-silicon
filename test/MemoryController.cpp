@@ -5,11 +5,17 @@
 
 using namespace SOS::MemoryView;
 
-class ReaderImpl : public SOS::Behavior::Reader, private SOS::Behavior::ReadTask {
+struct ReaderBusImpl : public ReaderBus<std::array<char,1000>> {
+    using ReaderBus<std::array<char,1000>>::ReaderBus;
+};
+struct BlockerBusImpl : public BlockerBus<std::array<char,10000>> {
+    using BlockerBus<std::array<char,10000>>::BlockerBus;
+};
+class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl> {
     public:
-    ReaderImpl(bus_type& outside, BlockerBus& blockerbus) :
-    SOS::Behavior::Reader(outside.signal),
-    SOS::Behavior::ReadTask(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
+    ReaderImpl(bus_type& outside, BlockerBusImpl& blockerbus) ://variadic: blockerbus can not be derived from Reader
+    SOS::Behavior::Reader<ReaderBusImpl>(outside.signal),
+    SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
         std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
         _thread = start(this);
@@ -32,10 +38,10 @@ class ReaderImpl : public SOS::Behavior::Reader, private SOS::Behavior::ReadTask
     bool stop_requested = false;
     std::thread _thread;
 };
-template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
+class WriteTask : public SOS::Behavior::MemoryControllerWrite<std::array<char,10000>> {
     public:
     WriteTask() :
-     SOS::Behavior::MemoryControllerWrite<BufferType>{} {
+     SOS::Behavior::MemoryControllerWrite<std::array<char,10000>>{} {
         std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
         std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
         this->memorycontroller.fill('-');
@@ -50,18 +56,31 @@ template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryCont
             throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
         }
     }
-    SOS::MemoryView::BlockerBus _blocker = SOS::MemoryView::BlockerBus(this->memorycontroller.begin(),this->memorycontroller.end());
+    BlockerBusImpl _blocker = BlockerBusImpl(this->memorycontroller.begin(),this->memorycontroller.end());
+};
+//RunLoop does not support more than one constructor arguments
+//RunLoop does not forward passThru
+template<typename ReaderType> class WritePriority : protected WriteTask, public SOS::Behavior::Loop {
+    public:
+    using subcontroller_type = ReaderType;
+    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;
+    WritePriority(
+        typename SOS::Behavior::RunLoop<subcontroller_type>::subcontroller_type::bus_type& passThru
+        ) : WriteTask{}, _child(ReaderType{passThru,_blocker}) {};//calling variadic constructor?
+    virtual ~WritePriority(){};
+    void event_loop(){}
+    private:
+    ReaderType _child;
 };
 using namespace std::chrono;
-class WritePriorityImpl : private WriteTask<std::array<char,10000>>, private SOS::Behavior::WritePriority<ReaderImpl>  {
+class WritePriorityImpl : private WritePriority<ReaderImpl>  {
     public:
     WritePriorityImpl(
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::bus_type& writer,
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
         ) :
-        WriteTask{},
-        SOS::Behavior::WritePriority<ReaderImpl>(passThruHostMem,_blocker) {
-            
+        //variadic?
+        WritePriority<ReaderImpl>{passThruHostMem} {
             std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
             _thread = start(this);
         };
@@ -103,7 +122,8 @@ using namespace std::chrono;
 int main(){
     auto writerBus = BusNotifier{};
     auto hostmemory = std::array<char,1000>{};
-    auto readerBus = ReaderBus(hostmemory.begin(),hostmemory.end());
+    //decltype(hostmemory)?
+    auto readerBus = ReaderBusImpl(hostmemory.begin(),hostmemory.end());
     readerBus.setOffset(9000);
     auto controller = new WritePriorityImpl(writerBus,readerBus);
     readerBus.signal.getUpdatedRef().clear();

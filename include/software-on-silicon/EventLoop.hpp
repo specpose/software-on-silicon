@@ -26,27 +26,44 @@ namespace SOS{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
-        struct Bus {
-            using signal_type = std::array<std::atomic_flag,0>;
-            using cables_type = std::tuple< >;
-            signal_type signal;
-            cables_type cables;
+        //inheritable
+        template<typename Category, typename Signal, typename Cables, typename ConstCables> struct bus {
+            using bus_category = Category;
+            using signal_type = Signal;
+            using cables_type = Cables;
+            using const_cables_type = ConstCables;
         };
-        template<typename Bus> struct bus_traits {
-            using signal_type = typename Bus::signal_type;
-            using cables_type = typename Bus::cables_type;
+        //specialisable
+        template<typename bus> struct bus_traits {
+            using bus_category = typename bus::bus_category;
+            using signal_type = typename bus::signal_type;
+            using cables_type = typename bus::cables_type;
+            using const_cables_type = typename bus::const_cables_type;
         };
-        struct BusNotifier{
-            using signal_type = SOS::MemoryView::Notify;
-            using cables_type = bus_traits<Bus>::cables_type;
+        struct empty_bus_tag{};
+        struct Bus : bus<
+            empty_bus_tag,
+            std::array<std::atomic_flag,0>,
+            std::tuple< >,
+            std::tuple< >
+        >{};
+        struct bus_notifier_tag{};
+        struct BusNotifier : bus <
+            bus_notifier_tag,
+            SOS::MemoryView::Notify,
+            bus_traits<Bus>::cables_type,
+            bus_traits<Bus>::const_cables_type
+        >{
             signal_type signal;
-            cables_type cables;
         };
-        struct BusShaker{
-            using signal_type = SOS::MemoryView::HandShake;
-            using cables_type = bus_traits<Bus>::cables_type;
+        struct bus_shaker_tag{};
+        struct BusShaker : bus <
+            bus_shaker_tag,
+            SOS::MemoryView::HandShake,
+            bus_traits<Bus>::cables_type,
+            bus_traits<Bus>::const_cables_type
+        >{
             signal_type signal;
-            cables_type cables;
         };
     }
     namespace Behavior {
@@ -65,10 +82,10 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::Bus;
             using subcontroller_type = S;
-            RunLoop() : _child(S(_foreign)) {}
+            RunLoop() : _child(subcontroller_type{_foreign}) {}
             virtual ~RunLoop() override {};
             protected:
-            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:
             S _child;
         };
@@ -81,11 +98,11 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = S;
-            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(S(_foreign)) {}
+            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(subcontroller_type{_foreign}) {}
             virtual ~SimpleLoop() override {};
             protected:
             bus_type::signal_type& _intrinsic;
-            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:
             S _child;
         };
@@ -93,11 +110,11 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = S;
-            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(S(_foreign)) {}
+            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground), _child(subcontroller_type{_foreign}) {}
             virtual ~EventLoop() override {};
             protected:
             bus_type::signal_type& _intrinsic;
-            typename subcontroller_type::bus_type _foreign = typename S::bus_type{};
+            typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:
             S _child;
         };
