@@ -32,40 +32,35 @@ class ReaderImpl : public SOS::Behavior::Reader, private SOS::Behavior::ReadTask
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTask : private SOS::Behavior::MemoryControllerWrite {
+template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
     public:
-    using _buffer_type = std::array<char,10000>;
-    WriteTask(blocker_ct& posBlocker,blocker_buffer_size& bufferSize) :
-     SOS::Behavior::MemoryControllerWrite(posBlocker,bufferSize) {
-        resize(memorycontroller.begin(),memorycontroller.end());
-        memorycontroller.fill('-');
+    WriteTask() :
+     SOS::Behavior::MemoryControllerWrite<BufferType>{} {
+        std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
+        std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
+        this->memorycontroller.fill('-');
     }
     protected:
     void write(const char character) {
-        auto pos = _item.getBKPosRef().load();
-        if (pos!=memorycontroller.end()) {
+        auto pos = std::get<0>(_blocker.cables).getBKPosRef().load();
+        if (pos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
             *(pos++)=character;
-            _item.getBKPosRef().store(pos);
+            std::get<0>(_blocker.cables).getBKPosRef().store(pos);
         } else {
             throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
         }
     }
-    void resize(_buffer_type::iterator start, _buffer_type::iterator end){
-        _size.getBKStartRef()=start;
-        _size.getBKEndRef()=end;
-        _item.getBKPosRef().store(start);
-        _item.getBKReaderPosRef().store(end);
-    };
-    private:
-    _buffer_type memorycontroller = _buffer_type{};
+    SOS::MemoryView::BlockerBus _blocker = SOS::MemoryView::BlockerBus(this->memorycontroller.begin(),this->memorycontroller.end());
 };
 using namespace std::chrono;
-class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, private WriteTask {
+class WritePriorityImpl : private WriteTask<std::array<char,10000>>, private SOS::Behavior::WritePriority<ReaderImpl>  {
     public:
     WritePriorityImpl(
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::bus_type& writer,
         typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
-        ) : SOS::Behavior::WritePriority<ReaderImpl>(passThruHostMem), WriteTask(std::get<0>(_blocker.cables),std::get<1>(_blocker.cables)) {
+        ) :
+        WriteTask{},
+        SOS::Behavior::WritePriority<ReaderImpl>(passThruHostMem,_blocker) {
             
             std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
             _thread = start(this);

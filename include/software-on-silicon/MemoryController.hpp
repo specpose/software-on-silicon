@@ -48,12 +48,11 @@ namespace SOS{
         using bus_type = typename RunLoop<S>::bus_type;
         using subcontroller_type = S;
         WritePriority(
-            typename SOS::Behavior::RunLoop<S>::subcontroller_type::bus_type& passThru
+            typename SOS::Behavior::RunLoop<S>::subcontroller_type::bus_type& passThru,
+            SOS::MemoryView::BlockerBus& _blocker
             ) : _child(S(passThru,_blocker)) {};
         virtual ~WritePriority(){};
         void event_loop(){}
-        protected:
-        SOS::MemoryView::BlockerBus _blocker = SOS::MemoryView::BlockerBus{};
         private:
         S _child;
         };
@@ -62,18 +61,18 @@ namespace SOS{
             using reader_length_ct = std::tuple_element<0,SOS::MemoryView::ReaderBus::const_cables_type>::type;
             using reader_offset_ct = std::tuple_element<0,SOS::MemoryView::ReaderBus::cables_type>::type;
             using blocker_ct = std::tuple_element<0,SOS::MemoryView::BlockerBus::cables_type>::type;
-            using blocker_buffer_size = std::tuple_element<1,SOS::MemoryView::BlockerBus::cables_type>::type;
+            using blocker_buffer_size = std::tuple_element<0,SOS::MemoryView::BlockerBus::const_cables_type>::type;
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,SOS::MemoryView::BlockerBus& blockerbus) : _length(Length),_offset(Offset), _blocked(blockerbus) {}
             protected:
             void read(){
                 auto current = _length.getReadBufferStartRef();
                 const auto end = _length.getReadBufferAfterLastRef();
                 const auto readOffset = _offset.getReadOffsetRef().load();
-                if (std::distance(std::get<1>(_blocked.cables).getBKStartRef().load(),std::get<1>(_blocked.cables).getBKEndRef().load())
+                if (std::distance(std::get<0>(_blocked.const_cables).getBKStartRef(),std::get<0>(_blocked.const_cables).getBKEndRef())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
                 std::get<0>(_blocked.cables).getBKReaderPosRef().store(
-                        std::get<1>(_blocked.cables).getBKStartRef().load()
+                        std::get<0>(_blocked.const_cables).getBKStartRef()
                         +readOffset
                         );
                 while (current!=end){
