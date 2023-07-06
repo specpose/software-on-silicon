@@ -5,46 +5,11 @@
 
 using namespace SOS::MemoryView;
 
-class ReadTask {
-    public:
-    using reader_length_ct = std::tuple_element<0,ReaderBus::const_cables_type>::type;
-    using reader_offset_ct = std::tuple_element<0,ReaderBus::cables_type>::type;
-    using blocker_ct = std::tuple_element<0,BlockerBus::cables_type>::type;
-    using blocker_buffer_size = std::tuple_element<1,BlockerBus::cables_type>::type;
-    ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,BlockerBus& blockerbus) : _length(Length),_offset(Offset), _blocked(blockerbus) {}
-    protected:
-    void read(){
-        auto current = _length.getReadBufferStartRef();
-        const auto end = _length.getReadBufferAfterLastRef();
-        const auto readOffset = _offset.getReadOffsetRef().load();
-        if (std::distance(std::get<1>(_blocked.cables).getBKStartRef().load(),std::get<1>(_blocked.cables).getBKEndRef().load())
-        <(std::distance(current,end)+readOffset))
-            throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-        std::get<0>(_blocked.cables).getBKReaderPosRef().store(
-                std::get<1>(_blocked.cables).getBKStartRef().load()
-                +readOffset
-                );
-        while (current!=end){
-            if (!_blocked.signal.getNotifyRef().test_and_set()) {
-                _blocked.signal.getNotifyRef().clear();
-            } else {
-                auto rP = std::get<0>(_blocked.cables).getBKReaderPosRef().load();
-                *current = *rP;
-                std::get<0>(_blocked.cables).getBKReaderPosRef().store(++rP);
-                ++current;
-            }
-        }
-    }
-    private:
-    reader_length_ct& _length;
-    reader_offset_ct& _offset;
-    BlockerBus& _blocked;
-};
-class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
+class ReaderImpl : public SOS::Behavior::Reader, private SOS::Behavior::ReadTask {
     public:
     ReaderImpl(bus_type& outside, BlockerBus& blockerbus) :
     SOS::Behavior::Reader(outside.signal),
-    ReadTask(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
+    SOS::Behavior::ReadTask(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
         std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
         _thread = start(this);
@@ -67,12 +32,32 @@ class ReaderImpl : public SOS::Behavior::Reader, private ReadTask {
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTask : protected SOS::Behavior::MemoryControllerWrite<std::array<char,10000>> {
+class WriteTask : private SOS::Behavior::MemoryControllerWrite {
     public:
+    using _buffer_type = std::array<char,10000>;
     WriteTask(blocker_ct& posBlocker,blocker_buffer_size& bufferSize) :
-     SOS::Behavior::MemoryControllerWrite<std::array<char,10000>>(posBlocker,bufferSize) {
+     SOS::Behavior::MemoryControllerWrite(posBlocker,bufferSize) {
+        resize(memorycontroller.begin(),memorycontroller.end());
         memorycontroller.fill('-');
     }
+    protected:
+    void write(const char character) {
+        auto pos = _item.getBKPosRef().load();
+        if (pos!=memorycontroller.end()) {
+            *(pos++)=character;
+            _item.getBKPosRef().store(pos);
+        } else {
+            throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
+        }
+    }
+    void resize(_buffer_type::iterator start, _buffer_type::iterator end){
+        _size.getBKStartRef()=start;
+        _size.getBKEndRef()=end;
+        _item.getBKPosRef().store(start);
+        _item.getBKReaderPosRef().store(end);
+    };
+    private:
+    _buffer_type memorycontroller = _buffer_type{};
 };
 using namespace std::chrono;
 class WritePriorityImpl : private SOS::Behavior::WritePriority<ReaderImpl>, private WriteTask {

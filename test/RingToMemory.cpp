@@ -1,20 +1,21 @@
 #include "software-on-silicon/RingBuffer.hpp"
 
-using namespace SOS::MemoryView;
+using namespace SOS;
 
-class MemoryControllerTypeImpl : protected SOS::Behavior::RingBufferTask {//, protected SOS::Behavior::MemoryControllerWrite {
+class TransferRingToMemory : protected Behavior::RingBufferTask {//, protected Behavior::MemoryControllerWrite {
     public:
-    using cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::cables_type>::type;
-    using const_cable_type = std::tuple_element<0,SOS::MemoryView::RingBufferBus::const_cables_type>::type;
-    MemoryControllerTypeImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask(indices, bounds){}
+    TransferRingToMemory(
+        Behavior::RingBufferTask::cable_type& indices,
+        Behavior::RingBufferTask::const_cable_type& bounds
+        ) : SOS::Behavior::RingBufferTask(indices, bounds){}
     protected:
     virtual void write(const char character) override {}
 };
-class RingBufferImpl : private SOS::RingBufferLoop, public MemoryControllerTypeImpl {
+class RingBufferImpl : private SOS::RingBufferLoop, public TransferRingToMemory {
     public:
-    RingBufferImpl(RingBufferBus& bus) :
+    RingBufferImpl(MemoryView::RingBufferBus& bus) :
     SOS::RingBufferLoop(bus.signal),
-    MemoryControllerTypeImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
+    TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
     }
@@ -38,7 +39,7 @@ class RingBufferImpl : private SOS::RingBufferLoop, public MemoryControllerTypeI
 
 int main (){
     auto hostmemory = std::array<char,33>{};
-    auto bus = RingBufferBus(hostmemory.begin(),hostmemory.end());
+    auto bus = MemoryView::RingBufferBus(hostmemory.begin(),hostmemory.end());
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     if (buffer!=nullptr)
         delete buffer;

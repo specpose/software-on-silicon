@@ -1,4 +1,4 @@
-#include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/helpers.hpp"
 #include <iostream>
 #include <chrono>
 
@@ -40,40 +40,6 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTaskImpl {
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
-};
-
-template<typename Piece> class PieceWriter {
-    public:
-    PieceWriter(RingBufferBus& bus) : myBus(bus) {}
-    //offset: goes to MemoryController->BKPos if combined!
-    void writePiece(typename Piece::difference_type offset, typename Piece::difference_type length){
-        myBus.setLength(length);//Reader length!
-        auto current = std::get<0>(myBus.cables).getCurrentRef().load();
-        const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
-        const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
-        const auto writeLength = std::get<1>(myBus.cables).getWriteLengthRef().load();
-        if (writeLength>=std::distance(current,end)+std::distance(start,current)){
-            throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
-        }
-        for (typename Piece::difference_type i= 0; i<writeLength;i++){//Lock-free (host) write length!
-        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
-            std::cout<<"=";
-            //write directly to HOSTmemory
-            *current='+';
-            ++current;
-            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
-                current = std::get<0>(myBus.const_cables).getWriterStartRef();
-            std::get<0>(myBus.cables).getCurrentRef().store(current);
-            myBus.signal.getNotifyRef().clear();
-        } else {
-            //*current='+';
-            std::cout<<std::endl;
-            throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
-        }
-        }
-    }
-    private:
-    RingBufferBus& myBus;
 };
 
 using namespace std::chrono;
