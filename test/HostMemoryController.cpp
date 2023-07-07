@@ -38,35 +38,21 @@ class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Beh
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTask : public SOS::Behavior::MemoryControllerWrite<std::array<char,10000>> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl> {
     public:
-    WriteTask() :
-     SOS::Behavior::MemoryControllerWrite<std::array<char,10000>>{} {
-        std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
-        std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
+    WriteTaskImpl() : SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl>() {
         this->memorycontroller.fill('-');
     }
-    protected:
-    void write(const char character) {
-        auto pos = std::get<0>(_blocker.cables).getBKPosRef().load();
-        if (pos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
-            *(pos++)=character;
-            std::get<0>(_blocker.cables).getBKPosRef().store(pos);
-        } else {
-            throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
-        }
-    }
-    BlockerBusImpl _blocker = BlockerBusImpl(this->memorycontroller.begin(),this->memorycontroller.end());
 };
 //RunLoop does not support more than one constructor arguments
 //RunLoop does not forward passThru
-template<typename ReaderType> class WritePriority : protected WriteTask, public SOS::Behavior::Loop {
+template<typename ReaderType> class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     using subcontroller_type = ReaderType;
     using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;
     WritePriority(
         typename SOS::Behavior::RunLoop<subcontroller_type>::subcontroller_type::bus_type& passThru
-        ) : WriteTask{}, _child(ReaderType{passThru,_blocker}) {};//calling variadic constructor?
+        ) : WriteTaskImpl{}, _child(ReaderType{passThru,_blocker}) {};//calling variadic constructor?
     virtual ~WritePriority(){};
     void event_loop(){}
     private:

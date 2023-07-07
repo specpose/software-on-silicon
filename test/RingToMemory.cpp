@@ -1,19 +1,32 @@
 #include "software-on-silicon/RingBuffer.hpp"
+#include <chrono>
 
 using namespace SOS;
 
-class TransferRingToMemory : protected Behavior::RingBufferTask {//, protected Behavior::MemoryControllerWrite {
+struct RingBufferBusImpl : public MemoryView::RingBufferBus<std::array<char,33>> {
+    using MemoryView::RingBufferBus<std::array<char,33>>::RingBufferBus;
+};
+struct BlockerBusImpl : public MemoryView::BlockerBus<std::array<char,10000>> {
+    using MemoryView::BlockerBus<std::array<char,10000>>::BlockerBus;
+};
+class WriteTaskImpl : public SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl> {
+    public:
+    WriteTaskImpl() : SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl>() {
+        this->memorycontroller.fill('-');
+    }
+};
+class TransferRingToMemory : protected Behavior::RingBufferTask<RingBufferBusImpl>, protected WriteTaskImpl {
     public:
     TransferRingToMemory(
-        Behavior::RingBufferTask::cable_type& indices,
-        Behavior::RingBufferTask::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask(indices, bounds){}
+        Behavior::RingBufferTask<RingBufferBusImpl>::cable_type& indices,
+        Behavior::RingBufferTask<RingBufferBusImpl>::const_cable_type& bounds
+        ) : SOS::Behavior::RingBufferTask<RingBufferBusImpl>(indices, bounds), WriteTaskImpl{} {}
     protected:
-    virtual void write(const char character) override {}
+    virtual void write(const char character) override {WriteTaskImpl::write(character);}
 };
 class RingBufferImpl : private SOS::RingBufferLoop, public TransferRingToMemory {
     public:
-    RingBufferImpl(MemoryView::RingBufferBus& bus) :
+    RingBufferImpl(RingBufferBusImpl& bus) :
     SOS::RingBufferLoop(bus.signal),
     TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
@@ -36,11 +49,33 @@ class RingBufferImpl : private SOS::RingBufferLoop, public TransferRingToMemory 
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
+template<typename Piece> class PieceWriter {
+    public:
+    PieceWriter(RingBufferBusImpl& bus) : myBus(bus) {}
+    //offset: goes to MemoryController->BKPos if combined!
+    void writePiece(typename Piece::difference_type offset, typename Piece::difference_type length){
+        myBus.setSamplePosition(offset);
+        myBus.setLength(length);//Reader length!
+    }
+    private:
+    RingBufferBusImpl& myBus;
+};
+
+using namespace std::chrono;
 
 int main (){
-    auto hostmemory = std::array<char,33>{};
-    auto bus = MemoryView::RingBufferBus(hostmemory.begin(),hostmemory.end());
+    auto hostmemory = std::array<char,334>{};
+    auto bus = RingBufferBusImpl(hostmemory.begin(),hostmemory.end());
+    auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
+    auto loopstart = high_resolution_clock::now();
+    auto offset = 0;
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
+        const auto beginning = high_resolution_clock::now();
+        hostwriter.writePiece(offset,333);
+        offset+=999;
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{999}));
+    }
     if (buffer!=nullptr)
         delete buffer;
 }

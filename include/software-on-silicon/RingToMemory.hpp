@@ -1,10 +1,10 @@
 /*
-    This class is for reading from a driver on a ControllerHost into a RingBuffer and providing random random
+    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random random
     memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
 
     ControllerHost<Writer<Reader<SubController>>>
 
-    It is not suitable for reading from a GPIO
+    It is not suitable for reading from a FPGA gpio
 
     ControllerHost<Reader<Writer<GPIO>>>
 */
@@ -125,6 +125,25 @@ namespace SOS {
             };
             protected:
             BufferType memorycontroller = BufferType{};
+        };
+        template<typename BufferType, typename BlockerBusType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
+            public:
+            WriteTask() :
+            SOS::Behavior::MemoryControllerWrite<BufferType>{} {
+                std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
+                std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
+            }
+            protected:
+            void write(const char character) {
+                auto pos = std::get<0>(_blocker.cables).getBKPosRef().load();
+                if (pos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
+                    *(pos++)=character;
+                    std::get<0>(_blocker.cables).getBKPosRef().store(pos);
+                } else {
+                    throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
+                }
+            }
+            BlockerBusType _blocker = BlockerBusType(this->memorycontroller.begin(),this->memorycontroller.end());
         };
     }
 }
