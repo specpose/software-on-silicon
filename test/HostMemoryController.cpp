@@ -1,4 +1,4 @@
-#include "software-on-silicon/MemoryController.hpp"
+#include "software-on-silicon/HostMemoryController.hpp"
 #include "software-on-silicon/error.hpp"
 #include <iostream>
 #include <chrono>

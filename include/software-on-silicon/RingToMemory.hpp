@@ -1,3 +1,14 @@
+/*
+    This class is for reading from a driver on a ControllerHost into a RingBuffer and providing random random
+    memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
+
+    ControllerHost<Writer<Reader<SubController>>>
+
+    It is not suitable for reading from a GPIO
+
+    ControllerHost<Reader<Writer<GPIO>>>
+*/
+
 #pragma once
 #include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/error.hpp"

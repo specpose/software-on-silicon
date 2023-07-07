@@ -29,12 +29,12 @@ target_include_directories(test_RingBuffer
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingBuffer.cpp)
-add_executable(test_MemoryController)
-target_include_directories(test_MemoryController
+add_executable(test_HostMemoryController)
+target_include_directories(test_HostMemoryController
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
-target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/MemoryController.cpp)
+target_sources(test_HostMemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/HostMemoryController.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}
