@@ -1,4 +1,5 @@
 #include "software-on-silicon/helpers.hpp"
+#include "software-on-silicon/RingToMemory.hpp"
 #include <chrono>
 
 #define RING_BUFFER std::array<char,334>
@@ -18,12 +19,12 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerB
         this->memorycontroller.fill('-');
     }
 };
-class TransferRingToMemory : protected Behavior::RingBufferTask<RingBufferBusImpl>, protected WriteTaskImpl {
+class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
     TransferRingToMemory(
-        Behavior::RingBufferTask<RingBufferBusImpl>::cable_type& indices,
-        Behavior::RingBufferTask<RingBufferBusImpl>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RingBufferBusImpl>(indices, bounds), WriteTaskImpl{} {}
+        Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
+        Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     protected:
     virtual void write(const char character) override {WriteTaskImpl::write(character);}
 };

@@ -9,11 +9,11 @@ using namespace SOS::MemoryView;
 struct RingBufferBusImpl : public RingBufferBus<RING_BUFFER> {
     using RingBufferBus<RING_BUFFER>::RingBufferBus;
 };
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RingBufferBusImpl> {
+class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> {
     public:
     using cable_type = std::tuple_element<0,RingBufferBusImpl::cables_type>::type;
     using const_cable_type = std::tuple_element<0,RingBufferBusImpl::const_cables_type>::type;
-    RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RingBufferBusImpl>(indices, bounds){}
+    RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     protected:
     virtual void write(const char character) override {std::cout<<character;}
 };
