@@ -40,10 +40,10 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
-class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public TransferRingToMemory {
+class RingBufferImpl : private SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>, public TransferRingToMemory {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::RingBufferLoop(bus.signal),
+    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bus.signal),
     TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);

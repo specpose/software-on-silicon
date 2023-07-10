@@ -43,14 +43,14 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         this->memorycontroller.fill('-');
     }
 };
-//RunLoop does not support more than one constructor arguments
+//RunLoop does not have a constructor argument
 //RunLoop does not forward passThru
 class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     using subcontroller_type = Reader;
-    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;
+    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//nil
     WritePriority(
-        typename SOS::Behavior::RunLoop<subcontroller_type>::subcontroller_type::bus_type& passThru
+        typename subcontroller_type::bus_type& passThru
         ) : WriteTaskImpl{}, _child(Reader{passThru,_blocker}) {};//calling variadic subcontroller constructor?
     virtual ~WritePriority(){};
     void event_loop(){}

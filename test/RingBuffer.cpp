@@ -17,10 +17,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     protected:
     virtual void write(const char character) override {std::cout<<character;}
 };
-class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public RingBufferTaskImpl {
+class RingBufferImpl : private SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>, public RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::RingBufferLoop(bus.signal),
+    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bus.signal),
     RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
