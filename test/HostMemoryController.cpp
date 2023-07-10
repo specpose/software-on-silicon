@@ -1,4 +1,4 @@
-#include "software-on-silicon/HostMemoryController.hpp"
+#include "software-on-silicon/RingToMemory.hpp"
 #include "software-on-silicon/error.hpp"
 #include <iostream>
 #include <chrono>
@@ -14,11 +14,11 @@ struct ReaderBusImpl : public ReaderBus<READ_BUFFER> {
 struct BlockerBusImpl : public BlockerBus<MEMORY_CONTROLLER> {
     using BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
 };
-class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl> {
+class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
     ReaderImpl(bus_type& outside, BlockerBusImpl& blockerbus) ://variadic: blockerbus can not be derived from Reader
     SOS::Behavior::Reader<ReaderBusImpl>(outside.signal),
-    SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
         _thread = start(this);
     }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/RingToMemory.hpp"
 #include <chrono>
 #include <iostream>
 
