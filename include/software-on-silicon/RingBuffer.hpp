@@ -10,23 +10,15 @@ namespace SOS {
             auto& getWriterStartRef(){return std::get<0>(*this);}
             auto& getWriterEndRef(){return std::get<1>(*this);}
         };
-        /*template<typename ArithmeticType> struct WriteLength : public SOS::MemoryView::TaskCable<ArithmeticType,1> {
-            using SOS::MemoryView::TaskCable<ArithmeticType,1>::TaskCable;
-            auto& getWriteLengthRef(){return std::get<0>(*this);}
-        };*/
         template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getCurrentRef(){return std::get<0>(*this);}
             auto& getThreadCurrentRef(){return std::get<1>(*this);}
         };
-        /*template<typename ArithmeticType> struct SamplePosition : public SOS::MemoryView::TaskCable<ArithmeticType,1> {
-            using SOS::MemoryView::TaskCable<ArithmeticType, 1>::TaskCable;
-            auto& getSamplePositionRef(){return std::get<0>(*this);}
-        };*/
         template<typename OutputBuffer> struct RingBufferBus : public SOS::MemoryView::BusNotifier {
             using _pointer_type = typename OutputBuffer::iterator;
             using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type> >;//,WriteLength<_difference_type>,SamplePosition<_difference_type> >;
+            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type> >;
             using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
             RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
             //tuple requires copy constructor for any tuple that isn't default constructed
@@ -37,28 +29,22 @@ namespace SOS {
                 if(std::distance(begin,afterlast)<2)
                     throw SFA::util::logic_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
                 //=>explicitly initialize wires
-                //setSamplePosition(0);//not used with continuous sources
-                //setLength(1);
                 std::get<0>(cables).getThreadCurrentRef().store(begin);
                 auto next = begin;
                 std::get<0>(cables).getCurrentRef().store(++next);
             }
-            /*void setSamplePosition(_difference_type position){
-                    std::get<2>(cables).getSamplePositionRef().store(position);
-            }*/
-            /*void setLength (_difference_type length){
-                std::get<1>(cables).getWriteLengthRef().store(length);
-            }*/
             cables_type cables;
             const_cables_type const_cables;
         };
     }
-    class RingBufferLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
-        public:
-        RingBufferLoop(SOS::MemoryView::BusNotifier::signal_type& signal) :
-                SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(signal)
-                {
-        }
-        virtual ~RingBufferLoop() override {};
-    };
+    namespace Behavior {
+        class RingBufferLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
+            public:
+            RingBufferLoop(SOS::MemoryView::BusNotifier::signal_type& signal) :
+                    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(signal)
+                    {
+            }
+            virtual ~RingBufferLoop() override {};
+        };
+    }
 }

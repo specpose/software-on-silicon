@@ -17,10 +17,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RingBufferBus
     protected:
     virtual void write(const char character) override {std::cout<<character;}
 };
-class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTaskImpl {
+class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBusImpl& bus) :
-    SOS::RingBufferLoop(bus.signal),
+    SOS::Behavior::RingBufferLoop(bus.signal),
     RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
@@ -42,38 +42,6 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTaskImpl {
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-template<typename Piece> class PieceWriter {
-    public:
-    PieceWriter(RingBufferBusImpl& bus) : myBus(bus) {}
-    void writePiece(typename Piece::difference_type length){
-        //myBus.setLength(length);//Reader length!
-        auto current = std::get<0>(myBus.cables).getCurrentRef().load();
-        const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
-        const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
-        //const auto writeLength = std::get<1>(myBus.cables).getWriteLengthRef().load();
-        if (length>=std::distance(current,end)+std::distance(start,current)){
-            throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
-        }
-        for (typename Piece::difference_type i= 0; i<length;i++){//Lock-free (host) write length!
-        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
-            std::cout<<"=";
-            //write directly to HOSTmemory
-            *current='+';
-            ++current;
-            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
-                current = std::get<0>(myBus.const_cables).getWriterStartRef();
-            std::get<0>(myBus.cables).getCurrentRef().store(current);
-            myBus.signal.getNotifyRef().clear();
-        } else {
-            //*current='+';
-            std::cout<<std::endl;
-            throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
-        }
-        }
-    }
-    private:
-    RingBufferBusImpl& myBus;
-};
 
 using namespace std::chrono;
 
@@ -86,7 +54,9 @@ int main(){
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
     const auto beginning = high_resolution_clock::now();
     //try {
-    hostwriter.writePiece(32);
+    //for(int i=0;i<32;i++)
+    //    std::cout<<"=";
+    hostwriter.writePiece('+',32);
     std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
     }
     std::cout<<std::endl;

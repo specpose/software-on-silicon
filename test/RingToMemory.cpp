@@ -27,10 +27,10 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RingBufferBusImp
     protected:
     virtual void write(const char character) override {WriteTaskImpl::write(character);}
 };
-class RingBufferImpl : private SOS::RingBufferLoop, public TransferRingToMemory {
+class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public TransferRingToMemory {
     public:
     RingBufferImpl(RingBufferBusImpl& bus) :
-    SOS::RingBufferLoop(bus.signal),
+    SOS::Behavior::RingBufferLoop(bus.signal),
     TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
@@ -74,13 +74,13 @@ int main (){
         const auto beginning = high_resolution_clock::now();
         switch(count++){
             case 0:
-                hostwriter.writePiece(true, 333);
+                hostwriter.writePiece('*', 333);
                 break;
             case 1:
-                hostwriter.writePiece(false, 333);
+                hostwriter.writePiece('-', 333);
                 break;
             case 2:
-                hostwriter.writePiece(false, 333);
+                hostwriter.writePiece('-', 333);
                 count=0;
                 break;
         }
