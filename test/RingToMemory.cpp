@@ -1,4 +1,4 @@
-#include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/helpers.hpp"
 #include <chrono>
 
 #define RING_BUFFER std::array<char,334>
@@ -52,14 +52,6 @@ class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public TransferRin
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-template<typename Piece> class PieceWriter {
-    public:
-    PieceWriter(RingBufferBusImpl& bus) : myBus(bus) {}
-    void writePiece(bool blink, typename Piece::difference_type length){
-    }
-    private:
-    RingBufferBusImpl& myBus;
-};
 
 using namespace std::chrono;
 
@@ -77,10 +69,10 @@ int main (){
                 hostwriter.writePiece('*', 333);
                 break;
             case 1:
-                hostwriter.writePiece('-', 333);
+                hostwriter.writePiece('_', 333);
                 break;
             case 2:
-                hostwriter.writePiece('-', 333);
+                hostwriter.writePiece('_', 333);
                 count=0;
                 break;
         }

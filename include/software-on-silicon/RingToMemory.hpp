@@ -1,12 +1,12 @@
 /*
-    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random random
+    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random
     memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
 
     ControllerHost<Writer<Reader<SubController>>>
 
-    It is not suitable for reading from a FPGA gpio
+    It is not suitable for reading from a FPGA gpio when the processing needs immediate, timed pre-processing because of the signaling
 
-    ControllerHost<Reader<Writer<GPIO>>>
+    ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
 */
 
 #pragma once
@@ -47,11 +47,11 @@ namespace SOS {
             public:
             using reader_length_ct = typename std::tuple_element<0,typename ReaderBusType::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename ReaderBusType::cables_type>::type;
-            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,BlockerBusType& blockerbus) : _length(Length),_offset(Offset), _blocked(blockerbus) {}
+            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,BlockerBusType& blockerbus) : _size(Length),_offset(Offset), _blocked(blockerbus) {}
             protected:
             void read(){
-                auto current = _length.getReadBufferStartRef();
-                const auto end = _length.getReadBufferAfterLastRef();
+                auto current = _size.getReadBufferStartRef();
+                const auto end = _size.getReadBufferAfterLastRef();
                 const auto readOffset = _offset.getReadOffsetRef().load();
                 if (std::distance(std::get<0>(_blocked.const_cables).getBKStartRef(),std::get<0>(_blocked.const_cables).getBKEndRef())
                 <(std::distance(current,end)+readOffset))
@@ -61,7 +61,7 @@ namespace SOS {
                         +readOffset
                         );
                 while (current!=end){
-                    if (!_blocked.signal.getNotifyRef().test_and_set()) {
+                    if (!_blocked.signal.getNotifyRef().test_and_set()) {//intermittent wait when write
                         _blocked.signal.getNotifyRef().clear();
                     } else {
                         auto rP = std::get<0>(_blocked.cables).getBKReaderPosRef().load();
@@ -72,7 +72,7 @@ namespace SOS {
                 }
             }
             private:
-            reader_length_ct& _length;
+            reader_length_ct& _size;
             reader_offset_ct& _offset;
             BlockerBusType& _blocked;
         };

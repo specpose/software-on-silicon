@@ -20,7 +20,6 @@ class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Beh
     SOS::Behavior::Reader<ReaderBusImpl>(outside.signal),
     SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
-        std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -29,9 +28,9 @@ class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Beh
     }
     void event_loop(){
         while(!stop_requested){
-            if (!_intrinsic.getUpdatedRef().test_and_set()){
+            if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
                 std::cout << "S";
-                read();
+                read();//FIFO whole buffer with intermittent waits when write
                 std::cout << "F";
                 _intrinsic.getAcknowledgeRef().clear();
             }
@@ -70,7 +69,6 @@ class WritePriorityImpl : private WritePriority<ReaderImpl>  {
         ) :
         //variadic?
         WritePriority<ReaderImpl>{passThruHostMem} {
-            std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
@@ -110,18 +108,20 @@ using namespace std::chrono;
 
 int main(){
     auto writerBus = BusNotifier{};
-    auto hostmemory = READ_BUFFER{};
-    //decltype(hostmemory)?
-    auto readerBus = ReaderBusImpl(hostmemory.begin(),hostmemory.end());
-    readerBus.setOffset(9000);
+    auto randomread = READ_BUFFER{};
+    auto readerBus = ReaderBusImpl(randomread.begin(),randomread.end());
+    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
+    std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
     auto controller = new WritePriorityImpl(writerBus,readerBus);
+    readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
     readerBus.signal.getUpdatedRef().clear();
     while (true){
         const auto start = high_resolution_clock::now();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
+            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
-            auto print = hostmemory.begin();
-            while (print!=hostmemory.end())
+            auto print = randomread.begin();
+            while (print!=randomread.end())
                 std::cout << *print++;
             std::cout << std::endl;
         }
