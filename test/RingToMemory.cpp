@@ -1,7 +1,7 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::array<char,33>
+#define RING_BUFFER std::array<char,334>
 #define MEMORY_CONTROLLER std::array<char,10000>
 
 using namespace SOS;
@@ -55,10 +55,7 @@ class RingBufferImpl : private SOS::RingBufferLoop, public TransferRingToMemory 
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(RingBufferBusImpl& bus) : myBus(bus) {}
-    //offset: goes to MemoryController->BKPos if combined!
-    void writePiece(typename Piece::difference_type offset, typename Piece::difference_type length){
-        myBus.setSamplePosition(offset);
-        myBus.setLength(length);//Reader length!
+    void writePiece(bool blink, typename Piece::difference_type length){
     }
     private:
     RingBufferBusImpl& myBus;
@@ -67,16 +64,26 @@ template<typename Piece> class PieceWriter {
 using namespace std::chrono;
 
 int main (){
-    auto hostmemory = std::array<char,334>{};
+    auto hostmemory = RING_BUFFER{};
     auto bus = RingBufferBusImpl(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     auto loopstart = high_resolution_clock::now();
-    auto offset = 0;
+    unsigned int count = 0;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
-        hostwriter.writePiece(offset,333);
-        offset+=999;
+        switch(count++){
+            case 0:
+                hostwriter.writePiece(true, 333);
+                break;
+            case 1:
+                hostwriter.writePiece(false, 333);
+                break;
+            case 2:
+                hostwriter.writePiece(false, 333);
+                count=0;
+                break;
+        }
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{999}));
     }
     if (buffer!=nullptr)

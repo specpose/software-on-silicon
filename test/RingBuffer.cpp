@@ -45,17 +45,16 @@ class RingBufferImpl : private SOS::RingBufferLoop, public RingBufferTaskImpl {
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(RingBufferBusImpl& bus) : myBus(bus) {}
-    //offset: goes to MemoryController->BKPos if combined!
-    void writePiece(typename Piece::difference_type offset, typename Piece::difference_type length){
-        myBus.setLength(length);//Reader length!
+    void writePiece(typename Piece::difference_type length){
+        //myBus.setLength(length);//Reader length!
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
-        const auto writeLength = std::get<1>(myBus.cables).getWriteLengthRef().load();
-        if (writeLength>=std::distance(current,end)+std::distance(start,current)){
+        //const auto writeLength = std::get<1>(myBus.cables).getWriteLengthRef().load();
+        if (length>=std::distance(current,end)+std::distance(start,current)){
             throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
         }
-        for (typename Piece::difference_type i= 0; i<writeLength;i++){//Lock-free (host) write length!
+        for (typename Piece::difference_type i= 0; i<length;i++){//Lock-free (host) write length!
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";
             //write directly to HOSTmemory
@@ -87,7 +86,7 @@ int main(){
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
     const auto beginning = high_resolution_clock::now();
     //try {
-    hostwriter.writePiece(0,32);
+    hostwriter.writePiece(32);
     std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
     }
     std::cout<<std::endl;
