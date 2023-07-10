@@ -27,9 +27,9 @@ struct RingBufferBusImpl : public MemoryView::RingBufferBus<RING_BUFFER> {
 struct BlockerBusImpl : public MemoryView::BlockerBus<MEMORY_CONTROLLER> {
     using MemoryView::BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         this->memorycontroller.fill('-');
     }
 };
@@ -40,7 +40,11 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     protected:
-    virtual void write(const char character) override {WriteTaskImpl::write(character);}
+    virtual void write(const char character) override {
+        _blocker.signal.getNotifyRef().clear();
+        WriteTaskImpl::write(character);
+        _blocker.signal.getNotifyRef().test_and_set();
+        }
 };
 class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public TransferRingToMemory {
     public:

@@ -17,7 +17,7 @@ struct BlockerBusImpl : public BlockerBus<MEMORY_CONTROLLER> {
 };
 class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReaderImpl(bus_type& outside, BlockerBusImpl& blockerbus) ://variadic: blockerbus can not be derived from Reader
+    ReaderImpl(bus_type& outside, BlockerBus<MEMORY_CONTROLLER>& blockerbus) ://variadic: blockerbus can not be derived from Reader
     SOS::Behavior::Reader<ReaderBusImpl>(outside.signal),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
@@ -41,9 +41,9 @@ class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Beh
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         this->memorycontroller.fill('-');
     }
 };

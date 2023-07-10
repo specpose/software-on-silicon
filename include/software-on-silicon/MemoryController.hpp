@@ -62,6 +62,7 @@ namespace SOS {
             public:
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
+            //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,typename SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) : _size(Length),_offset(Offset), _blocked(blockerbus) {}
             protected:
             void read(){
@@ -91,9 +92,9 @@ namespace SOS {
             reader_offset_ct& _offset;
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>& _blocked;
         };
-        template<typename ReaderBusType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
+        template<typename BufferType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
             public:
-            using bus_type = ReaderBusType;
+            using bus_type = typename SOS::MemoryView::ReaderBus<BufferType>;
             Reader(typename bus_type::signal_type& outsideSignal) :
             SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outsideSignal){};
             void event_loop(){};
@@ -111,7 +112,7 @@ namespace SOS {
             protected:
             BufferType memorycontroller = BufferType{};
         };
-        template<typename BufferType, typename BlockerBusType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
+        template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
             public:
             WriteTask() :
             SOS::Behavior::MemoryControllerWrite<BufferType>{} {
@@ -128,7 +129,7 @@ namespace SOS {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
                 }
             }
-            BlockerBusType _blocker = BlockerBusType(this->memorycontroller.begin(),this->memorycontroller.end());
+            SOS::MemoryView::BlockerBus<BufferType> _blocker = SOS::MemoryView::BlockerBus<BufferType>(this->memorycontroller.begin(),this->memorycontroller.end());
         };
     }
 }
