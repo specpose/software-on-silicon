@@ -9,20 +9,17 @@
 
 using namespace SOS::MemoryView;
 
-struct RingBufferBusImpl : public RingBufferBus<RING_BUFFER> {
-    using RingBufferBus<RING_BUFFER>::RingBufferBus;
-};
 class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> {
     public:
-    using cable_type = std::tuple_element<0,RingBufferBusImpl::cables_type>::type;
-    using const_cable_type = std::tuple_element<0,RingBufferBusImpl::const_cables_type>::type;
+    using cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::cables_type>::type;
+    using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     protected:
     virtual void write(const char character) override {std::cout<<character;}
 };
 class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public RingBufferTaskImpl {
     public:
-    RingBufferImpl(RingBufferBusImpl& bus) :
+    RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
     SOS::Behavior::RingBufferLoop(bus.signal),
     RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
@@ -50,7 +47,7 @@ using namespace std::chrono;
 
 int main(){
     auto hostmemory = RING_BUFFER{};
-    auto bus = RingBufferBusImpl(hostmemory.begin(),hostmemory.end());
+    auto bus = RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     auto loopstart = high_resolution_clock::now();

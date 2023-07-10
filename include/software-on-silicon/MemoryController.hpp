@@ -92,13 +92,13 @@ namespace SOS {
             reader_offset_ct& _offset;
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>& _blocked;
         };
-        template<typename BufferType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
+        /*template<typename BufferType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<BufferType>;
             Reader(typename bus_type::signal_type& outsideSignal) :
             SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outsideSignal){};
             void event_loop(){};
-        };
+        };*/
         template<typename BufferType> class MemoryControllerWrite {
             public:
             MemoryControllerWrite() {}

@@ -9,21 +9,17 @@
 
 using namespace SOS::MemoryView;
 
-struct ReaderBusImpl : public ReaderBus<READ_BUFFER> {
-    using ReaderBus<READ_BUFFER>::ReaderBus;
-};
-struct BlockerBusImpl : public BlockerBus<MEMORY_CONTROLLER> {
-    using BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
-};
-class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
+                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReaderImpl(bus_type& outside, BlockerBus<MEMORY_CONTROLLER>& blockerbus) ://variadic: blockerbus can not be derived from Reader
-    SOS::Behavior::Reader<ReaderBusImpl>(outside.signal),
+    using bus_type = typename SOS::MemoryView::ReaderBus<READ_BUFFER>;
+    Reader(bus_type& outside, BlockerBus<MEMORY_CONTROLLER>& blockerbus) :
+    SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
     {
         _thread = start(this);
     }
-    ~ReaderImpl(){
+    ~Reader(){
         stop_requested = true;
         _thread.join();
     }
@@ -49,27 +45,27 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 };
 //RunLoop does not support more than one constructor arguments
 //RunLoop does not forward passThru
-template<typename ReaderType> class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
+class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
-    using subcontroller_type = ReaderType;
+    using subcontroller_type = Reader;
     using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;
     WritePriority(
         typename SOS::Behavior::RunLoop<subcontroller_type>::subcontroller_type::bus_type& passThru
-        ) : WriteTaskImpl{}, _child(ReaderType{passThru,_blocker}) {};//calling variadic constructor?
+        ) : WriteTaskImpl{}, _child(Reader{passThru,_blocker}) {};//calling variadic subcontroller constructor?
     virtual ~WritePriority(){};
     void event_loop(){}
     private:
-    ReaderType _child;
+    Reader _child;
 };
 using namespace std::chrono;
-class WritePriorityImpl : private WritePriority<ReaderImpl>  {
+class WritePriorityImpl : private WritePriority {
     public:
     WritePriorityImpl(
-        typename SOS::Behavior::SimpleLoop<ReaderImpl>::bus_type& writer,
-        typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
+        //typename SOS::Behavior::SimpleLoop<Reader>::bus_type& writer,
+        typename SOS::Behavior::SimpleLoop<Reader>::subcontroller_type::bus_type& passThruHostMem
         ) :
-        //variadic?
-        WritePriority<ReaderImpl>{passThruHostMem} {
+        //variadic subcontroller constructor?
+        WritePriority{passThruHostMem} {
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
@@ -105,15 +101,12 @@ class WritePriorityImpl : private WritePriority<ReaderImpl>  {
     std::thread _thread;
 };
 
-using namespace std::chrono;
-
 int main(){
-    auto writerBus = BusNotifier{};
     auto randomread = READ_BUFFER{};
-    auto readerBus = ReaderBusImpl(randomread.begin(),randomread.end());
+    auto readerBus = ReaderBus<READ_BUFFER>(randomread.begin(),randomread.end());
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
     std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
-    auto controller = new WritePriorityImpl(writerBus,readerBus);
+    auto controller = new WritePriorityImpl(readerBus);
     readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
     readerBus.signal.getUpdatedRef().clear();
     while (true){

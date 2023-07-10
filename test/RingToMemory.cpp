@@ -21,12 +21,6 @@
 
 using namespace SOS;
 
-struct RingBufferBusImpl : public MemoryView::RingBufferBus<RING_BUFFER> {
-    using MemoryView::RingBufferBus<RING_BUFFER>::RingBufferBus;
-};
-struct BlockerBusImpl : public MemoryView::BlockerBus<MEMORY_CONTROLLER> {
-    using MemoryView::BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
-};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -48,7 +42,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
 };
 class RingBufferImpl : private SOS::Behavior::RingBufferLoop, public TransferRingToMemory {
     public:
-    RingBufferImpl(RingBufferBusImpl& bus) :
+    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& bus) :
     SOS::Behavior::RingBufferLoop(bus.signal),
     TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
@@ -76,7 +70,7 @@ using namespace std::chrono;
 
 int main (){
     auto hostmemory = RING_BUFFER{};
-    auto bus = RingBufferBusImpl(hostmemory.begin(),hostmemory.end());
+    auto bus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);
     auto loopstart = high_resolution_clock::now();
