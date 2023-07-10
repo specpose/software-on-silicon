@@ -2,14 +2,12 @@
 #include <iostream>
 #include <chrono>
 
+#define RING_BUFFER std::array<char,33>
+
 using namespace SOS::MemoryView;
-/*class MemoryControllerWriteDummy {
-    protected:
-    //should be private
-    void write(const char character) {std::cout<<character;}
-};*/
-struct RingBufferBusImpl : public RingBufferBus<std::array<char,33>> {
-    using RingBufferBus<std::array<char,33>>::RingBufferBus;
+
+struct RingBufferBusImpl : public RingBufferBus<RING_BUFFER> {
+    using RingBufferBus<RING_BUFFER>::RingBufferBus;
 };
 class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RingBufferBusImpl> {
     public:
@@ -81,7 +79,7 @@ template<typename Piece> class PieceWriter {
 using namespace std::chrono;
 
 int main(){
-    auto hostmemory = std::array<char,33>{};
+    auto hostmemory = RING_BUFFER{};
     auto bus = RingBufferBusImpl(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
     RingBufferImpl* buffer = new RingBufferImpl(bus);

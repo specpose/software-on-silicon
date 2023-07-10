@@ -1,17 +1,20 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include <chrono>
 
+#define RING_BUFFER std::array<char,33>
+#define MEMORY_CONTROLLER std::array<char,10000>
+
 using namespace SOS;
 
-struct RingBufferBusImpl : public MemoryView::RingBufferBus<std::array<char,33>> {
-    using MemoryView::RingBufferBus<std::array<char,33>>::RingBufferBus;
+struct RingBufferBusImpl : public MemoryView::RingBufferBus<RING_BUFFER> {
+    using MemoryView::RingBufferBus<RING_BUFFER>::RingBufferBus;
 };
-struct BlockerBusImpl : public MemoryView::BlockerBus<std::array<char,10000>> {
-    using MemoryView::BlockerBus<std::array<char,10000>>::BlockerBus;
+struct BlockerBusImpl : public MemoryView::BlockerBus<MEMORY_CONTROLLER> {
+    using MemoryView::BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl>() {
         this->memorycontroller.fill('-');
     }
 };

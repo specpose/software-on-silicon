@@ -3,13 +3,16 @@
 #include <iostream>
 #include <chrono>
 
+#define MEMORY_CONTROLLER std::array<char,10000>
+#define READ_BUFFER std::array<char,1000>
+
 using namespace SOS::MemoryView;
 
-struct ReaderBusImpl : public ReaderBus<std::array<char,1000>> {
-    using ReaderBus<std::array<char,1000>>::ReaderBus;
+struct ReaderBusImpl : public ReaderBus<READ_BUFFER> {
+    using ReaderBus<READ_BUFFER>::ReaderBus;
 };
-struct BlockerBusImpl : public BlockerBus<std::array<char,10000>> {
-    using BlockerBus<std::array<char,10000>>::BlockerBus;
+struct BlockerBusImpl : public BlockerBus<MEMORY_CONTROLLER> {
+    using BlockerBus<MEMORY_CONTROLLER>::BlockerBus;
 };
 class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Behavior::ReadTask<ReaderBusImpl,BlockerBusImpl> {
     public:
@@ -38,9 +41,9 @@ class ReaderImpl : public SOS::Behavior::Reader<ReaderBusImpl>, private SOS::Beh
     bool stop_requested = false;
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<std::array<char,10000>,BlockerBusImpl>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER,BlockerBusImpl>() {
         this->memorycontroller.fill('-');
     }
 };
@@ -107,7 +110,7 @@ using namespace std::chrono;
 
 int main(){
     auto writerBus = BusNotifier{};
-    auto hostmemory = std::array<char,1000>{};
+    auto hostmemory = READ_BUFFER{};
     //decltype(hostmemory)?
     auto readerBus = ReaderBusImpl(hostmemory.begin(),hostmemory.end());
     readerBus.setOffset(9000);
