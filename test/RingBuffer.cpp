@@ -1,4 +1,7 @@
-#include "software-on-silicon/helpers.hpp"
+#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/error.hpp"
+#include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <iostream>
 #include <chrono>
 

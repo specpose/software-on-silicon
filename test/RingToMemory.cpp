@@ -1,5 +1,19 @@
-#include "software-on-silicon/helpers.hpp"
-#include "software-on-silicon/RingToMemory.hpp"
+/*
+    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random
+    memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
+
+    ControllerHost<Writer<Reader<SubController>>>
+
+    It is not suitable for reading from a FPGA gpio when the processing needs immediate, timed pre-processing because of the signaling
+
+    ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
+*/
+
+#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/error.hpp"
+#include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/MemoryController.hpp"
+#include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <chrono>
 
 #define RING_BUFFER std::array<char,334>

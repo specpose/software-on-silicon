@@ -1,8 +1,3 @@
-#pragma once
-
-#include "software-on-silicon/EventLoop.hpp"
-#include "software-on-silicon/error.hpp"
-
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct WriteBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
