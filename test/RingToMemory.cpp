@@ -17,9 +17,9 @@
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::array<char,334>
-#define MEMORY_CONTROLLER std::array<char,10000>
-#define READ_BUFFER std::array<char,1000>
+#define RING_BUFFER std::vector<double>
+#define MEMORY_CONTROLLER std::vector<double>
+#define READ_BUFFER std::vector<double>
 
 using namespace SOS;
 
@@ -28,7 +28,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         _thread = start(this);
     }
@@ -64,8 +64,16 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill('-');
+        resize(10000);
     }
+    virtual void resize(typename MEMORY_CONTROLLER::difference_type newsize){
+        memorycontroller.reserve(newsize);
+        //for(int i=0;i<newsize;i++)
+        while(memorycontroller.size()<newsize)
+            memorycontroller.push_back(0.0);
+        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
+        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+    };
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
