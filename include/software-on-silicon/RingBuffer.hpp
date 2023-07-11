@@ -33,14 +33,6 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        /*class RingBufferLoop : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
-            public:
-            RingBufferLoop(SOS::MemoryView::BusNotifier::signal_type& signal) :
-                    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(signal)
-                    {
-            }
-            virtual ~RingBufferLoop() override {};
-        };*/
         template <typename RingBufferType>class RingBufferTask {
             public:
             using cable_type = typename std::tuple_element<0,typename SOS::MemoryView::RingBufferBus<RingBufferType>::cables_type>::type;

@@ -53,17 +53,12 @@ int main(){
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
     const auto beginning = high_resolution_clock::now();
-    //try {
     //for(int i=0;i<32;i++)
     //    std::cout<<"=";
     hostwriter.writePiece('+',32);
     std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
     }
     std::cout<<std::endl;
-    /*} catch (std::exception& e) {
-        delete buffer;
-        buffer = nullptr;
-    }*/
     if (buffer!=nullptr)
         delete buffer;
 }

@@ -19,7 +19,7 @@ class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubCo
     void event_loop(){
         const auto start = high_resolution_clock::now();
         while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
-            //acquire new data through a wire
+            //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
             //run

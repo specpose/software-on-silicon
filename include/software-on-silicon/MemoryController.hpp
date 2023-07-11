@@ -35,9 +35,7 @@ namespace SOS {
             auto& getBKReaderPosRef(){return std::get<0>(*this);}
             auto& getBKPosRef(){return std::get<1>(*this);}
         };
-        //this is not const_cable because of external dependency
         template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            //using SOS::MemoryView::ConstCable<ArithmeticType, 2>::ConstCable;
             MemoryControllerBufferSize(const ArithmeticType& start, const ArithmeticType& end): SOS::MemoryView::ConstCable<ArithmeticType,2>{start,end} {}
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
@@ -92,13 +90,6 @@ namespace SOS {
             reader_offset_ct& _offset;
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>& _blocked;
         };
-        /*template<typename BufferType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
-            public:
-            using bus_type = typename SOS::MemoryView::ReaderBus<BufferType>;
-            Reader(typename bus_type::signal_type& outsideSignal) :
-            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outsideSignal){};
-            void event_loop(){};
-        };*/
         template<typename BufferType> class MemoryControllerWrite {
             public:
             MemoryControllerWrite() {}

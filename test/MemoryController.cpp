@@ -48,10 +48,10 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     using subcontroller_type = Reader;
-    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//nil
+    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//empty
     WritePriority(
         typename subcontroller_type::bus_type& passThru
-        ) : WriteTaskImpl{}, _child(Reader{passThru,_blocker}) {};//calling variadic subcontroller constructor?
+        ) : WriteTaskImpl{}, _child(Reader{passThru,_blocker}) {};
     virtual ~WritePriority(){};
     void event_loop(){}
     private:
@@ -61,10 +61,8 @@ using namespace std::chrono;
 class WritePriorityImpl : private WritePriority {
     public:
     WritePriorityImpl(
-        //typename SOS::Behavior::SimpleLoop<Reader>::bus_type& writer,
         typename SOS::Behavior::SimpleLoop<Reader>::subcontroller_type::bus_type& passThruHostMem
         ) :
-        //variadic subcontroller constructor?
         WritePriority{passThruHostMem} {
             _thread = start(this);
         };

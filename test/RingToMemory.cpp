@@ -18,9 +18,38 @@
 
 #define RING_BUFFER std::array<char,334>
 #define MEMORY_CONTROLLER std::array<char,10000>
+#define READ_BUFFER std::array<char,1000>
 
 using namespace SOS;
 
+class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
+                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    using bus_type = typename SOS::MemoryView::ReaderBus<READ_BUFFER>;
+    Reader(bus_type& outside, MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus) :
+    SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
+    {
+        _thread = start(this);
+    }
+    ~Reader(){
+        stop_requested = true;
+        _thread.join();
+    }
+    void event_loop(){
+        while(!stop_requested){
+            if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+                std::cout << "S";
+                read();//FIFO whole buffer with intermittent waits when write
+                std::cout << "F";
+                _intrinsic.getAcknowledgeRef().clear();
+            }
+        }
+    }
+    private:
+    bool stop_requested = false;
+    std::thread _thread;
+};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -40,11 +69,31 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
-class RingBufferImpl : private SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>, public TransferRingToMemory {
+//SimpleLoop has only one constructor argument
+//SimpleLoop does not forward passThru
+class TransferPriority :
+protected TransferRingToMemory,
+protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     public:
-    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bus.signal),
-    TransferRingToMemory(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
+    using subcontroller_type = Reader;
+    using bus_type = typename SOS::Behavior::SimpleLoop<subcontroller_type>::bus_type;//notifier
+    TransferPriority(
+        MemoryView::RingBufferBus<RING_BUFFER>& rB,
+        MemoryView::ReaderBus<READ_BUFFER>& rd
+    ) :
+    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(rB.signal),
+    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    _child(Reader{rd,_blocker})
+    {}
+    virtual ~TransferPriority(){};
+    void event_loop(){}
+    private:
+    Reader _child;
+};
+class RingBufferImpl : private TransferPriority {
+    public:
+    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
+    TransferPriority(rB,rd)
     {
         _thread = start(this);
     }
@@ -70,16 +119,36 @@ using namespace std::chrono;
 
 int main (){
     auto hostmemory = RING_BUFFER{};
-    auto bus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
-    auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
-    RingBufferImpl* buffer = new RingBufferImpl(bus);
-    auto loopstart = high_resolution_clock::now();
+    auto ringbufferbus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
+    auto hostwriter = PieceWriter<decltype(hostmemory)>(ringbufferbus);
+
+    auto randomread = READ_BUFFER{};
+    auto readerBus = MemoryView::ReaderBus<READ_BUFFER>(randomread.begin(),randomread.end());
+
+    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
+    std::cout << "Writer writing 9990 times from start at rate 1/ms..." << std::endl;
+    RingBufferImpl* buffer = new RingBufferImpl(ringbufferbus,readerBus);
+    readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
+    readerBus.signal.getUpdatedRef().clear();
     unsigned int count = 0;
+    auto loopstart = high_resolution_clock::now();
+    try {
+    //3000: read and write are meant to be called from independent controllers
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
+        //read
+        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
+            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.signal.getUpdatedRef().clear();
+            auto print = randomread.begin();
+            while (print!=randomread.end())
+                std::cout << *print++;
+            std::cout << std::endl;
+        }
+        //write
         switch(count++){
             case 0:
-                hostwriter.writePiece('*', 333);
+                hostwriter.writePiece('*', 333);//lock free write
                 break;
             case 1:
                 hostwriter.writePiece('_', 333);
@@ -89,7 +158,12 @@ int main (){
                 count=0;
                 break;
         }
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{999}));
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
+    }
+    } catch (std::exception& e) {
+        std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
+        delete buffer;
+        buffer = nullptr;
     }
     if (buffer!=nullptr)
         delete buffer;
