@@ -95,7 +95,7 @@ namespace SOS {
             MemoryControllerWrite() {}
             virtual ~MemoryControllerWrite(){};
             protected:
-            template<typename T> void write(T WORD);
+            virtual void write(const typename BufferType::value_type WORD)=0;
             //only required for external dependency, has to be called at least once in superclass constructor
             virtual void resize(typename BufferType::difference_type newsize){
                 throw SFA::util::logic_error("Memory Allocation is not allowed",__FILE__,__func__);
@@ -111,7 +111,7 @@ namespace SOS {
                 std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
             }
             protected:
-            void write(const char character) {
+            virtual void write(const typename BufferType::value_type character) {
                 auto pos = std::get<0>(_blocker.cables).getBKPosRef().load();
                 if (pos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
                     *(pos++)=character;

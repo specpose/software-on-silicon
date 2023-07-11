@@ -75,7 +75,7 @@ class WritePriorityImpl : private WritePriority {
         bool blink = true;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
-        char data;
+        MEMORY_CONTROLLER::value_type data;
         if (blink)
             data = '*';
         else

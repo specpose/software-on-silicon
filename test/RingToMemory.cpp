@@ -63,7 +63,8 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     protected:
-    virtual void write(const char character) override {
+    //multiple inheritance: ambiguous override!
+    virtual void write(const MEMORY_CONTROLLER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
         _blocker.signal.getNotifyRef().test_and_set();

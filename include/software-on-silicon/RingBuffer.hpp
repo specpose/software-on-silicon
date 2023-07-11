@@ -33,7 +33,7 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template <typename RingBufferType>class RingBufferTask {
+        template<typename RingBufferType> class RingBufferTask {
             public:
             using cable_type = typename std::tuple_element<0,typename SOS::MemoryView::RingBufferBus<RingBufferType>::cables_type>::type;
             using const_cable_type = typename std::tuple_element<0,typename SOS::MemoryView::RingBufferBus<RingBufferType>::const_cables_type>::type;
@@ -58,7 +58,7 @@ namespace SOS {
                 }
             }
             protected:
-            virtual void write(const char character)=0;
+            virtual void write(const typename RingBufferType::value_type character)=0;
             private:
             cable_type& _item;
             const_cable_type& _bounds;
