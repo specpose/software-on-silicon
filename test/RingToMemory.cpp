@@ -16,9 +16,9 @@
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::array<char,334>
-#define MEMORY_CONTROLLER std::array<char,10000>
-#define READ_BUFFER std::array<char,1000>
+#define RING_BUFFER std::vector<double>
+#define MEMORY_CONTROLLER std::vector<double>
+#define READ_BUFFER std::vector<double>
 
 using namespace SOS;
 
@@ -39,8 +39,16 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill('-');
+        resize(10000);
     }
+    virtual void resize(typename MEMORY_CONTROLLER::difference_type newsize){
+        memorycontroller.reserve(newsize);
+        //for(int i=0;i<newsize;i++)
+        while(memorycontroller.size()<newsize)
+            memorycontroller.push_back(0.0);
+        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
+        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+    };
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
@@ -106,10 +114,16 @@ using namespace std::chrono;
 
 int main (){
     auto hostmemory = RING_BUFFER{};
+    hostmemory.reserve(334);
+    while(hostmemory.size()<334)
+        hostmemory.push_back(0.0);
     auto ringbufferbus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(ringbufferbus);
 
     auto randomread = READ_BUFFER{};
+    randomread.reserve(1000);
+    while(randomread.size()<1000)
+        randomread.push_back(0.0);
     auto readerBus = MemoryView::ReaderBus<READ_BUFFER>(randomread.begin(),randomread.end());
 
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
@@ -119,7 +133,7 @@ int main (){
     readerBus.signal.getUpdatedRef().clear();
     unsigned int count = 0;
     auto loopstart = high_resolution_clock::now();
-    try {
+    //try {
     //3000: read and write are meant to be called from independent controllers
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
@@ -135,23 +149,23 @@ int main (){
         //write
         switch(count++){
             case 0:
-                hostwriter.writePiece('*', 333);//lock free write
+                hostwriter.writePiece(1.0, 333);//lock free write
                 break;
             case 1:
-                hostwriter.writePiece('_', 333);
+                hostwriter.writePiece(0.0, 333);
                 break;
             case 2:
-                hostwriter.writePiece('_', 333);
+                hostwriter.writePiece(0.0, 333);
                 count=0;
                 break;
         }
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
     }
-    } catch (std::exception& e) {
+    /*} catch (std::exception& e) {
         std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
         delete buffer;
         buffer = nullptr;
-    }
+    }*/
     if (buffer!=nullptr)
         delete buffer;
 }

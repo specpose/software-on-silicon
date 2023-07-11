@@ -32,21 +32,20 @@ namespace SOS {
             cables_type cables;
             const_cables_type const_cables;
         };
-        template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            MemoryControllerBufferSize(const ArithmeticType& start, const ArithmeticType& end): SOS::MemoryView::ConstCable<ArithmeticType,2>{start,end} {}
+        template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+            using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
         template<typename MemoryControllerType> struct BlockerBus{
             using signal_type = SOS::MemoryView::Notify;
             using _arithmetic_type = typename MemoryControllerType::iterator;
-            using cables_type = std::tuple< >;
-            using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
-            BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
-            //tuple requires copy constructor for any tuple that isn't default constructed
-            const_cables(
-            std::tuple< MemoryControllerBufferSize<_arithmetic_type> >{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
-            ){}
+            using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
+            using const_cables_type = std::tuple< >;
+            BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
+                std::get<0>(cables).getBKStartRef().store(start);
+                std::get<0>(cables).getBKEndRef().store(start);
+            }
             signal_type signal;
             cables_type cables;
             const_cables_type const_cables;
@@ -57,18 +56,18 @@ namespace SOS {
             public:
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
-            using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
-            //only use cables in Tasks
+            using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
+            //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
                 auto current = _size.getReadBufferStartRef();
                 const auto end = _size.getReadBufferAfterLastRef();
                 const auto readOffset = _offset.getReadOffsetRef().load();
-                if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
+                if (std::distance(_memorycontroller_size.getBKStartRef().load(),_memorycontroller_size.getBKEndRef().load())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-                auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
+                auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
                 while (current!=end){
                     if (!wait()) {
                         *current = *(readerPos++);
@@ -89,7 +88,7 @@ namespace SOS {
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
-            SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+            SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
             {}
             ~Reader(){}
             void event_loop(){
@@ -129,14 +128,14 @@ namespace SOS {
             using SOS::Behavior::MemoryControllerWrite<BufferType>::MemoryControllerWrite;
             protected:
             virtual void write(const typename BufferType::value_type character) {
-                if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
+                if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
                     *(writerPos++)=character;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
                 }
             }
             SOS::MemoryView::BlockerBus<BufferType> _blocker = SOS::MemoryView::BlockerBus<BufferType>(this->memorycontroller.begin(),this->memorycontroller.end());
-            typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
+            typename BufferType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
         };
     }
 }
