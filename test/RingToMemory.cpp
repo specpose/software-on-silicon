@@ -123,8 +123,6 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
 class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
-        unsigned int maxSamplesPerProcess = 334;
-        unsigned int actualProcessSize = 333;
         hostmemory.reserve(334);
         while(hostmemory.size()<334)
             hostmemory.push_back( std::pair(actualProcessSize,std::vector<double>(maxSamplesPerProcess)) );
@@ -170,6 +168,8 @@ class Functor1 {
 
     PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
     unsigned int count = 0;
+    unsigned int maxSamplesPerProcess = 334;
+    unsigned int actualProcessSize = 333;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
 };
