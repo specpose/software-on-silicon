@@ -14,10 +14,10 @@
 #include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include "software-on-silicon/ringbuffer_helpers.hpp"
+#include "software-on-silicon/arafallback_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::vector<double>
+#define RING_BUFFER std::vector<std::pair<unsigned int,std::vector<double>>>
 #define MEMORY_CONTROLLER std::vector<double>
 #define READ_BUFFER std::vector<double>
 
@@ -83,9 +83,10 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     protected:
     //multiple inheritance: ambiguous override!
-    virtual void write(const MEMORY_CONTROLLER::value_type character) final {
+    virtual void write(const RING_BUFFER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
-        WriteTaskImpl::write(character);
+        for(int i=0;i<character.first;i++)
+            WriteTaskImpl::write(character.second[i]);
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
@@ -122,6 +123,11 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
 class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
+        unsigned int maxSamplesPerProcess = 334;
+        unsigned int actualProcessSize = 333;
+        hostmemory.reserve(334);
+        while(hostmemory.size()<334)
+            hostmemory.push_back( std::pair(actualProcessSize,std::vector<double>(maxSamplesPerProcess)) );
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -133,18 +139,20 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
+            auto piece = std::vector<double>(maxSamplesPerProcess);
             switch(count++){
                 case 0:
-                    hostwriter.writePiece('*', 333);//lock free write
+                    std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
                     break;
                 case 1:
-                    hostwriter.writePiece('_', 333);
+                    std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
                     break;
                 case 2:
-                    hostwriter.writePiece('_', 333);
+                    std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
                     count=0;
                     break;
             }
+            hostwriter.write(std::pair(actualProcessSize,piece));//lock free write
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
