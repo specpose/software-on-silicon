@@ -13,10 +13,10 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include "software-on-silicon/ringbuffer_helpers.hpp"
+#include "software-on-silicon/arafallback_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::vector<double>
+#define RING_BUFFER std::vector<std::pair<unsigned int,std::vector<double>>>
 #define MEMORY_CONTROLLER std::vector<double>
 #define READ_BUFFER std::vector<double>
 
@@ -58,9 +58,10 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     protected:
     //multiple inheritance: ambiguous override!
-    virtual void write(const MEMORY_CONTROLLER::value_type character) final {
+    virtual void write(const RING_BUFFER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
-        WriteTaskImpl::write(character);
+        for(int i=0;i<character.first;i++)
+            WriteTaskImpl::write(character.second[i]);
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
@@ -113,10 +114,14 @@ class RingBufferImpl : private TransferPriority {
 using namespace std::chrono;
 
 int main (){
+    unsigned int maxSamplesPerProcess = 334;
+    unsigned int actualProcessSize = 333;
+    int actualSamplePosition = 0;
+
     auto hostmemory = RING_BUFFER{};
     hostmemory.reserve(334);
     while(hostmemory.size()<334)
-        hostmemory.push_back(0.0);
+        hostmemory.push_back( std::pair(actualProcessSize,std::vector<double>(maxSamplesPerProcess)) );
     auto ringbufferbus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(ringbufferbus);
 
@@ -133,7 +138,6 @@ int main (){
     readerBus.signal.getUpdatedRef().clear();
     unsigned int count = 0;
     auto loopstart = high_resolution_clock::now();
-    //try {
     //3000: read and write are meant to be called from independent controllers
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
@@ -147,25 +151,11 @@ int main (){
             std::cout << std::endl;
         }
         //write
-        switch(count++){
-            case 0:
-                hostwriter.writePiece(1.0, 333);//lock free write
-                break;
-            case 1:
-                hostwriter.writePiece(0.0, 333);
-                break;
-            case 2:
-                hostwriter.writePiece(0.0, 333);
-                count=0;
-                break;
-        }
+        auto piece = std::vector<double>(maxSamplesPerProcess);
+        std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
+        hostwriter.write(std::pair(actualProcessSize,piece));//lock free write
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
     }
-    /*} catch (std::exception& e) {
-        std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
-        delete buffer;
-        buffer = nullptr;
-    }*/
     if (buffer!=nullptr)
         delete buffer;
 }
