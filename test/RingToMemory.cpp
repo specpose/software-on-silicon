@@ -17,7 +17,7 @@
 #include "software-on-silicon/arafallback_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::vector<std::pair<unsigned int,std::vector<double>>>
+#define RING_BUFFER std::vector<std::tuple<unsigned int,std::vector<double>, unsigned int>>
 #define MEMORY_CONTROLLER std::vector<double>
 #define READ_BUFFER std::vector<double>
 
@@ -61,12 +61,13 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     private:
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
         resize(10000);
+        //resize(0);
     }
-    virtual void resize(typename MEMORY_CONTROLLER::difference_type newsize){
+    virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
         memorycontroller.reserve(newsize);
         //for(int i=0;i<newsize;i++)
         while(memorycontroller.size()<newsize)
@@ -74,6 +75,16 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
     };
+    //helper function, not inherited
+    void write(const RING_BUFFER::value_type character) {
+        resize(std::get<0>(character)+std::get<2>(character));
+        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
+        std::get<2>(character)+std::get<0>(character))
+            throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
+        writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
+        for(int i=0;i<std::get<0>(character);i++)
+            SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>::write(std::get<1>(character)[i]);
+    }
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
@@ -85,10 +96,9 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
-        for(int i=0;i<character.first;i++)
-            WriteTaskImpl::write(character.second[i]);
+        WriteTaskImpl::write(character);
         _blocker.signal.getNotifyRef().test_and_set();
-        }
+    }
 };
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
@@ -137,20 +147,23 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
-            auto piece = std::vector<double>(maxSamplesPerProcess);
+            //auto piece = std::vector<double>(maxSamplesPerProcess);
             switch(count++){
                 case 0:
-                    std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
+                    //fill(AudioBuffer,actualProcessSize,1.0);
+                    count++;
                     break;
                 case 1:
-                    std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+                    //fill(AudioBuffer,actualProcessSize,0.0);
+                    count++;
                     break;
                 case 2:
-                    std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+                    //fill(AudioBuffer,actualProcessSize,0.0);
                     count=0;
                     break;
             }
-            hostwriter.write(std::pair(actualProcessSize,piece));//lock free write
+            //hostwriter.write(AudioBuffer,actualSamplePosition,actualProcessSize);//lock free write
+            actualSamplePosition += actualProcessSize;
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -172,6 +185,8 @@ class Functor1 {
     unsigned int actualProcessSize = 333;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
+    //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
+    //double AudioBuffer[] = double[maxSamplesPerProcess];
 };
 class Functor2 {
     public:
@@ -206,6 +221,9 @@ class Functor2 {
     int _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
+    /*randomread.reserve(1000);
+    while(randomread.size()<1000)
+        randomread.push_back(0.0);*/
 };
 
 using namespace std::chrono;
