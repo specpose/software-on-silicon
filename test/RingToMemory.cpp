@@ -16,7 +16,7 @@
 #include "software-on-silicon/arafallback_helpers.hpp"
 #include <chrono>
 
-#define RING_BUFFER std::vector<std::pair<unsigned int,std::vector<double>>>
+#define RING_BUFFER std::vector<std::tuple<unsigned int,std::vector<double>, unsigned int>>
 #define MEMORY_CONTROLLER std::vector<double>
 #define READ_BUFFER std::vector<double>
 
@@ -36,12 +36,13 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
     private:
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
         resize(10000);
+        //resize(0);
     }
-    virtual void resize(typename MEMORY_CONTROLLER::difference_type newsize){
+    virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
         memorycontroller.reserve(newsize);
         //for(int i=0;i<newsize;i++)
         while(memorycontroller.size()<newsize)
@@ -49,6 +50,16 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
     };
+    //helper function, not inherited
+    void write(const RING_BUFFER::value_type character) {
+        resize(std::get<0>(character)+std::get<2>(character));
+        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
+        std::get<2>(character)+std::get<0>(character))
+            throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
+        writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
+        for(int i=0;i<std::get<0>(character);i++)
+            SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>::write(std::get<1>(character)[i]);
+    }
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
@@ -60,10 +71,9 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
-        for(int i=0;i<character.first;i++)
-            WriteTaskImpl::write(character.second[i]);
+        WriteTaskImpl::write(character);
         _blocker.signal.getNotifyRef().test_and_set();
-        }
+    }
 };
 //SimpleLoop has only one constructor argument
 //SimpleLoop does not forward passThru
@@ -111,17 +121,25 @@ class RingBufferImpl : private TransferPriority {
     std::thread _thread = std::thread{};
 };
 
+void fill(double* buffer, const unsigned int length, const double value){
+    for (int i=0;i<length;i++)
+        buffer[i]=value;
+};
+
 using namespace std::chrono;
 
 int main (){
     unsigned int maxSamplesPerProcess = 334;
+    auto AudioBuffer = new double[maxSamplesPerProcess];
     unsigned int actualProcessSize = 333;
     int actualSamplePosition = 0;
+    int randomReadOffset=9000;//8500;
 
     auto hostmemory = RING_BUFFER{};
-    hostmemory.reserve(334);
-    while(hostmemory.size()<334)
-        hostmemory.push_back( std::pair(actualProcessSize,std::vector<double>(maxSamplesPerProcess)) );
+    hostmemory.reserve(2);
+    std::cout<<"Hostmemory size "<<hostmemory.size()<<std::endl;
+    while(hostmemory.size()<2)
+        hostmemory.push_back( std::tuple(0,std::vector<double>(maxSamplesPerProcess),0) );
     auto ringbufferbus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
     auto hostwriter = PieceWriter<decltype(hostmemory)>(ringbufferbus);
 
@@ -134,7 +152,7 @@ int main (){
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
     std::cout << "Writer writing 9990 times from start at rate 1/ms..." << std::endl;
     RingBufferImpl* buffer = new RingBufferImpl(ringbufferbus,readerBus);
-    readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
+    readerBus.setOffset(randomReadOffset);//FIFO has to be called before each getUpdatedRef().clear()
     readerBus.signal.getUpdatedRef().clear();
     unsigned int count = 0;
     auto loopstart = high_resolution_clock::now();
@@ -143,7 +161,8 @@ int main (){
         const auto beginning = high_resolution_clock::now();
         //read
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.setOffset(randomReadOffset);//FIFO has to be called before each getUpdatedRef().clear()
+            std::cout<<"Reading offset "<<randomReadOffset<<":"<<std::endl;
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
@@ -151,22 +170,27 @@ int main (){
             std::cout << std::endl;
         }
         //write
-        auto piece = std::vector<double>(maxSamplesPerProcess);
+        //auto piece = std::vector<double>(maxSamplesPerProcess);
         switch (count){
             case 0:
-            std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
+            fill(AudioBuffer,actualProcessSize,1.0);
+            //std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
             count++;
             break;
             case 1:
-            std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+            fill(AudioBuffer,actualProcessSize,0.0);
+            //std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
             count++;
             break;
             case 2:
-            std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+            fill(AudioBuffer,actualProcessSize,0.0);
+            //std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
             count=0;
             break;
         }
-        hostwriter.write(std::pair(actualProcessSize,piece));//lock free write
+        hostwriter.write(AudioBuffer,actualSamplePosition,actualProcessSize);//lock free write
+        std::cout<<"Written samplePosition "<<actualSamplePosition<<" to ringbuffer."<<std::endl;
+        actualSamplePosition += actualProcessSize;
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
     }
     if (buffer!=nullptr)
