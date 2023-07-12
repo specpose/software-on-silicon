@@ -152,7 +152,20 @@ int main (){
         }
         //write
         auto piece = std::vector<double>(maxSamplesPerProcess);
-        std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
+        switch (count){
+            case 0:
+            std::fill(piece.begin(),piece.begin()+actualProcessSize,1.0);
+            count++;
+            break;
+            case 1:
+            std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+            count++;
+            break;
+            case 2:
+            std::fill(piece.begin(),piece.begin()+actualProcessSize,0.0);
+            count=0;
+            break;
+        }
         hostwriter.write(std::pair(actualProcessSize,piece));//lock free write
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
     }
