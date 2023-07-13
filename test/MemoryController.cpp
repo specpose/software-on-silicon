@@ -9,34 +9,6 @@
 
 using namespace SOS::MemoryView;
 
-class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
-                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
-    public:
-    using bus_type = typename SOS::MemoryView::ReaderBus<READ_BUFFER>;
-    Reader(bus_type& outside, BlockerBus<MEMORY_CONTROLLER>& blockerbus) :
-    SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
-    {
-        _thread = start(this);
-    }
-    ~Reader(){
-        stop_requested = true;
-        _thread.join();
-    }
-    void event_loop(){
-        while(!stop_requested){
-            if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-                std::cout << "S";
-                read();//FIFO whole buffer with intermittent waits when write
-                std::cout << "F";
-                _intrinsic.getAcknowledgeRef().clear();
-            }
-        }
-    }
-    private:
-    bool stop_requested = false;
-    std::thread _thread;
-};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -47,21 +19,21 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 //RunLoop does not forward passThru
 class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
-    using subcontroller_type = Reader;
+    using subcontroller_type = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>;
     using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//empty
     WritePriority(
         typename subcontroller_type::bus_type& passThru
-        ) : WriteTaskImpl{}, _child(Reader{passThru,_blocker}) {};
+        ) : WriteTaskImpl{}, _child(subcontroller_type{passThru,_blocker}) {};
     virtual ~WritePriority(){};
     void event_loop(){}
     private:
-    Reader _child;
+    subcontroller_type _child;
 };
 using namespace std::chrono;
 class WritePriorityImpl : private WritePriority {
     public:
     WritePriorityImpl(
-        typename SOS::Behavior::SimpleLoop<Reader>::subcontroller_type::bus_type& passThruHostMem
+        typename SOS::Behavior::SimpleLoop<SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>>::subcontroller_type::bus_type& passThruHostMem
         ) :
         WritePriority{passThruHostMem} {
             _thread = start(this);

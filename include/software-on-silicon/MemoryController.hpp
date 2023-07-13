@@ -1,3 +1,5 @@
+//#include <iostream>
+
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct ReadSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
@@ -60,30 +62,68 @@ namespace SOS {
             public:
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
+            using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
             //not variadic, needs _blocked.signal.getNotifyRef()
-            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,typename SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) : _size(Length),_offset(Offset), _blocked(blockerbus) {}
+            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
                 auto current = _size.getReadBufferStartRef();
                 const auto end = _size.getReadBufferAfterLastRef();
                 const auto readOffset = _offset.getReadOffsetRef().load();
-                if (std::distance(std::get<0>(_blocked.const_cables).getBKStartRef(),std::get<0>(_blocked.const_cables).getBKEndRef())
+                if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-                auto readerPos = std::get<0>(_blocked.const_cables).getBKStartRef()+readOffset;
+                auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
                 while (current!=end){
-                    if (!_blocked.signal.getNotifyRef().test_and_set()) {//intermittent wait when write
-                        _blocked.signal.getNotifyRef().clear();
-                    } else {
+                    if (!wait()) {
                         *current = *(readerPos++);
                         ++current;
                     }
                 }
             }
+            virtual bool wait()=0;
             private:
             reader_length_ct& _size;
             reader_offset_ct& _offset;
-            typename SOS::MemoryView::BlockerBus<MemoryControllerType>& _blocked;
+            memorycontroller_length_ct& _memorycontroller_size;
+        };
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
+                    private SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType> {
+            public:
+            using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
+            Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
+            _blocked_signal(blockerbus.signal),
+            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
+            SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+            {
+                _thread = start(this);
+            }
+            ~Reader(){
+                stop_requested = true;
+                _thread.join();
+            }
+            void event_loop(){
+                while(!stop_requested){
+                    if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+//                        std::cout << "S";
+                        SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>::read();//FIFO whole buffer with intermittent waits when write
+//                        std::cout << "F";
+                        _intrinsic.getAcknowledgeRef().clear();
+                    }
+                }
+            }
+            bool wait() final {
+                if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
+                    _blocked_signal.getNotifyRef().clear();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            private:
+            bool stop_requested = false;
+            std::thread _thread;
+            typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
             public:

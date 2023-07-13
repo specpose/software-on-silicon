@@ -22,34 +22,6 @@
 
 using namespace SOS;
 
-class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
-                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
-    public:
-    using bus_type = typename SOS::MemoryView::ReaderBus<READ_BUFFER>;
-    Reader(bus_type& outside, MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus) :
-    SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),blockerbus)
-    {
-        _thread = start(this);
-    }
-    ~Reader(){
-        stop_requested = true;
-        _thread.join();
-    }
-    void event_loop(){
-        while(!stop_requested){
-            if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-                std::cout << "S";
-                read();//FIFO whole buffer with intermittent waits when write
-                std::cout << "F";
-                _intrinsic.getAcknowledgeRef().clear();
-            }
-        }
-    }
-    private:
-    bool stop_requested = false;
-    std::thread _thread;
-};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -76,7 +48,7 @@ class TransferPriority :
 protected TransferRingToMemory,
 protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     public:
-    using subcontroller_type = Reader;
+    using subcontroller_type = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>;
     using bus_type = typename SOS::Behavior::SimpleLoop<subcontroller_type>::bus_type;//notifier
     TransferPriority(
         MemoryView::RingBufferBus<RING_BUFFER>& rB,
@@ -84,12 +56,12 @@ protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     ) :
     SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(rB.signal),
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
-    _child(Reader{rd,_blocker})
+    _child(subcontroller_type{rd,_blocker})
     {}
     virtual ~TransferPriority(){};
     void event_loop(){}
     private:
-    Reader _child;
+    subcontroller_type _child;
 };
 class RingBufferImpl : private TransferPriority {
     public:
