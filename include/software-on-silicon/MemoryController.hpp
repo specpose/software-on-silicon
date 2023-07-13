@@ -30,11 +30,11 @@ namespace SOS {
             cables_type cables;
             const_cables_type const_cables;
         };
-        template<typename ArithmeticType> struct BlockerCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+        /*template<typename ArithmeticType> struct BlockerCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getBKReaderPosRef(){return std::get<0>(*this);}
             auto& getBKPosRef(){return std::get<1>(*this);}
-        };
+        };*/
         template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
             MemoryControllerBufferSize(const ArithmeticType& start, const ArithmeticType& end): SOS::MemoryView::ConstCable<ArithmeticType,2>{start,end} {}
             auto& getBKStartRef(){return std::get<0>(*this);}
@@ -43,7 +43,7 @@ namespace SOS {
         template<typename MemoryControllerType> struct BlockerBus{
             using signal_type = SOS::MemoryView::Notify;
             using _arithmetic_type = typename MemoryControllerType::iterator;
-            using cables_type = std::tuple< BlockerCable<_arithmetic_type> >;
+            using cables_type = std::tuple< >;
             using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
             //tuple requires copy constructor for any tuple that isn't default constructed
@@ -70,17 +70,12 @@ namespace SOS {
                 if (std::distance(std::get<0>(_blocked.const_cables).getBKStartRef(),std::get<0>(_blocked.const_cables).getBKEndRef())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-                std::get<0>(_blocked.cables).getBKReaderPosRef().store(
-                        std::get<0>(_blocked.const_cables).getBKStartRef()
-                        +readOffset
-                        );
+                auto readerPos = std::get<0>(_blocked.const_cables).getBKStartRef()+readOffset;
                 while (current!=end){
                     if (!_blocked.signal.getNotifyRef().test_and_set()) {//intermittent wait when write
                         _blocked.signal.getNotifyRef().clear();
                     } else {
-                        auto rP = std::get<0>(_blocked.cables).getBKReaderPosRef().load();
-                        *current = *rP;
-                        std::get<0>(_blocked.cables).getBKReaderPosRef().store(++rP);
+                        *current = *(readerPos++);
                         ++current;
                     }
                 }
@@ -105,22 +100,22 @@ namespace SOS {
         };
         template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
             public:
-            WriteTask() :
-            SOS::Behavior::MemoryControllerWrite<BufferType>{} {
-                std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
-                std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
-            }
+            using SOS::Behavior::MemoryControllerWrite<BufferType>::MemoryControllerWrite;
+            //WriteTask() :
+            //SOS::Behavior::MemoryControllerWrite<BufferType>{} {
+                //std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
+                //std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
+            //}
             protected:
             virtual void write(const typename BufferType::value_type character) {
-                auto pos = std::get<0>(_blocker.cables).getBKPosRef().load();
-                if (pos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
-                    *(pos++)=character;
-                    std::get<0>(_blocker.cables).getBKPosRef().store(pos);
+                if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
+                    *(writerPos++)=character;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
                 }
             }
             SOS::MemoryView::BlockerBus<BufferType> _blocker = SOS::MemoryView::BlockerBus<BufferType>(this->memorycontroller.begin(),this->memorycontroller.end());
+            typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
         };
     }
 }
