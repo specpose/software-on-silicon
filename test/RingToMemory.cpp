@@ -23,8 +23,45 @@
 
 using namespace SOS;
 
-class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
-                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+
+template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::const_cables_type>::type;
+    using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
+    using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
+    //not variadic, needs _blocked.signal.getNotifyRef()
+    ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
+    protected:
+    void read(){
+        //readbuffer
+        const auto start = _size.getReadBufferStartRef();
+        auto current = start;
+        const auto end = _size.getReadBufferAfterLastRef();
+        //memorycontroller
+        const auto readOffset = _offset.getReadOffsetRef().load();
+        const auto readerStart = _memorycontroller_size.getBKStartRef().load();
+        const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
+        auto readerPos = readerStart+readOffset;
+        std::cout<<"MemoryController size is "<<std::distance(readerStart,readerEnd)<<", distance of offset to end is "<<std::distance(readerPos,readerEnd)<<std::endl;
+        while (current!=end){
+            if (!wait()) {
+                //if the distance of the lval from its start is bigger than
+                //the (the rval offset to rval end)
+                if (std::distance(start,current)>=std::distance(readerStart+readOffset,readerEnd))
+                    *current = 0.0;
+                else
+                    *current = *(readerPos++);
+                ++current;
+            }
+        }
+    }
+    virtual bool wait()=0;
+    private:
+    reader_length_ct& _size;
+    reader_offset_ct& _offset;
+    memorycontroller_length_ct& _memorycontroller_size;
+};
+class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
@@ -50,7 +87,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
             _intrinsic.getAcknowledgeRef().clear();
         }
     }
-    bool wait() final {
+    virtual bool wait() final {
         if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
             _blocked_signal.getNotifyRef().clear();
             return true;
@@ -64,8 +101,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
-        resize(10000);
-        //resize(0);
+        //resize(10000);
+        resize(0);
     }
     virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
         memorycontroller.reserve(newsize);
@@ -133,9 +170,9 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
 class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
-        hostmemory.reserve(334);
-        while(hostmemory.size()<334)
-            hostmemory.push_back( std::pair(actualProcessSize,std::vector<double>(maxSamplesPerProcess)) );
+        hostmemory.reserve(2);
+        while(hostmemory.size()<2)
+            hostmemory.push_back( std::tuple(0,std::vector<double>(maxSamplesPerProcess),0) );
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -183,10 +220,12 @@ class Functor1 {
     unsigned int count = 0;
     unsigned int maxSamplesPerProcess = 334;
     unsigned int actualProcessSize = 333;
+    int actualSamplePosition = 0;
+    int randomReadOffset=9990-667;//8500;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
     //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
-    //double AudioBuffer[] = double[maxSamplesPerProcess];
+    //auto AudioBuffer = new double[maxSamplesPerProcess];
 };
 class Functor2 {
     public:
