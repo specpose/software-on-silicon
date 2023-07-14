@@ -29,6 +29,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         this->memorycontroller.fill('-');
     }
 };
+using namespace std::chrono;
 //RunLoop does not have a constructor argument
 //RunLoop does not forward passThru
 class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
@@ -39,23 +40,6 @@ class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
         typename subcontroller_type::bus_type& passThru
         ) : WriteTaskImpl{}, _child(subcontroller_type{passThru,_blocker}) {};
     virtual ~WritePriority(){};
-    void event_loop(){}
-    private:
-    subcontroller_type _child;
-};
-using namespace std::chrono;
-class WritePriorityImpl : private WritePriority {
-    public:
-    WritePriorityImpl(
-        typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
-        ) :
-        WritePriority{passThruHostMem} {
-            _thread = start(this);
-        };
-    virtual ~WritePriorityImpl(){
-        stop_requested = true;
-        _thread.join();
-    };
     void event_loop(){
         int counter = 0;
         bool blink = true;
@@ -79,9 +63,25 @@ class WritePriorityImpl : private WritePriority {
         }
         std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
+    }
+    protected:
+    bool stop_requested = false;
+    private:
+    subcontroller_type _child;
+};
+class WritePriorityImpl : public WritePriority {
+    public:
+    WritePriorityImpl(
+        typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
+        ) :
+        WritePriority{passThruHostMem} {
+            _thread = start(this);
+        };
+    virtual ~WritePriorityImpl(){
+        stop_requested = true;
+        _thread.join();
     };
     private:
-    bool stop_requested = false;
     std::thread _thread;
 };
 

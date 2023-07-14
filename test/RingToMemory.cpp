@@ -73,11 +73,19 @@ protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     _child(subcontroller_type{rd,_blocker})
     {}
     virtual ~TransferPriority(){};
-    void event_loop(){}
+    void event_loop(){
+        while(!stop_requested){
+            if(!_intrinsic.getNotifyRef().test_and_set()){
+                RingBufferTask::read_loop();
+            }
+        }
+    }
+    protected:
+    bool stop_requested = false;
     private:
     subcontroller_type _child;
 };
-class RingBufferImpl : private TransferPriority {
+class RingBufferImpl : public TransferPriority {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
     TransferPriority(rB,rd)
@@ -88,15 +96,7 @@ class RingBufferImpl : private TransferPriority {
         stop_requested=true;
         _thread.join();
     }
-    void event_loop(){
-        while(!stop_requested){
-            if(!_intrinsic.getNotifyRef().test_and_set()){
-                RingBufferTask::read_loop();
-            }
-        }
-    }
     private:
-    bool stop_requested = false;
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
