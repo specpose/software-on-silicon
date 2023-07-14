@@ -17,6 +17,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     protected:
     virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character;}
 };
+//not a specialisation: there can be more than one SimpleLoop<SubController>
 class RingBufferImpl : private SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>, public RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :

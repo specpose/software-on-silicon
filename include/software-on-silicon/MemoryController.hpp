@@ -32,11 +32,6 @@ namespace SOS {
             cables_type cables;
             const_cables_type const_cables;
         };
-        /*template<typename ArithmeticType> struct BlockerCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
-            using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            auto& getBKReaderPosRef(){return std::get<0>(*this);}
-            auto& getBKPosRef(){return std::get<1>(*this);}
-        };*/
         template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
             MemoryControllerBufferSize(const ArithmeticType& start, const ArithmeticType& end): SOS::MemoryView::ConstCable<ArithmeticType,2>{start,end} {}
             auto& getBKStartRef(){return std::get<0>(*this);}
@@ -63,7 +58,7 @@ namespace SOS {
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
-            //not variadic, needs _blocked.signal.getNotifyRef()
+            //only use cables in Tasks
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
@@ -131,21 +126,12 @@ namespace SOS {
             virtual ~MemoryControllerWrite(){};
             protected:
             virtual void write(const typename BufferType::value_type WORD)=0;
-            //only required for external dependency, has to be called at least once in superclass constructor
-            virtual void resize(typename BufferType::difference_type newsize){
-                throw SFA::util::logic_error("Memory Allocation is not allowed",__FILE__,__func__);
-            };
             protected:
             BufferType memorycontroller = BufferType{};
         };
         template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
             public:
             using SOS::Behavior::MemoryControllerWrite<BufferType>::MemoryControllerWrite;
-            //WriteTask() :
-            //SOS::Behavior::MemoryControllerWrite<BufferType>{} {
-                //std::get<0>(_blocker.cables).getBKPosRef().store(std::get<0>(_blocker.const_cables).getBKStartRef());
-                //std::get<0>(_blocker.cables).getBKReaderPosRef().store(std::get<0>(_blocker.const_cables).getBKEndRef());
-            //}
             protected:
             virtual void write(const typename BufferType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
