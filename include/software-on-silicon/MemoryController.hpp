@@ -90,13 +90,8 @@ namespace SOS {
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
             SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
-            {
-                _thread = start(this);
-            }
-            ~Reader(){
-                stop_requested = true;
-                _thread.join();
-            }
+            {}
+            ~Reader(){}
             void event_loop(){
                 while(!stop_requested){
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
@@ -115,9 +110,9 @@ namespace SOS {
                     return false;
                 }
             }
-            private:
+            protected:
             bool stop_requested = false;
-            std::thread _thread;
+            private:
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {

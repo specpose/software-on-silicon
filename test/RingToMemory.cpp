@@ -22,6 +22,20 @@
 
 using namespace SOS;
 
+class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus)
+    {
+        _thread = start(this);
+    }
+    ~ReaderImpl(){
+        stop_requested = true;
+        _thread.join();
+    }
+    private:
+    std::thread _thread;
+};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -48,7 +62,7 @@ class TransferPriority :
 protected TransferRingToMemory,
 protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     public:
-    using subcontroller_type = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>;
+    using subcontroller_type = ReaderImpl;
     using bus_type = typename SOS::Behavior::SimpleLoop<subcontroller_type>::bus_type;//notifier
     TransferPriority(
         MemoryView::RingBufferBus<RING_BUFFER>& rB,

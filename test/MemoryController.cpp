@@ -9,6 +9,20 @@
 
 using namespace SOS::MemoryView;
 
+class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus)
+    {
+        _thread = start(this);
+    }
+    ~ReaderImpl(){
+        stop_requested = true;
+        _thread.join();
+    }
+    private:
+    std::thread _thread;
+};
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
@@ -19,7 +33,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 //RunLoop does not forward passThru
 class WritePriority : protected WriteTaskImpl, public SOS::Behavior::Loop {
     public:
-    using subcontroller_type = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>;
+    using subcontroller_type = ReaderImpl;
     using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//empty
     WritePriority(
         typename subcontroller_type::bus_type& passThru
@@ -33,7 +47,7 @@ using namespace std::chrono;
 class WritePriorityImpl : private WritePriority {
     public:
     WritePriorityImpl(
-        typename SOS::Behavior::SimpleLoop<SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>>::subcontroller_type::bus_type& passThruHostMem
+        typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
         ) :
         WritePriority{passThruHostMem} {
             _thread = start(this);
