@@ -58,9 +58,10 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
 };
 //SimpleLoop has only one constructor argument
 //SimpleLoop does not forward passThru
+//TransferPriority needs the _intrinsic
 class TransferPriority :
 protected TransferRingToMemory,
-protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
+protected SOS::Behavior::Loop {
     public:
     using subcontroller_type = ReaderImpl;
     using bus_type = typename SOS::Behavior::SimpleLoop<subcontroller_type>::bus_type;//notifier
@@ -68,7 +69,7 @@ protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
         MemoryView::RingBufferBus<RING_BUFFER>& rB,
         MemoryView::ReaderBus<READ_BUFFER>& rd
     ) :
-    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(rB.signal),
+    _intrinsic(rB.signal),
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     _child(subcontroller_type{rd,_blocker})
     {}
@@ -83,6 +84,7 @@ protected SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
     protected:
     bool stop_requested = false;
     private:
+    bus_type::signal_type& _intrinsic;
     subcontroller_type _child;
 };
 class RingBufferImpl : public TransferPriority {
