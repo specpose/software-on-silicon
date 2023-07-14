@@ -22,6 +22,44 @@
 
 using namespace SOS;
 
+
+template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::const_cables_type>::type;
+    using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
+    using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
+    //not variadic, needs _blocked.signal.getNotifyRef()
+    ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
+    protected:
+    void read(){
+        //readbuffer
+        const auto start = _size.getReadBufferStartRef();
+        auto current = start;
+        const auto end = _size.getReadBufferAfterLastRef();
+        //memorycontroller
+        const auto readOffset = _offset.getReadOffsetRef().load();
+        const auto readerStart = _memorycontroller_size.getBKStartRef().load();
+        const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
+        auto readerPos = readerStart+readOffset;
+        std::cout<<"MemoryController size is "<<std::distance(readerStart,readerEnd)<<", distance of offset to end is "<<std::distance(readerPos,readerEnd)<<std::endl;
+        while (current!=end){
+            if (!wait()) {
+                //if the distance of the lval from its start is bigger than
+                //the (the rval offset to rval end)
+                if (std::distance(start,current)>=std::distance(readerStart+readOffset,readerEnd))
+                    *current = 0.0;
+                else
+                    *current = *(readerPos++);
+                ++current;
+            }
+        }
+    }
+    virtual bool wait()=0;
+    private:
+    reader_length_ct& _size;
+    reader_offset_ct& _offset;
+    memorycontroller_length_ct& _memorycontroller_size;
+};
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
@@ -39,8 +77,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
 class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
-        resize(10000);
-        //resize(0);
+        //resize(10000);
+        resize(0);
     }
     virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
         memorycontroller.reserve(newsize);
@@ -133,7 +171,7 @@ int main (){
     auto AudioBuffer = new double[maxSamplesPerProcess];
     unsigned int actualProcessSize = 333;
     int actualSamplePosition = 0;
-    int randomReadOffset=9000;//8500;
+    int randomReadOffset=9990-667;//8500;
 
     auto hostmemory = RING_BUFFER{};
     hostmemory.reserve(2);
