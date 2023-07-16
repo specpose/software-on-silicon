@@ -63,5 +63,6 @@ namespace SOS {
             cable_type& _item;
             const_cable_type& _bounds;
         };
+        //There is no RingBufferLoop because the caller feeds its own memory which is then processed by the RingBufferTask
     }
 }

@@ -92,14 +92,13 @@ namespace SOS {
             SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
             {}
             ~Reader(){}
-            void event_loop(){
-                while(!stop_requested){
-                    if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+            virtual void event_loop(){};
+            void fifo_loop() {
+                if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
 //                        std::cout << "S";
-                        SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>::read();//FIFO whole buffer with intermittent waits when write
+                    SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>::read();//FIFO whole buffer with intermittent waits when write
 //                        std::cout << "F";
-                        _intrinsic.getAcknowledgeRef().clear();
-                    }
+                    _intrinsic.getAcknowledgeRef().clear();
                 }
             }
             bool wait() final {

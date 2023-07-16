@@ -20,6 +20,12 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
         stop_requested = true;
         _thread.join();
     }
+    void event_loop() {
+        while(!stop_requested){
+            SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::fifo_loop();
+            std::this_thread::yield();
+        }
+    }
     private:
     std::thread _thread;
 };
