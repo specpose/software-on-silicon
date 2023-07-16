@@ -2,8 +2,8 @@
 
 namespace SOS {
     namespace MemoryView {
-        template<typename ArithmeticType> struct ReadSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            ReadSize(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
+        template<typename ArithmeticType> struct ReadSize : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+            using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
             auto& getReadBufferStartRef(){return std::get<0>(*this);}
             auto& getReadBufferAfterLastRef(){return std::get<1>(*this);}
         };
@@ -14,20 +14,19 @@ namespace SOS {
         template<typename OutputBuffer> struct ReaderBus : public SOS::MemoryView::BusShaker {
             using _pointer_type = typename OutputBuffer::iterator;
             using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< ReadOffset<_difference_type> >;
-            using const_cables_type = std::tuple< ReadSize<_pointer_type> >;
-            ReaderBus(const _pointer_type begin, const _pointer_type end)
-            : const_cables(
-                std::tuple< ReadSize<_pointer_type> >{ReadSize<_pointer_type>(begin,end)}
-                )
+            using cables_type = std::tuple< ReadOffset<_difference_type>,ReadSize<_pointer_type> >;
+            using const_cables_type = std::tuple< >;
+            ReaderBus()
             {
-                if (std::distance(begin,end)<0)
-                    throw SFA::util::runtime_error("Invalid Read Destination",__FILE__,__func__);
                 setOffset(0);
             }
             //FIFO requires BusShaker
             void setOffset(_difference_type offset){
                 std::get<0>(cables).getReadOffsetRef().store(offset);
+            }
+            void setReadBuffer(OutputBuffer& buffer){
+                std::get<1>(cables).getReadBufferStartRef().store(buffer.begin());
+                std::get<1>(cables).getReadBufferAfterLastRef().store(buffer.end());
             }
             cables_type cables;
             const_cables_type const_cables;
@@ -82,15 +81,15 @@ namespace SOS {
         };
         template<typename ReadBufferType, typename MemoryControllerType> class ReadTask {
             public:
-            using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
+            using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
-                auto current = _size.getReadBufferStartRef();
-                const auto end = _size.getReadBufferAfterLastRef();
+                auto current = _size.getReadBufferStartRef().load();
+                const auto end = _size.getReadBufferAfterLastRef().load();
                 const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);

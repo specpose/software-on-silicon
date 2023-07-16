@@ -26,7 +26,7 @@ using namespace SOS;
 
 template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::const_cables_type>::type;
+    using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
     using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
     using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
     //not variadic, needs _blocked.signal.getNotifyRef()
@@ -34,9 +34,9 @@ template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     protected:
     void read(){
         //readbuffer
-        const auto start = _size.getReadBufferStartRef();
+        const auto start = _size.getReadBufferStartRef().load();
         auto current = start;
-        const auto end = _size.getReadBufferAfterLastRef();
+        const auto end = _size.getReadBufferAfterLastRef().load();
         //memorycontroller
         const auto readOffset = _offset.getReadOffsetRef().load();
         const auto readerStart = _memorycontroller_size.getBKStartRef().load();
