@@ -82,36 +82,16 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController>,
-                    private SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType> {
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal),
-            SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
-            {}
+            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal){}
             ~Reader(){}
             virtual void event_loop(){};
-            void fifo_loop() {
-                if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-//                        std::cout << "S";
-                    SOS::Behavior::ReadTask<ReadBufferType,MemoryControllerType>::read();//FIFO whole buffer with intermittent waits when write
-//                        std::cout << "F";
-                    _intrinsic.getAcknowledgeRef().clear();
-                }
-            }
-            bool wait() final {
-                if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
-                    _blocked_signal.getNotifyRef().clear();
-                    return true;
-                } else {
-                    return false;
-                }
-            }
             protected:
             bool stop_requested = false;
-            private:
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {

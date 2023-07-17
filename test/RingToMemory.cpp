@@ -22,10 +22,12 @@
 
 using namespace SOS;
 
-class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus)
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         _thread = start(this);
     }
@@ -35,8 +37,24 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
     }
     void event_loop() {
         while(!stop_requested){
-            SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::fifo_loop();
+            fifo_loop();
             std::this_thread::yield();
+        }
+    }
+    void fifo_loop() {
+        if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+//                        std::cout << "S";
+            SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>::read();//FIFO whole buffer with intermittent waits when write
+//                        std::cout << "F";
+            _intrinsic.getAcknowledgeRef().clear();
+        }
+    }
+    bool wait() final {
+        if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
+            _blocked_signal.getNotifyRef().clear();
+            return true;
+        } else {
+            return false;
         }
     }
     private:
