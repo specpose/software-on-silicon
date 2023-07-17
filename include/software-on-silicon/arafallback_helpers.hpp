@@ -1,9 +1,7 @@
-#include <iostream>
-
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}
-    void write(double* buffer, const unsigned int position, const unsigned int length){
+    void write(SAMPLE_SIZE* buffer, const unsigned int position, const unsigned int length){
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();

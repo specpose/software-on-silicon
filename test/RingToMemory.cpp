@@ -14,15 +14,17 @@
 #include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include "software-on-silicon/arafallback_helpers.hpp"
 #include <chrono>
-
-#define RING_BUFFER std::vector<std::tuple<unsigned int,std::vector<double>, unsigned int>>
-#define MEMORY_CONTROLLER std::vector<double>
-#define READ_BUFFER std::vector<double>
 
 using namespace SOS;
 
+#include <iostream>
+namespace SOSFloat {
+using SAMPLE_SIZE = float;
+#include "software-on-silicon/arafallback_helpers.hpp"
+using RING_BUFFER = std::vector<std::tuple<unsigned int,std::vector<SAMPLE_SIZE>, unsigned int>>;
+using MEMORY_CONTROLLER = std::vector<SAMPLE_SIZE>;
+using READ_BUFFER = std::vector<SAMPLE_SIZE>;
 
 template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
@@ -172,7 +174,7 @@ class Functor1 {
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
         hostmemory.reserve(2);
         while(hostmemory.size()<2)
-            hostmemory.push_back( std::tuple(0,std::vector<double>(maxSamplesPerProcess),0) );
+            hostmemory.push_back( std::tuple(ringBufferSize,std::vector<double>(maxSamplesPerProcess),0) );
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -225,7 +227,7 @@ class Functor1 {
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
     //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
-    //auto AudioBuffer = new double[maxSamplesPerProcess];
+    //auto AudioBuffer = new SOSFloat::SAMPLE_SIZE[maxSamplesPerProcess];
 };
 class Functor2 {
     public:
