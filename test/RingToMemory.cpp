@@ -124,6 +124,11 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_
         for(int i=0;i<std::get<0>(character);i++)
             SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>::write(std::get<1>(character)[i]);
     }
+    //not inherited
+    void clearMemoryController() {
+        memorycontroller.clear();
+        memorycontroller.resize(0);
+    }
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
