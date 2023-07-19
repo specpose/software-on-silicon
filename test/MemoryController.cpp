@@ -58,9 +58,9 @@ using namespace std::chrono;
 class WritePriority : protected WriteTaskImpl {
     public:
     using subcontroller_type = ReaderImpl;
-    using bus_type = typename subcontroller_type::bus_type;//handshake
+    using bus_type = WriteTaskImpl::bus_type;
     WritePriority(
-        bus_type& passThru
+        subcontroller_type::bus_type& passThru
         ) : WriteTaskImpl{}, _child(subcontroller_type{passThru,_blocker}) {};
     virtual ~WritePriority(){};
     protected:
@@ -68,13 +68,11 @@ class WritePriority : protected WriteTaskImpl {
     private:
     subcontroller_type _child;
 };
-//RunLoop does not have a constructor argument
-//RunLoop does not forward passThru
-class WritePriorityImpl : public WritePriority, public SOS::Behavior::Loop {
+class WritePriorityImpl : public WritePriority, public SOS::Behavior::RunLoop<> {
     public:
-    using bus_type = typename SOS::Behavior::RunLoop<subcontroller_type>::bus_type;//empty
+    using subcontroller_type = WritePriority::subcontroller_type;//bus_type is handshake
     WritePriorityImpl(
-        typename SOS::Behavior::SimpleLoop<ReaderImpl>::subcontroller_type::bus_type& passThruHostMem
+        subcontroller_type::bus_type& passThruHostMem
         ) :
         WritePriority{passThruHostMem} {
             _thread = start(this);

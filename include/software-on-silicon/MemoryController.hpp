@@ -82,12 +82,12 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<SOS::Behavior::SubController> {
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::EventLoop<SOS::Behavior::SubController>(outside.signal){}
+            SOS::Behavior::EventLoop<>(outside.signal){}
             ~Reader(){}
             virtual void event_loop(){};
             protected:
@@ -105,6 +105,7 @@ namespace SOS {
         };
         template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
             public:
+            using bus_type = SOS::MemoryView::BlockerBus<BufferType>;//not a controller: bus_type is for superclass
             using SOS::Behavior::MemoryControllerWrite<BufferType>::MemoryControllerWrite;
             protected:
             virtual void write(const typename BufferType::value_type character) {
@@ -114,7 +115,7 @@ namespace SOS {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
                 }
             }
-            SOS::MemoryView::BlockerBus<BufferType> _blocker = SOS::MemoryView::BlockerBus<BufferType>(this->memorycontroller.begin(),this->memorycontroller.end());
+            bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
         };
     }

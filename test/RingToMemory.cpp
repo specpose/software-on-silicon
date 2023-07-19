@@ -84,10 +84,10 @@ class TransferPriority :
 protected TransferRingToMemory {
     public:
     using subcontroller_type = ReaderImpl;
-    using bus_type = typename subcontroller_type::bus_type;//handshake
+    using bus_type = MemoryView::RingBufferBus<RING_BUFFER>;//multiple buses: non-subcontroller bus_type is notifier
     TransferPriority(
-        MemoryView::RingBufferBus<RING_BUFFER>& rB,
-        MemoryView::ReaderBus<READ_BUFFER>& rd
+        bus_type& rB,
+        subcontroller_type::bus_type& rd
     ) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     _child(subcontroller_type{rd,_blocker})
@@ -100,11 +100,10 @@ protected TransferRingToMemory {
 };
 //SimpleLoop has only one constructor argument
 //SimpleLoop does not forward passThru
-class RingBufferImpl : public TransferPriority, protected SOS::Behavior::Loop {
+class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleLoop<> {
     public:
-    using bus_type = typename SOS::Behavior::SimpleLoop<subcontroller_type>::bus_type;//notifier
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
-    _intrinsic(rB.signal),
+    SOS::Behavior::SimpleLoop<>(rB.signal),
     TransferPriority(rB,rd)
     {
         _thread = start(this);
@@ -120,8 +119,6 @@ class RingBufferImpl : public TransferPriority, protected SOS::Behavior::Loop {
             }
         }
     }
-    private:
-    bus_type::signal_type& _intrinsic;
 
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is

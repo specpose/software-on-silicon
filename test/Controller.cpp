@@ -5,14 +5,14 @@
 using namespace SOS::MemoryView;
 using namespace std::chrono;
 
-class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubController> {
+class SubControllerImpl : public SOS::Behavior::SimpleLoop<> {
     public:
-    DummySubController(BusNotifier& bus) :
-    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bus.signal) {
+    SubControllerImpl(BusNotifier& bus) :
+    SOS::Behavior::SimpleLoop<>(bus.signal) {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
     }
-    ~DummySubController() final {
+    ~SubControllerImpl() final {
         _thread.join();
         std::cout<<"SubController has ended normally."<<std::endl;
     }
@@ -39,9 +39,9 @@ class DummySubController : public SOS::Behavior::SimpleLoop<SOS::Behavior::SubCo
     std::thread _thread = std::thread{};
 };
 
-class ControllerImpl : public SOS::Behavior::RunLoop<DummySubController> {
+class ControllerImpl : public SOS::Behavior::RunLoop<SubControllerImpl> {
     public:
-    ControllerImpl() : SOS::Behavior::RunLoop<DummySubController>() {
+    ControllerImpl() : SOS::Behavior::RunLoop<SubControllerImpl>() {
         _thread=start(this);
     }
     ~ControllerImpl() final {

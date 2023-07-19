@@ -1,3 +1,4 @@
+#include <array>
 #include <atomic>
 #include <thread>
 #include <functional>
@@ -68,15 +69,20 @@ namespace SOS{
         class Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
-            virtual ~Loop()=0;
+            virtual ~Loop(){};
             virtual void event_loop()=0;
             protected:
             template<typename C> static std::thread start(C* startme){
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
-        Loop::~Loop(){}
-        template<typename S> class RunLoop : public Loop {
+        class DummyController {};
+        class SubController {
+            public:
+            using bus_type = SOS::MemoryView::Bus;
+            SubController(bus_type& bus){}
+        };
+        template<typename S=DummyController> class RunLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::Bus;
             using subcontroller_type = S;
@@ -87,12 +93,13 @@ namespace SOS{
             private:
             S _child;
         };
-        class SubController {
+        template<> class RunLoop<DummyController> : public Loop {
             public:
-            using bus_type = SOS::MemoryView::Bus;
-            SubController(bus_type& bus){}
+            using subcontroller_type = DummyController;
+            RunLoop() {}
+            virtual ~RunLoop() override {};
         };
-        template<typename S> class SimpleLoop : public Loop {
+        template<typename S=DummyController> class SimpleLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = S;
@@ -104,7 +111,16 @@ namespace SOS{
             private:
             S _child;
         };
-        template<typename S> class EventLoop : public Loop {
+        template<> class SimpleLoop<DummyController> : public Loop {
+            public:
+            using bus_type = SOS::MemoryView::BusNotifier;
+            using subcontroller_type = DummyController;
+            SimpleLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
+            virtual ~SimpleLoop() override {};
+            protected:
+            bus_type::signal_type& _intrinsic;
+        };
+        template<typename S=DummyController> class EventLoop : public Loop {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = S;
@@ -115,6 +131,15 @@ namespace SOS{
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:
             S _child;
+        };
+        template<> class EventLoop<DummyController> : public Loop {
+            public:
+            using bus_type = SOS::MemoryView::BusShaker;
+            using subcontroller_type = DummyController;
+            EventLoop(bus_type::signal_type& ground) : _intrinsic(ground) {}
+            virtual ~EventLoop() override {};
+            protected:
+            bus_type::signal_type& _intrinsic;
         };
     }
 }

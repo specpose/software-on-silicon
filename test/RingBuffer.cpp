@@ -17,11 +17,11 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     protected:
     virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character;}
 };
-//not a specialisation: there can be more than one SimpleLoop<SubController>
-class RingBufferImpl : private SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>, public RingBufferTaskImpl {
+//not a specialisation: there can be more than one SimpleLoop<DummyController>
+class RingBufferImpl : private SOS::Behavior::SimpleLoop<>, public RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::SimpleLoop<SOS::Behavior::SubController>(bus.signal),
+    SOS::Behavior::SimpleLoop<>(bus.signal),
     RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
