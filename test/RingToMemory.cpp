@@ -81,7 +81,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
-class TransferPriority :
+/*class TransferPriority :
 protected TransferRingToMemory, private PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     TransferPriority(
@@ -92,21 +92,22 @@ protected TransferRingToMemory, private PassthruThread<ReaderImpl, SOS::MemoryVi
     PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,rd)
     {}
     virtual ~TransferPriority(){};
-};
-class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleController<SOS::Behavior::DummyController> {
+};*/
+class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
-    SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(rB.signal),
-    TransferPriority(rB,rd)
+    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
+    //TransferPriority(rB,rd)
     {
         //multiple inheritance: ambiguous base-class call
-        _thread = SOS::Behavior::SimpleController<SOS::Behavior::DummyController>::start(this);
+        _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     ~RingBufferImpl() final{
         stop_requested=true;
         _thread.join();
     }
-    //error: Overriding PassthruThread
+    //Overriding PassthruSimpleController
     void event_loop(){
         while(!stop_requested){
             if(!_intrinsic.getNotifyRef().test_and_set()){

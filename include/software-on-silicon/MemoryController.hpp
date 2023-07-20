@@ -53,28 +53,28 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename S> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
+        template<typename S, typename... Others> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
-            PassthruSimpleController(SOS::MemoryView::Notify& signal, typename subcontroller_type::bus_type& passThru) :
+            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;//mix-in: could also be local type
+            PassthruSimpleController(typename bus_type::signal_type& signal, typename subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::Notify,S>(signal),
             _foreign(passThru),
-            _child(subcontroller_type{_foreign})
+            _child(subcontroller_type{_foreign, args...})//_foreign contains BlockerBus, args.. contains ReaderBus
             {}
             protected:
             typename subcontroller_type::bus_type& _foreign;
             private:
             S _child;
         };
-        template<typename S> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
+        template<typename S, typename... Others> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
-            PassthruEventController(SOS::MemoryView::HandShake& signal, typename subcontroller_type::bus_type& passThru) :
+            PassthruEventController(typename bus_type::signal_type& signal, typename subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::HandShake,S>(signal),
             _foreign(passThru),
-            _child(subcontroller_type{_foreign})
+            _child(subcontroller_type{_foreign, args...})
             {}
             protected:
             typename subcontroller_type::bus_type& _foreign;
