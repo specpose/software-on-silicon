@@ -81,7 +81,8 @@ namespace SOS{
             signal_type& _intrinsic;
         };
         class DummyController {};
-        //Never use directly, only use in interface
+        //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
+        //A Blink doesnt need a Bus
         template<typename LoopSignalType, typename S=DummyController> class Controller : public Loop<LoopSignalType> {
             public:
             using subcontroller_type = S;
@@ -90,11 +91,11 @@ namespace SOS{
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or must be undefined
         template<typename S, typename... Others> class SimpleController : public Controller<SOS::MemoryView::Notify, S> {
             public:
-            using bus_type = SOS::MemoryView::BusNotifier;
+            using bus_type = SOS::MemoryView::BusNotifier;//contains 1st UpstreamBusType
             using subcontroller_type = typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type;
-            SimpleController(SOS::MemoryView::Notify& signal) :
+            SimpleController(typename bus_type::signal_type& signal) :
             Controller<SOS::MemoryView::Notify, S>(signal),
-            _child(subcontroller_type{_foreign})
+            _child(subcontroller_type{_foreign})//_foreign contains LocalBusType
             {}
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
@@ -105,7 +106,7 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = DummyController;
-            SimpleController(SOS::MemoryView::Notify& signal) :
+            SimpleController(typename bus_type::signal_type& signal) :
             Controller<SOS::MemoryView::Notify, DummyController>(signal)
             {}
         };
@@ -113,7 +114,7 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type;
-            EventController(SOS::MemoryView::HandShake& signal) :
+            EventController(typename bus_type::signal_type& signal) :
             Controller<SOS::MemoryView::HandShake, S>(signal),
             _child(subcontroller_type{_foreign})
             {}
@@ -126,7 +127,7 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = DummyController;
-            EventController(SOS::MemoryView::HandShake& signal) :
+            EventController(typename bus_type::signal_type& signal) :
             Controller<SOS::MemoryView::HandShake, DummyController>(signal)
             {}
         };

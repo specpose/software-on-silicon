@@ -53,6 +53,34 @@ namespace SOS {
         };
     }
     namespace Behavior {
+        template<typename S> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
+            public:
+            using bus_type = SOS::MemoryView::BusNotifier;
+            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
+            PassthruSimpleController(SOS::MemoryView::Notify& signal, typename subcontroller_type::bus_type& passThru) :
+            Controller<SOS::MemoryView::Notify,S>(signal),
+            _foreign(passThru),
+            _child(subcontroller_type{_foreign})
+            {}
+            protected:
+            typename subcontroller_type::bus_type& _foreign;
+            private:
+            S _child;
+        };
+        template<typename S> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
+            public:
+            using bus_type = SOS::MemoryView::BusShaker;
+            using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
+            PassthruEventController(SOS::MemoryView::HandShake& signal, typename subcontroller_type::bus_type& passThru) :
+            Controller<SOS::MemoryView::HandShake,S>(signal),
+            _foreign(passThru),
+            _child(subcontroller_type{_foreign})
+            {}
+            protected:
+            typename subcontroller_type::bus_type& _foreign;
+            private:
+            S _child;
+        };
         template<typename ReadBufferType, typename MemoryControllerType> class ReadTask {
             public:
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
@@ -117,34 +145,6 @@ namespace SOS {
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
-        };
-        template<typename S> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
-            public:
-            using bus_type = SOS::MemoryView::BusNotifier;
-            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
-            PassthruSimpleController(SOS::MemoryView::Notify& signal, typename subcontroller_type::bus_type& passThru) :
-            Controller<SOS::MemoryView::Notify,S>(signal),
-            _foreign(passThru),
-            _child(subcontroller_type{_foreign})
-            {}
-            protected:
-            typename subcontroller_type::bus_type& _foreign;
-            private:
-            S _child;
-        };
-        template<typename S> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
-            public:
-            using bus_type = SOS::MemoryView::BusShaker;
-            using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
-            PassthruEventController(SOS::MemoryView::HandShake& signal, typename subcontroller_type::bus_type& passThru) :
-            Controller<SOS::MemoryView::HandShake,S>(signal),
-            _foreign(passThru),
-            _child(subcontroller_type{_foreign})
-            {}
-            protected:
-            typename subcontroller_type::bus_type& _foreign;
-            private:
-            S _child;
         };
     }
 }

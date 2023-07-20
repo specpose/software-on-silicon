@@ -10,8 +10,8 @@
 */
 
 #include "software-on-silicon/EventLoop.hpp"
-#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/error.hpp"
+#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
@@ -36,7 +36,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         stop_requested = true;
         _thread.join();
     }
-    void event_loop() {
+    void event_loop() final {
         while(!stop_requested){
             fifo_loop();
             std::this_thread::yield();
@@ -82,7 +82,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         }
 };
 class TransferPriority :
-protected TransferRingToMemory, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
+protected TransferRingToMemory, private PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     TransferPriority(
         MemoryView::RingBufferBus<RING_BUFFER>& rB,
@@ -106,6 +106,7 @@ class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleC
         stop_requested=true;
         _thread.join();
     }
+    //error: Overriding PassthruThread
     void event_loop(){
         while(!stop_requested){
             if(!_intrinsic.getNotifyRef().test_and_set()){

@@ -29,9 +29,9 @@ template<> class Thread<SOS::Behavior::DummyController> {
         return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
     }
 };
-template<typename S, typename PassthruBusType, typename... Others> class PassthruThread {//Others is optional 2nd degree DownstreamBusType
+template<typename S, typename PassthruBusType, typename... Others> class PassthruThread {//Others is optional 2nd degree UpstreamBusTypes
     public:
-    using subcontroller_type = S;//contains 1st UpstreamBusType
+    using subcontroller_type = S;//contains 1st LocalBusType
     PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
     virtual ~PassthruThread() {};
     protected:

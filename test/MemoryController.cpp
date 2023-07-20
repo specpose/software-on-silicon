@@ -1,6 +1,6 @@
 #include "software-on-silicon/EventLoop.hpp"
-#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/error.hpp"
+#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
 #include <chrono>
@@ -23,7 +23,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         stop_requested = true;
         _thread.join();
     }
-    void event_loop() {
+    void event_loop() final {
         while(!stop_requested){
             fifo_loop();
             std::this_thread::yield();
@@ -56,25 +56,21 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 };
 using namespace std::chrono;
 
-class WritePriority : protected WriteTaskImpl, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
-    public:
-    WritePriority(
-        SOS::MemoryView::ReaderBus<READ_BUFFER>& passThru
-        ) : WriteTaskImpl{}, PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThru) {};
-    virtual ~WritePriority(){};
-};
-class WritePriorityImpl : public WritePriority {
+class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<READ_BUFFER>& passThruHostMem
         ) :
-        WritePriority{passThruHostMem} {
+        WriteTaskImpl{},
+        PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
+        {
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
         stop_requested = true;
         _thread.join();
     };
+    //Overriding PassThru not ReaderImpl!
     void event_loop(){
         int counter = 0;
         bool blink = true;
