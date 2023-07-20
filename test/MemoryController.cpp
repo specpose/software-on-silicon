@@ -1,4 +1,5 @@
 #include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
@@ -12,8 +13,8 @@ using namespace SOS::MemoryView;
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
                     private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
+    ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         _thread = start(this);
@@ -55,24 +56,17 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 };
 using namespace std::chrono;
 
-class WritePriority : protected WriteTaskImpl {
+class WritePriority : protected WriteTaskImpl, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
-    using subcontroller_type = ReaderImpl;
-    using bus_type = WriteTaskImpl::bus_type;
     WritePriority(
-        subcontroller_type::bus_type& passThru
-        ) : WriteTaskImpl{}, _child(subcontroller_type{passThru,_blocker}) {};
+        SOS::MemoryView::ReaderBus<READ_BUFFER>& passThru
+        ) : WriteTaskImpl{}, PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThru) {};
     virtual ~WritePriority(){};
-    protected:
-    bool stop_requested = false;
-    private:
-    subcontroller_type _child;
 };
-class WritePriorityImpl : public WritePriority, public SOS::Behavior::RunLoop<> {
+class WritePriorityImpl : public WritePriority {
     public:
-    using subcontroller_type = WritePriority::subcontroller_type;//bus_type is handshake
     WritePriorityImpl(
-        subcontroller_type::bus_type& passThruHostMem
+        SOS::MemoryView::ReaderBus<READ_BUFFER>& passThruHostMem
         ) :
         WritePriority{passThruHostMem} {
             _thread = start(this);
@@ -106,6 +100,7 @@ class WritePriorityImpl : public WritePriority, public SOS::Behavior::RunLoop<> 
         }
     }
     private:
+    bool stop_requested = false;
     std::thread _thread;
 };
 

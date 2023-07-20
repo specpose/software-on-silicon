@@ -10,6 +10,7 @@
 */
 
 #include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
@@ -25,8 +26,8 @@ using namespace SOS;
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
                     private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
+    ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         _thread = start(this);
@@ -81,32 +82,25 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         }
 };
 class TransferPriority :
-protected TransferRingToMemory {
+protected TransferRingToMemory, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
-    using subcontroller_type = ReaderImpl;
-    using bus_type = MemoryView::RingBufferBus<RING_BUFFER>;//multiple buses: non-subcontroller bus_type is notifier
     TransferPriority(
-        bus_type& rB,
-        subcontroller_type::bus_type& rd
+        MemoryView::RingBufferBus<RING_BUFFER>& rB,
+        SOS::MemoryView::ReaderBus<READ_BUFFER>& rd
     ) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
-    _child(subcontroller_type{rd,_blocker})
+    PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,rd)
     {}
     virtual ~TransferPriority(){};
-    protected:
-    bool stop_requested = false;
-    private:
-    subcontroller_type _child;
 };
-//SimpleLoop has only one constructor argument
-//SimpleLoop does not forward passThru
-class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleLoop<> {
+class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleController<SOS::Behavior::DummyController> {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
-    SOS::Behavior::SimpleLoop<>(rB.signal),
+    SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(rB.signal),
     TransferPriority(rB,rd)
     {
-        _thread = start(this);
+        //multiple inheritance: ambiguous base-class call
+        _thread = SOS::Behavior::SimpleController<SOS::Behavior::DummyController>::start(this);
     }
     ~RingBufferImpl() final{
         stop_requested=true;
@@ -119,7 +113,9 @@ class RingBufferImpl : public TransferPriority, protected SOS::Behavior::SimpleL
             }
         }
     }
-
+    protected:
+    bool stop_requested = false;
+    private:
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};

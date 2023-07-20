@@ -82,17 +82,17 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventLoop<> {
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
             public:
-            using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
-            Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
+            using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
+            Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::EventLoop<>(outside.signal){}
+            SOS::Behavior::EventController<SOS::Behavior::DummyController>(outside.signal){}
             ~Reader(){}
             virtual void event_loop(){};
             protected:
             bool stop_requested = false;
-            typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
+            typename bus_type::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
             public:
@@ -117,6 +117,34 @@ namespace SOS {
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
+        };
+        template<typename S> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
+            public:
+            using bus_type = SOS::MemoryView::BusNotifier;
+            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
+            PassthruSimpleController(SOS::MemoryView::Notify& signal, typename subcontroller_type::bus_type& passThru) :
+            Controller<SOS::MemoryView::Notify,S>(signal),
+            _foreign(passThru),
+            _child(subcontroller_type{_foreign})
+            {}
+            protected:
+            typename subcontroller_type::bus_type& _foreign;
+            private:
+            S _child;
+        };
+        template<typename S> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
+            public:
+            using bus_type = SOS::MemoryView::BusShaker;
+            using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
+            PassthruEventController(SOS::MemoryView::HandShake& signal, typename subcontroller_type::bus_type& passThru) :
+            Controller<SOS::MemoryView::HandShake,S>(signal),
+            _foreign(passThru),
+            _child(subcontroller_type{_foreign})
+            {}
+            protected:
+            typename subcontroller_type::bus_type& _foreign;
+            private:
+            S _child;
         };
     }
 }
