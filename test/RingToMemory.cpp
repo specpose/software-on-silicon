@@ -81,24 +81,11 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
         _blocker.signal.getNotifyRef().test_and_set();
         }
 };
-/*class TransferPriority :
-protected TransferRingToMemory, private PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
-    public:
-    TransferPriority(
-        MemoryView::RingBufferBus<RING_BUFFER>& rB,
-        SOS::MemoryView::ReaderBus<READ_BUFFER>& rd
-    ) :
-    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
-    PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,rd)
-    {}
-    virtual ~TransferPriority(){};
-};*/
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
-    //TransferPriority(rB,rd)
     {
         //multiple inheritance: ambiguous base-class call
         _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
@@ -122,38 +109,10 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-
-using namespace std::chrono;
-
-int main (){
-    auto hostmemory = RING_BUFFER{};
-    auto ringbufferbus = MemoryView::RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
-    auto hostwriter = PieceWriter<decltype(hostmemory)>(ringbufferbus);
-
-    auto randomread = READ_BUFFER{};
-    auto readerBus = MemoryView::ReaderBus<READ_BUFFER>(randomread.begin(),randomread.end());
-
-    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
-    std::cout << "Writer writing 9990 times from start at rate 1/ms..." << std::endl;
-    RingBufferImpl* buffer = new RingBufferImpl(ringbufferbus,readerBus);
-    readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
-    readerBus.signal.getUpdatedRef().clear();
-    unsigned int count = 0;
-    auto loopstart = high_resolution_clock::now();
-    try {
-    //3000: read and write are meant to be called from independent controllers
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-        const auto beginning = high_resolution_clock::now();
-        //read
-        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-            auto print = randomread.begin();
-            while (print!=randomread.end())
-                std::cout << *print++;
-            std::cout << std::endl;
-        }
-        //write
+class Functor1 {
+    public:
+    Functor1(){}
+    void operator()(){
         switch(count++){
             case 0:
                 hostwriter.writePiece('*', 333);//lock free write
@@ -166,13 +125,57 @@ int main (){
                 count=0;
                 break;
         }
+    }
+    MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
+    private:
+    RING_BUFFER hostmemory = RING_BUFFER{};
+    PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};
+    unsigned int count = 0;
+};
+class Functor2 {
+    public:
+    Functor2(MemoryView::RingBufferBus<RING_BUFFER>& ringbufferbus, bool start=false) : ringbufferbus(ringbufferbus) {
+        if (start) {
+            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.signal.getUpdatedRef().clear();
+        }
+    }
+    void operator()(int offset) {
+        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
+            readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.signal.getUpdatedRef().clear();
+            auto print = randomread.begin();
+            while (print!=randomread.end())
+                std::cout << *print++;
+            std::cout << std::endl;
+        }
+    }
+    MemoryView::ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
+    private:
+    READ_BUFFER randomread = READ_BUFFER{};
+    MemoryView::RingBufferBus<RING_BUFFER>& ringbufferbus;
+    RingBufferImpl buffer{ringbufferbus,readerBus};
+};
+
+using namespace std::chrono;
+
+int main (){
+    auto functor1 = Functor1();
+    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
+    auto functor2 = Functor2(functor1.ringbufferbus, true);
+    std::cout << "Writer writing 9990 times from start at rate 1/ms..." << std::endl;
+    auto loopstart = high_resolution_clock::now();
+    try {
+    //3000: read and write are meant to be called from independent controllers
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
+        const auto beginning = high_resolution_clock::now();
+        //read
+        functor2(9000);
+        //write
+        functor1();
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
     }
     } catch (std::exception& e) {
         std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
-        delete buffer;
-        buffer = nullptr;
     }
-    if (buffer!=nullptr)
-        delete buffer;
 }

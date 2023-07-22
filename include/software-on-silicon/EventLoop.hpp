@@ -93,9 +93,9 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusNotifier;//contains 1st UpstreamBusType
             using subcontroller_type = typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type;
-            SimpleController(typename bus_type::signal_type& signal) :
+            SimpleController(typename bus_type::signal_type& signal, Others&... args) :
             Controller<SOS::MemoryView::Notify, S>(signal),
-            _child(subcontroller_type{_foreign})//_foreign contains LocalBusType
+            _child(subcontroller_type{_foreign, args...})//_foreign contains LocalBusType, args are optional passThru
             {}
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
@@ -114,9 +114,9 @@ namespace SOS{
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type;
-            EventController(typename bus_type::signal_type& signal) :
+            EventController(typename bus_type::signal_type& signal, Others&... args) :
             Controller<SOS::MemoryView::HandShake, S>(signal),
-            _child(subcontroller_type{_foreign})
+            _child(subcontroller_type{_foreign, args...})
             {}
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};

@@ -42,23 +42,30 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
+class Functor {
+    public:
+    Functor() {}
+    void operator()(){
+        //for(int i=0;i<32;i++)
+        //    std::cout<<"=";
+        hostwriter.writePiece('+',32);
+    }
+    private:
+    RING_BUFFER hostmemory = RING_BUFFER{};
+    RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
+    PieceWriter<decltype(hostmemory)> hostwriter{bus};
+    RingBufferImpl buffer{bus};
+};
 
 using namespace std::chrono;
 
 int main(){
-    auto hostmemory = RING_BUFFER{};
-    auto bus = RingBufferBus<RING_BUFFER>(hostmemory.begin(),hostmemory.end());
-    auto hostwriter = PieceWriter<decltype(hostmemory)>(bus);
-    RingBufferImpl* buffer = new RingBufferImpl(bus);
+    auto functor = Functor();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-    const auto beginning = high_resolution_clock::now();
-    //for(int i=0;i<32;i++)
-    //    std::cout<<"=";
-    hostwriter.writePiece('+',32);
-    std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
+        const auto beginning = high_resolution_clock::now();
+        functor();
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
     }
     std::cout<<std::endl;
-    if (buffer!=nullptr)
-        delete buffer;
 }
