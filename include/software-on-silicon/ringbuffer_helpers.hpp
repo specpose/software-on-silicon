@@ -23,7 +23,7 @@ template<typename Piece> class PieceWriter {
         } else {
             //write last bit
             *current=character;
-            //do not advance -> current invalid  
+            //current invalid => do not advance
             std::cout<<std::endl;
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
         }
