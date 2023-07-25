@@ -15,7 +15,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         _thread = start(this);
     }
@@ -104,6 +104,7 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
 class Functor {
     public:
     Functor(bool start = false){
+        readerBus.setReadBuffer(randomread);
         if (start) {
             readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
@@ -121,7 +122,7 @@ class Functor {
     }
     private:
     READ_BUFFER randomread = READ_BUFFER{};
-    ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
+    ReaderBus<READ_BUFFER> readerBus{};
     WritePriorityImpl controller{readerBus};
 };
 
