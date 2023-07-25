@@ -178,48 +178,49 @@ class Functor1 {
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const unsigned int maxSamplesPerProcess, bool start=false) :
     _readerBus(readerBus),
     _maxSamplesPerProcess(maxSamplesPerProcess),
-    AudioBuffer(new SAMPLE_SIZE[maxSamplesPerProcess]),
+    test_AudioBuffer(new SAMPLE_SIZE[maxSamplesPerProcess]),
     hostmemory(RING_BUFFER(2,std::tuple(0,std::vector<SAMPLE_SIZE>(maxSamplesPerProcess),0)))
     {
         hostmemory.reserve(2);
         //while(hostmemory.size()<2)
         //    hostmemory.push_back( std::tuple(ringBufferSize,std::vector<double>(maxSamplesPerProcess),0) );
         if (start)
-            _thread = std::thread{std::mem_fn(&Functor1::write_loop),this};
+            _thread = std::thread{std::mem_fn(&Functor1::test_write_loop),this};
     }
     ~Functor1(){
         _thread.join();
-        if (AudioBuffer!=nullptr)
-            delete AudioBuffer;
+        if (test_AudioBuffer!=nullptr)
+            delete test_AudioBuffer;
     }
-    void operator()(const unsigned int actualProcessSize=333){
-        _actualProcessSize=actualProcessSize;
-        write_loop();
-    }
-    void write_loop(){
-        if (_actualProcessSize>_maxSamplesPerProcess)
+    void operator()(SAMPLE_SIZE* buffer,const unsigned int actualProcessSize, const int actualSamplePosition){
+        if (actualProcessSize>_maxSamplesPerProcess)
             throw SFA::util::logic_error("Writer can only write maxSamplesPerProcess",__FILE__,__func__);
+        
+        hostwriter.write(buffer,actualSamplePosition,actualProcessSize);//lock free write
+    }
+    void test_write_loop(){
+        unsigned int _actualProcessSize=333;
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
             //auto piece = std::vector<double>(maxSamplesPerProcess);
-            switch(count++){
+            switch(test_count++){
                 case 0:
-                    fill(AudioBuffer,_actualProcessSize,1.0);
-                    count++;
+                    fill(test_AudioBuffer,_actualProcessSize,1.0);
+                    test_count++;
                     break;
                 case 1:
-                    fill(AudioBuffer,_actualProcessSize,0.0);
-                    count++;
+                    fill(test_AudioBuffer,_actualProcessSize,0.0);
+                    test_count++;
                     break;
                 case 2:
-                    fill(AudioBuffer,_actualProcessSize,0.0);
-                    count=0;
+                    fill(test_AudioBuffer,_actualProcessSize,0.0);
+                    test_count=0;
                     break;
             }
-            hostwriter.write(AudioBuffer,actualSamplePosition,_actualProcessSize);//lock free write
-            actualSamplePosition += _actualProcessSize;
+            operator()(test_AudioBuffer,_actualProcessSize,test_actualSamplePosition);
+            test_actualSamplePosition += _actualProcessSize;
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -240,16 +241,15 @@ class Functor1 {
     RingBufferImpl buffer{ringbufferbus,_readerBus};
 
     PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
-    unsigned int count = 0;
-    int actualSamplePosition = 0;
-    int randomReadOffset=9990-667;//8500;
+    unsigned int test_count = 0;
+    unsigned int test_actualSamplePosition = 0;
+    //int randomReadOffset=9990-667;//8500;
     unsigned int _maxSamplesPerProcess;
-    unsigned int _actualProcessSize=333;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
     //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
-    //auto AudioBuffer = new SOSFloat::SAMPLE_SIZE[maxSamplesPerProcess];
-    SAMPLE_SIZE* AudioBuffer;
+    //auto test_AudioBuffer = new SOSFloat::SAMPLE_SIZE[maxSamplesPerProcess];
+    SAMPLE_SIZE* test_AudioBuffer = nullptr;
 };
 class Functor2 {
     public:
@@ -261,13 +261,16 @@ class Functor2 {
         if (start) {
             readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
-            _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
+            _thread = std::thread{std::mem_fn(&Functor2::read_loop),this};
         }
     }
     ~Functor2(){
         _thread.join();
     }
-    void operator()() {
+    void operator()(const unsigned int readOffset){
+        _readOffset=readOffset;
+    }
+    void read_loop() {
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11) {
         const auto beginning = high_resolution_clock::now();
@@ -286,7 +289,7 @@ class Functor2 {
     MemoryView::ReaderBus<READ_BUFFER> readerBus{};
     private:
     READ_BUFFER randomread = READ_BUFFER{};
-    int _readOffset = 0;
+    unsigned int _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
 };
