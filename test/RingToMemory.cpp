@@ -26,13 +26,15 @@ using RING_BUFFER = std::vector<std::tuple<unsigned int,std::vector<SAMPLE_SIZE>
 using MEMORY_CONTROLLER = std::vector<SAMPLE_SIZE>;
 using READ_BUFFER = std::vector<SAMPLE_SIZE>;
 
-template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
-    using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
-    using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
+    //using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
+    //using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
+    //using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
     //not variadic, needs _blocked.signal.getNotifyRef()
-    ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
+    {}
     protected:
     void read(){
         //readbuffer
@@ -41,6 +43,8 @@ template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
         const auto end = _size.getReadBufferAfterLastRef().load();
         //memorycontroller
         const auto readOffset = _offset.getReadOffsetRef().load();
+        if (readOffset<0)
+            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
         const auto readerStart = _memorycontroller_size.getBKStartRef().load();
         const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
         auto readerPos = readerStart+readOffset;
@@ -57,17 +61,13 @@ template<> class SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
             }
         }
     }
-    virtual bool wait()=0;
-    private:
-    reader_length_ct& _size;
-    reader_offset_ct& _offset;
-    memorycontroller_length_ct& _memorycontroller_size;
 };
-class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+                    private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
+    ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         _thread = start(this);
     }
@@ -84,7 +84,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER> {
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
 //                        std::cout << "S";
-            SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>::read();//FIFO whole buffer with intermittent waits when write
+            ReadTaskImpl::read();//FIFO whole buffer with intermittent waits when write
 //                        std::cout << "F";
             _intrinsic.getAcknowledgeRef().clear();
         }
