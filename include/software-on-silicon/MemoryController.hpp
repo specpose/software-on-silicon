@@ -107,7 +107,6 @@ namespace SOS {
                 }
             }
             virtual bool wait()=0;
-            private:
             reader_length_ct& _size;
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
