@@ -249,35 +249,41 @@ class Functor1 {
     std::thread _thread = std::thread{};
     //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
     //auto test_AudioBuffer = new SOSFloat::SAMPLE_SIZE[maxSamplesPerProcess];
-    SAMPLE_SIZE* test_AudioBuffer = nullptr;
+    SAMPLE_SIZE* test_AudioBuffer = nullptr;//Sample32=float **   channelBuffers32
 };
 class Functor2 {
     public:
-    Functor2(bool start=false, int readOffset=0) : _readOffset(readOffset) {
+    Functor2(bool start=false, int readOffset=0) : test_readOffset(readOffset) {
         randomread.reserve(1000);
         while(randomread.size()<1000)
             randomread.push_back(0.0);
         readerBus.setReadBuffer(randomread);
         if (start) {
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.setOffset(test_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
-            _thread = std::thread{std::mem_fn(&Functor2::read_loop),this};
+            _thread = std::thread{std::mem_fn(&Functor2::test_read_loop),this};
         }
     }
     ~Functor2(){
         _thread.join();
     }
-    void operator()(const unsigned int readOffset){
-        _readOffset=readOffset;
+    bool operator()(READ_BUFFER& buffer, const unsigned int readOffset){
+        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
+        readerBus.setReadBuffer(buffer);
+        readerBus.setOffset(readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+        readerBus.signal.getUpdatedRef().clear();
+        return true;
+        }
+        return false;
     }
-    void read_loop() {
+    void test_read_loop() {
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11) {
         const auto beginning = high_resolution_clock::now();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            std::cout<<"Reading offset "<<_readOffset<<":"<<std::endl;
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+            readerBus.setOffset(test_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
+            std::cout<<"Reading offset "<<test_readOffset<<":"<<std::endl;
             auto print = randomread.begin();
             while (print!=randomread.end())
                 std::cout << *print++;
@@ -288,8 +294,11 @@ class Functor2 {
     }
     MemoryView::ReaderBus<READ_BUFFER> readerBus{};
     private:
+    //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
+    //or std::vector<T> storage = std::vector<T>(channelCount*samplesPerChannel, 0.0f);
     READ_BUFFER randomread = READ_BUFFER{};
-    unsigned int _readOffset = 0;
+    
+    unsigned int test_readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
 };
