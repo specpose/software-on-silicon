@@ -178,8 +178,8 @@ class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
         hostmemory.reserve(2);
-        while(hostmemory.size()<2)
-            hostmemory.push_back( std::tuple(ringBufferSize,std::vector<double>(maxSamplesPerProcess),0) );
+        //while(hostmemory.size()<2)
+        //    hostmemory.push_back( std::tuple(ringBufferSize,std::vector<double>(maxSamplesPerProcess),0) );
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -237,6 +237,7 @@ class Functor1 {
 class Functor2 {
     public:
     Functor2(bool start=false, int readOffset=0) : _readOffset(readOffset) {
+        readerBus.setReadBuffer(randomread);
         if (start) {
             readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
@@ -261,7 +262,7 @@ class Functor2 {
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
         }
     }
-    MemoryView::ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
+    MemoryView::ReaderBus<READ_BUFFER> readerBus{};
     private:
     READ_BUFFER randomread = READ_BUFFER{};
     int _readOffset = 0;
@@ -271,15 +272,13 @@ class Functor2 {
     while(randomread.size()<1000)
         randomread.push_back(0.0);*/
 };
-
-using namespace std::chrono;
-
+}
 int main (){
     const int offset = 2996;
     std::cout << "Reader reading 1000 characters per second at position " << offset << "..." << std::endl;
     //read
-    auto functor2 = Functor2(true, offset);
+    auto functor2 = SOSFloat::Functor2(true, offset);
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
     //write
-    auto functor1 = Functor1(functor2.readerBus, true);
+    auto functor1 = SOSFloat::Functor1(functor2.readerBus, true);
 }
