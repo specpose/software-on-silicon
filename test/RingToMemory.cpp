@@ -1,14 +1,3 @@
-/*
-    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random
-    memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
-
-    ControllerHost<Writer<Reader<SubController>>>
-
-    It is not suitable for reading from a FPGA gpio when the processing needs immediate, timed pre-processing because of the signaling
-
-    ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
-*/
-
 #include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/loop_helpers.hpp"
@@ -28,10 +17,6 @@ using READ_BUFFER = std::vector<SAMPLE_SIZE>;
 
 class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    //using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
-    //using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<READ_BUFFER>::cables_type>::type;
-    //using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>::cables_type>::type;
-    //not variadic, needs _blocked.signal.getNotifyRef()
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
     {}
@@ -82,9 +67,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     }
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-//                        std::cout << "S";
             ReadTaskImpl::read();//FIFO whole buffer with intermittent waits when write
-//                        std::cout << "F";
             _intrinsic.getAcknowledgeRef().clear();
         }
     }
@@ -102,12 +85,10 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
-        //resize(10000);
         resize(0);
     }
     virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
         memorycontroller.reserve(newsize);
-        //for(int i=0;i<newsize;i++)
         while(memorycontroller.size()<newsize)
             memorycontroller.push_back(0.0);
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
@@ -181,9 +162,6 @@ class Functor1 {
     test_AudioBuffer(new SAMPLE_SIZE[maxSamplesPerProcess]),
     hostmemory(RING_BUFFER(2,std::tuple(0,std::vector<SAMPLE_SIZE>(maxSamplesPerProcess),0)))
     {
-        hostmemory.reserve(2);
-        //while(hostmemory.size()<2)
-        //    hostmemory.push_back( std::tuple(ringBufferSize,std::vector<double>(maxSamplesPerProcess),0) );
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::test_write_loop),this};
     }
@@ -204,7 +182,6 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
-            //auto piece = std::vector<double>(maxSamplesPerProcess);
             switch(test_count++){
                 case 0:
                     fill(test_AudioBuffer,_actualProcessSize,1.0);
@@ -243,12 +220,10 @@ class Functor1 {
     PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
     unsigned int test_count = 0;
     unsigned int test_actualSamplePosition = 0;
-    //int randomReadOffset=9990-667;//8500;
     unsigned int _maxSamplesPerProcess;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
     //error: flexible array member ‘Functor1::AudioBuffer’ not at end of ‘class Functor1’
-    //auto test_AudioBuffer = new SOSFloat::SAMPLE_SIZE[maxSamplesPerProcess];
     SAMPLE_SIZE* test_AudioBuffer = nullptr;//Sample32=float **   channelBuffers32
 };
 class Functor2 {
