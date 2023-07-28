@@ -2,8 +2,6 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-#include <iostream>
-#include <chrono>
 
 #define RING_BUFFER std::array<char,33>
 
@@ -42,30 +40,3 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-class Functor {
-    public:
-    Functor() {}
-    void operator()(){
-        //for(int i=0;i<32;i++)
-        //    std::cout<<"=";
-        hostwriter.writePiece('+',32);
-    }
-    private:
-    RING_BUFFER hostmemory = RING_BUFFER{};
-    RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
-    PieceWriter<decltype(hostmemory)> hostwriter{bus};
-    RingBufferImpl buffer{bus};
-};
-
-using namespace std::chrono;
-
-int main(){
-    auto functor = Functor();
-    auto loopstart = high_resolution_clock::now();
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-        const auto beginning = high_resolution_clock::now();
-        functor();
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
-    }
-    std::cout<<std::endl;
-}

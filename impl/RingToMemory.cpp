@@ -15,7 +15,6 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-#include <chrono>
 
 #define RING_BUFFER std::array<char,334>
 #define MEMORY_CONTROLLER std::array<char,10000>
@@ -109,97 +108,3 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-
-//Helper classes
-class Functor1 {
-    public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
-        if (start)
-            _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
-    }
-    ~Functor1(){
-        _thread.join();
-    }
-    void operator()(){
-        auto loopstart = high_resolution_clock::now();
-        //try {
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-            const auto beginning = high_resolution_clock::now();
-            switch(count++){
-                case 0:
-                    hostwriter.writePiece('*', 333);//lock free write
-                    break;
-                case 1:
-                    hostwriter.writePiece('_', 333);
-                    break;
-                case 2:
-                    hostwriter.writePiece('_', 333);
-                    count=0;
-                    break;
-            }
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
-        }
-        //} catch (std::exception& e) {
-        //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
-        //}
-    }
-    private:
-    MemoryView::ReaderBus<READ_BUFFER>& _readerBus;
-
-    RING_BUFFER hostmemory = RING_BUFFER{};
-    MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
-    //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
-    //=>Piecewriter needs readerimpl running
-    RingBufferImpl buffer{ringbufferbus,_readerBus};
-
-    PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
-    unsigned int count = 0;
-    //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread = std::thread{};
-};
-class Functor2 {
-    public:
-    Functor2(bool start=false, int readOffset=0) : _readOffset(readOffset) {
-        if (start) {
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-            _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
-        }
-    }
-    ~Functor2(){
-        _thread.join();
-    }
-    void operator()() {
-        auto loopstart = high_resolution_clock::now();
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
-        const auto beginning = high_resolution_clock::now();
-        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-            auto print = randomread.begin();
-            while (print!=randomread.end())
-                std::cout << *print++;
-            std::cout << std::endl;
-        }
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
-        }
-    }
-    MemoryView::ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
-    private:
-    READ_BUFFER randomread = READ_BUFFER{};
-    int _readOffset = 0;
-    //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread = std::thread{};
-};
-
-using namespace std::chrono;
-
-int main (){
-    const int offset = 2996;
-    std::cout << "Reader reading 1000 characters per second at position " << offset << "..." << std::endl;
-    //read
-    auto functor2 = Functor2(true, offset);
-    std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
-    //write
-    auto functor1 = Functor1(functor2.readerBus, true);
-}

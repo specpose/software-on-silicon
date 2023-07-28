@@ -76,8 +76,3 @@ class ControllerImpl : public Thread<SubControllerImpl> {
     private:
     std::thread _thread = std::thread{};
 };
-
-int main () {
-    ControllerImpl* myController = new ControllerImpl();
-    delete myController;
-}
