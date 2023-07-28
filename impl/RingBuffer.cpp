@@ -40,17 +40,3 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
-class Functor {
-    public:
-    Functor() {}
-    void operator()(){
-        //for(int i=0;i<32;i++)
-        //    std::cout<<"=";
-        hostwriter.writePiece('+',32);
-    }
-    private:
-    RING_BUFFER hostmemory = RING_BUFFER{};
-    RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
-    PieceWriter<decltype(hostmemory)> hostwriter{bus};
-    RingBufferImpl buffer{bus};
-};

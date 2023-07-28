@@ -9,32 +9,37 @@ add_executable(test_EventLoop)
 target_include_directories(test_EventLoop
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/EventLoop.cpp)
+target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_eventloop.cpp)
 add_executable(test_Controller)
 target_include_directories(test_Controller
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/Controller.cpp)
+target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_controller.cpp)
 add_executable(test_RingBuffer)
 target_include_directories(test_RingBuffer
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingBuffer.cpp)
+target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbuffer.cpp)
 add_executable(test_MemoryController)
 target_include_directories(test_MemoryController
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/MemoryController.cpp)
+target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontroller.cpp)
 add_executable(test_RingToMemory)
 target_include_directories(test_RingToMemory
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/RingToMemory.cpp)
+target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemory.cpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME}
