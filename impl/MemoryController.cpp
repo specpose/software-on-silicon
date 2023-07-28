@@ -2,7 +2,6 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include <iostream>
 #include <chrono>
 
 #define MEMORY_CONTROLLER std::array<char,10000>
@@ -101,38 +100,3 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
     bool stop_requested = false;
     std::thread _thread;
 };
-class Functor {
-    public:
-    Functor(bool start = false){
-        readerBus.setReadBuffer(randomread);
-        if (start) {
-            readerBus.setOffset(9000);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-        }
-    }
-    void operator()(int offset){
-        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-            auto print = randomread.begin();
-            while (print!=randomread.end())
-                std::cout << *print++;
-            std::cout << std::endl;
-        }
-    }
-    private:
-    READ_BUFFER randomread = READ_BUFFER{};
-    ReaderBus<READ_BUFFER> readerBus{};
-    WritePriorityImpl controller{readerBus};
-};
-
-int main(){
-    std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
-    auto functor = Functor(true);
-    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
-    while (true){
-        const auto start_tp = high_resolution_clock::now();
-        functor(9000);
-        std::this_thread::sleep_until(start_tp + duration_cast<high_resolution_clock::duration>(seconds{1}));
-    }
-}

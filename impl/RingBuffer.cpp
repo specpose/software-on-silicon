@@ -2,8 +2,6 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-#include <iostream>
-#include <chrono>
 
 #define RING_BUFFER std::array<char,33>
 
@@ -56,16 +54,3 @@ class Functor {
     PieceWriter<decltype(hostmemory)> hostwriter{bus};
     RingBufferImpl buffer{bus};
 };
-
-using namespace std::chrono;
-
-int main(){
-    auto functor = Functor();
-    auto loopstart = high_resolution_clock::now();
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-        const auto beginning = high_resolution_clock::now();
-        functor();
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
-    }
-    std::cout<<std::endl;
-}
