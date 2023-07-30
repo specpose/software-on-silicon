@@ -6,11 +6,20 @@
 namespace SOSFloat {
 class Functor {
     public:
-    Functor() {}
+    Functor() {
+        hostmemory.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5));
+    }
+    ~Functor() {
+        for (auto& sample : hostmemory)
+            if (sample)
+                delete sample;
+    }
     void operator()(){
         //for(int i=0;i<32;i++)
         //    std::cout<<"=";
-        hostwriter.writePiece('+',32);
+        auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5);//HACK: hard-coded channel count
+        (*entry)[4]=1.0;//HACK: hard-coded channel 5
+        hostwriter.writePiece(entry,32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
