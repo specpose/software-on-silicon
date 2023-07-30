@@ -1,5 +1,3 @@
-#include <iostream>
-
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}

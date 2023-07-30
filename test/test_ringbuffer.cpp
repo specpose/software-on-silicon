@@ -1,4 +1,5 @@
 #include "RingBuffer.cpp"
+#include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <iostream>
 #include <chrono>
 
