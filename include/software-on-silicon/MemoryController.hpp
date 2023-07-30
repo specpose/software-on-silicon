@@ -12,9 +12,9 @@ namespace SOS {
             auto& getReadOffsetRef(){return std::get<0>(*this);}
         };
         template<typename OutputBuffer> struct ReaderBus : public SOS::MemoryView::BusShaker {
-            using _pointer_type = typename OutputBuffer::iterator;
-            using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< ReadOffset<_difference_type>,ReadSize<_pointer_type> >;
+            using _pointer_type = typename OutputBuffer::value_type::iterator;
+            using _difference_type = typename OutputBuffer::value_type::difference_type;
+            using cables_type = std::tuple< ReadOffset<_difference_type>,std::array<ReadSize<_pointer_type>,5> >;//HACK:: hard coded channel count
             using const_cables_type = std::tuple< >;
             ReaderBus()
             {
@@ -25,8 +25,10 @@ namespace SOS {
                 std::get<0>(cables).getReadOffsetRef().store(offset);
             }
             void setReadBuffer(OutputBuffer& buffer){
-                std::get<1>(cables).getReadBufferStartRef().store(buffer.begin());
-                std::get<1>(cables).getReadBufferAfterLastRef().store(buffer.end());
+                for (int channel=0;channel<buffer.size();channel++){
+                std::get<1>(cables)[channel].getReadBufferStartRef().store(buffer[channel].begin());
+                std::get<1>(cables)[channel].getReadBufferAfterLastRef().store(buffer[channel].end());
+                }
             }
             cables_type cables;
             const_cables_type const_cables;
@@ -88,8 +90,9 @@ namespace SOS {
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
-                auto current = _size.getReadBufferStartRef().load();
-                const auto end = _size.getReadBufferAfterLastRef().load();
+                for (int channel=0;channel<_size.size();channel++){
+                auto current = _size[channel].getReadBufferStartRef().load();
+                const auto end = _size[channel].getReadBufferAfterLastRef().load();
                 const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
@@ -99,9 +102,12 @@ namespace SOS {
                 auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
                 while (current!=end){
                     if (!wait()) {
-                        *current = *(readerPos++);
+                        *current = (**readerPos)[channel];
+                        readerPos++;
+                        //*current = *(readerPos++);
                         ++current;
                     }
+                }
                 }
             }
             virtual bool wait()=0;

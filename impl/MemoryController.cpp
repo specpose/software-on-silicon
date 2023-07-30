@@ -4,8 +4,10 @@
 #include "software-on-silicon/MemoryController.hpp"
 #include <chrono>
 
-#define MEMORY_CONTROLLER std::array<char,10000>
-#define READ_BUFFER std::array<char,1000>
+namespace SOSFloat {
+using SAMPLE_SIZE = float;
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,10000>;
+using READ_BUFFER=std::array<std::array<SAMPLE_SIZE,1000>,5>;
 
 using namespace SOS::MemoryView;
 
@@ -52,7 +54,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
-        this->memorycontroller.fill('-');
+        this->memorycontroller.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5));//HACK: hard coded channel count
     }
 };
 using namespace std::chrono;
@@ -77,11 +79,16 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
         bool blink = true;
         while(!stop_requested){
         const auto start = high_resolution_clock::now();
-        MEMORY_CONTROLLER::value_type data;
-        if (blink)
-            data = '*';
-        else
-            data = '_';
+        MEMORY_CONTROLLER::value_type data = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5);
+        if (blink){
+            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5);
+            (*data)[4]=1.0;//HACK: hard-coded channel 5
+            //data=entry;
+        }else{
+            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5);
+            (*data)[4]=0.0;//HACK: hard-coded channel 5
+            //data=entry;
+        }
         _blocker.signal.getNotifyRef().clear();
         write(data);
         _blocker.signal.getNotifyRef().test_and_set();
@@ -100,3 +107,4 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
     bool stop_requested = false;
     std::thread _thread;
 };
+}

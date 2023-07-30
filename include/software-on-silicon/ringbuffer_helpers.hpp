@@ -36,6 +36,7 @@ template<typename Piece> class PieceWriter {
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
+                delete std::get<1>(*current)[i];
                 std::get<1>(*current)[i]=buffer[i];
             }
             ++current;
@@ -48,6 +49,7 @@ template<typename Piece> class PieceWriter {
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
+                delete std::get<1>(*current)[i];
                 std::get<1>(*current)[i]=buffer[i];
             }
             //do not advance -> current invalid  
