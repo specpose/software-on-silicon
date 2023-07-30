@@ -1,4 +1,5 @@
 #include "RingToMemory.cpp"
+#include "software-on-silicon/ringbuffer_helpers.hpp"
 #include <chrono>
 
 //Helper classes
