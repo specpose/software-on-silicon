@@ -31,6 +31,28 @@ namespace SOS {
             cables_type cables;
             const_cables_type const_cables;
         };
+        template<typename T> class Contiguous {
+            public:
+            Contiguous(const std::size_t size) : _storage(new T[size]) {}
+            auto item(const T** buffer, const std::size_t size, const std::size_t offset){
+                for(std::size_t i=0;i<size;i++){
+                    _storage[i]=buffer[i][offset];
+                }
+                return *this;//move?! double free of _storage detected in destructor
+            }
+            ~Contiguous(){
+                //error: double free detected
+                /*if (_storage) {
+                    delete _storage;
+                    _storage = nullptr;
+                }*/
+            }
+            T& operator[](std::size_t pos){
+                return _storage[pos];
+            }
+            private:
+            T* _storage = nullptr;
+        };
     }
     namespace Behavior {
         template<typename RingBufferType> class RingBufferTask {

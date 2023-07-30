@@ -3,7 +3,8 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
-#define RING_BUFFER std::array<char,33>
+namespace SOSFloat {
+#define RING_BUFFER std::array<float,33>
 
 using namespace SOS::MemoryView;
 
@@ -40,3 +41,4 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
 };
+}

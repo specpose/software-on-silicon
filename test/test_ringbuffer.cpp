@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 
+namespace SOSFloat {
 class Functor {
     public:
     Functor() {}
@@ -16,11 +17,12 @@ class Functor {
     PieceWriter<decltype(hostmemory)> hostwriter{bus};
     RingBufferImpl buffer{bus};
 };
+}
 
 using namespace std::chrono;
 
 int main(){
-    auto functor = Functor();
+    auto functor = SOSFloat::Functor();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
