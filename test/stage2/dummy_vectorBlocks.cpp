@@ -5,31 +5,36 @@ using SAMPLE_SIZE=float;
 
 template<typename T> class Contiguous {
     public:
-    Contiguous(const std::size_t size) : _storage(new SAMPLE_SIZE[size]) {}
-    auto item(const SAMPLE_SIZE** buffer, const std::size_t size, const std::size_t offset){
-        for(std::size_t i=0;i<size;i++){
-            _storage[i]=buffer[i][offset];
-        }
-        return *this;//move?! double free of _storage detected in destructor
-    }
+    Contiguous(const std::size_t size) : size(size), _storage(new T[size]) {}
     ~Contiguous(){
         //error: double free detected
-        /*if (_storage) {
+        /*if (_storage!=nullptr) {
             delete _storage;
             _storage = nullptr;
         }*/
     }
-    SAMPLE_SIZE& operator[](std::size_t pos){
+    Contiguous& operator=(const std::vector<T>& other){
+        if (other.size()!=size)
+            throw std::logic_error("operator=() used incorrectly");
+        for (int channel=0;channel<other.size();channel++)
+            _storage[channel]=other[channel];
+        return *this;
+    }
+    T& operator[](const std::size_t pos){
         return _storage[pos];
     }
     private:
-    SAMPLE_SIZE* _storage = nullptr;
+    T* _storage = nullptr;
+    std::size_t size;
 };
 
-template<typename T> class MemoryController : public std::vector<Contiguous<T>> {
-    public:
-    MemoryController(std::size_t numChannels) : std::vector<Contiguous<T>>{0} {}
-};
+template<typename T> std::vector<T> item(const SAMPLE_SIZE** buffer, const std::size_t item_size, const std::size_t offset){
+    auto result = std::vector<T>(item_size,0.0);
+    for(std::size_t channel=0;channel<result.size();channel++){
+        result[channel]=(buffer[channel][offset]);
+    }
+    return result;
+}
 
 int main(){
     std::size_t surroundsound = 5;//vst numInputs
@@ -41,15 +46,15 @@ int main(){
     const SAMPLE_SIZE** channelBuffers32 = static_cast<const SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
 
     //via separate thread
-    auto memorycontroller = std::vector<Contiguous<SAMPLE_SIZE>>{0};
+    auto memorycontroller = std::vector<Contiguous<SAMPLE_SIZE>>{};//initial size not provided: no Contiguous default constructor
     std::size_t numSamples = 10;//vst numSamples
     std::size_t count = 0;
     memorycontroller.reserve(numSamples);
     while (memorycontroller.size()<numSamples)
         memorycontroller.push_back(Contiguous<SAMPLE_SIZE>{surroundsound});//beware actualSamplePosition
     while (count<numSamples) {
-        auto entry = Contiguous<SAMPLE_SIZE>{surroundsound};//temporary: copy or move?
-        memorycontroller[count]= entry.item(channelBuffers32,surroundsound,count);//no actualSamplePosition HERE
+        const auto entry = item<SAMPLE_SIZE>(channelBuffers32,surroundsound,count);
+        memorycontroller[count]=entry;//beware actualSamplePosition: memorycontroller[offset+count]
         count++;
     }
 

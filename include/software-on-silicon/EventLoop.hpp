@@ -66,28 +66,28 @@ namespace SOS{
         };
         template<typename T> class Contiguous {
             public:
-            Contiguous(const std::size_t size) : _storage(new T[size]) {
-                for(int i=1;i<size;i++)
-                    (_storage)[i]=0.0;
-            }
-            auto item(const T** buffer, const std::size_t size, const std::size_t offset){
-                for(std::size_t i=0;i<size;i++){
-                    _storage[i]=buffer[i][offset];
-                }
-                return *this;//move?! double free of _storage detected in destructor
-            }
+            using value_type = T;
+            Contiguous(const std::size_t size) : size(size), _storage(new T[size]) {}
             ~Contiguous(){
                 //error: double free detected
-                /*if (_storage) {
+                /*if (_storage!=nullptr) {
                     delete _storage;
                     _storage = nullptr;
                 }*/
             }
-            T& operator[](std::size_t pos){
+            Contiguous& operator=(const std::vector<T>& other){
+                if (other.size()!=size)
+                    throw SFA::util::logic_error("operator=() used incorrectly",__FILE__,__func__);
+                for (int channel=0;channel<other.size();channel++)
+                    _storage[channel]=other[channel];
+                return *this;
+            }
+            T& operator[](const std::size_t pos){
                 return _storage[pos];
             }
             private:
             T* _storage = nullptr;
+            std::size_t size;
         };
     }
     namespace Behavior {

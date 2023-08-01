@@ -1,7 +1,7 @@
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}
-    void writePiece(typename Piece::value_type character, typename Piece::difference_type length){
+    void writePiece(const typename std::vector<typename std::remove_pointer<typename Piece::value_type>::type::value_type> character, typename Piece::difference_type length){
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
@@ -12,7 +12,7 @@ template<typename Piece> class PieceWriter {
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";
             //write directly to HOSTmemory
-            *current=character;
+            **current=character;
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
                 current = std::get<0>(myBus.const_cables).getWriterStartRef();
@@ -20,7 +20,7 @@ template<typename Piece> class PieceWriter {
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
-            *current=character;
+            **current=character;
             //current invalid => do not advance
             std::cout<<std::endl;
             throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);

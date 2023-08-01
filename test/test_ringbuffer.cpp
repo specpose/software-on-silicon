@@ -17,8 +17,8 @@ class Functor {
     void operator()(){
         //for(int i=0;i<32;i++)
         //    std::cout<<"=";
-        auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5);//HACK: hard-coded channel count
-        (*entry)[4]=1.0;//HACK: hard-coded channel 5
+        auto entry = std::vector<SAMPLE_SIZE>(5);//HACK: hard-coded channel count
+        (entry)[4]=1.0;//HACK: hard-coded channel 5
         hostwriter.writePiece(entry,32);
     }
     private:
