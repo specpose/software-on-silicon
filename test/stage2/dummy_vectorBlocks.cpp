@@ -5,6 +5,7 @@ using SAMPLE_SIZE=float;
 
 template<typename T> class Contiguous {
     public:
+    using value_type = T;
     Contiguous(const std::size_t size) : size(size), _storage(new T[size]) {}
     ~Contiguous(){
         //error: double free detected

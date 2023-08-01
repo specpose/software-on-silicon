@@ -1,43 +1,21 @@
+namespace SOSFloat {
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}
-    void writePiece(const typename std::vector<typename std::remove_pointer<typename Piece::value_type>::type::value_type> character, typename Piece::difference_type length){
+    void write(const SAMPLE_SIZE* buffer[], const unsigned int channels, const unsigned int position, const unsigned int length){
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
-        if (length>=std::distance(current,end)+std::distance(start,current)){
-            throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
-        }
-        for (typename Piece::difference_type i= 0; i<length;i++){//Lock-free (host) write length!
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";
-            //write directly to HOSTmemory
-            **current=character;
-            ++current;
-            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
-                current = std::get<0>(myBus.const_cables).getWriterStartRef();
-            std::get<0>(myBus.cables).getCurrentRef().store(current);
-            myBus.signal.getNotifyRef().clear();
-        } else {
-            //write last bit
-            **current=character;
-            //current invalid => do not advance
-            std::cout<<std::endl;
-            throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
-        }
-        }
-    }
-    void write(typename Piece::value_type buffer[], const unsigned int position, const unsigned int length){
-        auto current = std::get<0>(myBus.cables).getCurrentRef().load();
-        const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
-        const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
-        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             //write directly to HOSTmemory
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
-                delete std::get<1>(*current)[i];
-                std::get<1>(*current)[i]=buffer[i];
+                auto entry = std::vector<SAMPLE_SIZE>(channels);//HACK: hard-coded channel count
+                for (int channel=0;channel<channels;channel++)//HACK: hard-coded channel count
+                    entry[channel]=buffer[channel][i];
+                (*std::get<1>(*current))=entry;
             }
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
@@ -45,12 +23,15 @@ template<typename Piece> class PieceWriter {
             std::get<0>(myBus.cables).getCurrentRef().store(current);
             myBus.signal.getNotifyRef().clear();
         } else {
+            std::cout<<"=";
             //write last bit
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
-                delete std::get<1>(*current)[i];
-                std::get<1>(*current)[i]=buffer[i];
+                auto entry = std::vector<SAMPLE_SIZE>(channels);//HACK: hard-coded channel count
+                for (int channel=0;channel<channels;channel++)//HACK: hard-coded channel count
+                    entry[channel]=buffer[channel][i];
+                (*std::get<1>(*current))=entry;
             }
             //do not advance -> current invalid  
             std::cout<<std::endl;
@@ -60,3 +41,4 @@ template<typename Piece> class PieceWriter {
     private:
     SOS::MemoryView::RingBufferBus<Piece>& myBus;
 };
+}

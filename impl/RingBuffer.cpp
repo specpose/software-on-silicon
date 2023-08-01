@@ -1,11 +1,10 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
-#include <iostream>
 
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
-using RING_BUFFER=std::array<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,33>;
+using RING_BUFFER=std::array< std::tuple<unsigned int,SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,unsigned int>,11 >;
 
 using namespace SOS::MemoryView;
 
@@ -15,7 +14,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     protected:
-    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<(*character)[4];}//HACK: hard-coded channel 5
+    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<(*std::get<1>(character))[4];}//HACK: hard-coded channel 5
 };
 class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public RingBufferTaskImpl {
     public:
