@@ -9,7 +9,7 @@ class Functor {
     Functor(const std::size_t numInputs) : vst_numInputs(numInputs) {
         //hostmemory.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5));
         for(auto& sample : hostmemory)
-            std::get<1>(sample)=new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);//HACK: hard-coded channel count
+            std::get<1>(sample)=new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
     }
     ~Functor() {
         for (auto& sample : hostmemory)

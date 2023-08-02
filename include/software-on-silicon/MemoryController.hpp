@@ -14,10 +14,12 @@ namespace SOS {
         template<typename OutputBuffer> struct ReaderBus : public SOS::MemoryView::BusShaker {
             using _pointer_type = typename OutputBuffer::value_type::iterator;
             using _difference_type = typename OutputBuffer::value_type::difference_type;
-            using cables_type = std::tuple< ReadOffset<_difference_type>,std::array<ReadSize<_pointer_type>,5> >;//HACK:: hard coded channel count
+            using cables_type = std::tuple< ReadOffset<_difference_type>,std::vector<ReadSize<_pointer_type>> >;
             using const_cables_type = std::tuple< >;
-            ReaderBus()
+            ReaderBus(const std::size_t vst_numInputs)
             {
+                std::get<1>(cables) = std::vector<ReadSize<_pointer_type>>(vst_numInputs);
+                //std::get<1>(cables).resize(vst_numInputs);
                 setOffset(0);
             }
             //FIFO requires BusShaker
@@ -50,6 +52,24 @@ namespace SOS {
             signal_type signal;
             cables_type cables;
             const_cables_type const_cables;
+        };
+        template<typename T> class ARAChannel {
+            public:
+            using iterator = T*;
+            using difference_type = std::size_t;
+            ARAChannel(T* begin,const std::size_t size) : p(begin),size(size) {}
+            ~ARAChannel(){
+                p=nullptr;
+            }
+            T* begin(){
+                return p;
+            }
+            T* end(){
+                return p+size;
+            }
+            private:
+            T* p;
+            const std::size_t size;
         };
     }
     namespace Behavior {
@@ -104,7 +124,6 @@ namespace SOS {
                     if (!wait()) {
                         *current = (**readerPos)[channel];
                         readerPos++;
-                        //*current = *(readerPos++);
                         ++current;
                     }
                 }

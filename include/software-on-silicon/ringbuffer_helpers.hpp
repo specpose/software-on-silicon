@@ -12,8 +12,8 @@ template<typename Piece> class PieceWriter {
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
-                auto entry = std::vector<SAMPLE_SIZE>(channels);//HACK: hard-coded channel count
-                for (int channel=0;channel<channels;channel++)//HACK: hard-coded channel count
+                auto entry = std::vector<SAMPLE_SIZE>(channels);
+                for (int channel=0;channel<channels;channel++)
                     entry[channel]=buffer[channel][i];
                 (*std::get<1>(*current))=entry;
             }
@@ -28,8 +28,8 @@ template<typename Piece> class PieceWriter {
             std::get<0>(*current)=length;
             std::get<2>(*current)=position;
             for (int i=0;i<length;i++){
-                auto entry = std::vector<SAMPLE_SIZE>(channels);//HACK: hard-coded channel count
-                for (int channel=0;channel<channels;channel++)//HACK: hard-coded channel count
+                auto entry = std::vector<SAMPLE_SIZE>(channels);
+                for (int channel=0;channel<channels;channel++)
                     entry[channel]=buffer[channel][i];
                 (*std::get<1>(*current))=entry;
             }
