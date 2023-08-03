@@ -17,7 +17,7 @@ class Functor {
                 delete std::get<1>(sample);
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t ara_samplePosition, const std::size_t vst_numSamples){
-        hostwriter.write(channel_ptrs,vst_numInputs, ara_samplePosition,vst_numSamples);
+        hostwriter(channel_ptrs,vst_numInputs, ara_samplePosition,vst_numSamples);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};

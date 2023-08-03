@@ -2,7 +2,7 @@ namespace SOSFloat {
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}
-    void write(const SAMPLE_SIZE* buffer[], const unsigned int channels, const unsigned int position, const unsigned int length){
+    void operator()(const SAMPLE_SIZE* buffer[], const unsigned int channels, const unsigned int position, const unsigned int length){//value type, amount, offset, (value_detail)
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
