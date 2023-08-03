@@ -1,7 +1,7 @@
 template<typename Piece> class PieceWriter {
     public:
     PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& bus) : myBus(bus) {}
-    void writePiece(typename Piece::value_type character, typename Piece::difference_type length){
+    void operator()(typename Piece::value_type character, typename Piece::difference_type length){//value type, amount, offset, (value_detail)
         auto current = std::get<0>(myBus.cables).getCurrentRef().load();
         const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
         const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();

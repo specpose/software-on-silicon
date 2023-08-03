@@ -19,13 +19,13 @@ class Functor1 {
             const auto beginning = high_resolution_clock::now();
             switch(count++){
                 case 0:
-                    hostwriter.writePiece('*', 333);//lock free write
+                    hostwriter('*', 333);//lock free write
                     break;
                 case 1:
-                    hostwriter.writePiece('_', 333);
+                    hostwriter('_', 333);
                     break;
                 case 2:
-                    hostwriter.writePiece('_', 333);
+                    hostwriter('_', 333);
                     count=0;
                     break;
             }

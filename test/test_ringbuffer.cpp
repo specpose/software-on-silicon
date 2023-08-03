@@ -7,9 +7,7 @@ class Functor {
     public:
     Functor() {}
     void operator()(){
-        //for(int i=0;i<32;i++)
-        //    std::cout<<"=";
-        hostwriter.writePiece('+',32);
+        hostwriter('+',32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
