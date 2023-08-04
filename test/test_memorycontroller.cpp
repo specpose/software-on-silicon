@@ -14,7 +14,7 @@ class Functor {
     void triggerReadStart(){
         readerBus.signal.getUpdatedRef().clear();
     }
-    void operator()(int offset){
+    void operator()(const std::size_t offset){
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
             setOffset(offset);
             triggerReadStart();

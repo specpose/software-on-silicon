@@ -110,7 +110,7 @@ namespace SOS {
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             void read(){
-                for (int channel=0;channel<_size.size();channel++){
+                for (std::size_t channel=0;channel<_size.size();channel++){
                 auto current = _size[channel].getReadBufferStartRef().load();
                 const auto end = _size[channel].getReadBufferAfterLastRef().load();
                 const auto readOffset = _offset.getReadOffsetRef().load();
@@ -150,26 +150,39 @@ namespace SOS {
         template<typename BufferType> class MemoryControllerWrite {
             public:
             MemoryControllerWrite() {}
-            virtual ~MemoryControllerWrite(){};
+            virtual ~MemoryControllerWrite(){
+                for(auto& entry : memorycontroller)
+                    if (entry)
+                        delete entry;
+            };
             protected:
             virtual void write(const typename BufferType::value_type WORD)=0;
             protected:
             BufferType memorycontroller = BufferType{};
         };
-        template<typename BufferType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<BufferType> {
+        template<typename MemoryControllerType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<MemoryControllerType> {
             public:
-            using bus_type = SOS::MemoryView::BlockerBus<BufferType>;//not a controller: bus_type is for superclass
-            using SOS::Behavior::MemoryControllerWrite<BufferType>::MemoryControllerWrite;
+            using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
+            using SOS::Behavior::MemoryControllerWrite<MemoryControllerType>::MemoryControllerWrite;
+            WriteTask(const std::size_t vst_numInputs) : _vst_numInputs(vst_numInputs){}
             protected:
-            virtual void write(const typename BufferType::value_type character) {
+            virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
-                    *(writerPos++)=character;
+                    //for(std::size_t channel=0;channel<_vst_numInputs;channel++)
+                    /*if (*writerPos){
+                        delete *writerPos;
+                        *writerPos = nullptr;
+                    }*/
+                    (*writerPos)=character;
+                    writerPos++;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
                 }
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
-            typename BufferType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
+            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
+            private:
+            const std::size_t _vst_numInputs;
         };
     }
 }

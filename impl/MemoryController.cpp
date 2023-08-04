@@ -51,7 +51,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 };
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl(const std::size_t vst_numInputs) : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl(const std::size_t vst_numInputs) : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(vst_numInputs) {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
         this->memorycontroller.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs));
@@ -91,6 +91,7 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
         }
         _blocker.signal.getNotifyRef().clear();
         write(data);
+        //delete data;
         _blocker.signal.getNotifyRef().test_and_set();
         counter++;
         if (blink && counter==333){

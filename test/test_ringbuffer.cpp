@@ -9,15 +9,15 @@ class Functor {
     Functor(const std::size_t numInputs) : vst_numInputs(numInputs) {
         //hostmemory.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5));
         for(auto& sample : hostmemory)
-            std::get<1>(sample)=new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
+            sample=new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
     }
     ~Functor() {
         for (auto& sample : hostmemory)
-            if (std::get<1>(sample))
-                delete std::get<1>(sample);
+            if (sample)
+                delete sample;
     }
-    void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t ara_samplePosition, const std::size_t vst_numSamples){
-        hostwriter(channel_ptrs,vst_numInputs, ara_samplePosition,vst_numSamples);
+    void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples){
+        hostwriter(channel_ptrs,vst_numInputs, vst_numSamples);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
@@ -37,14 +37,14 @@ int main(){
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
         //from source
-        const SOSFloat::SAMPLE_SIZE channel_even[10]={1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0};
-        const SOSFloat::SAMPLE_SIZE channel_odd[10]={0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0};
-        const SOSFloat::SAMPLE_SIZE channel_last[10]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+        const SOSFloat::SAMPLE_SIZE channel_even[9]={0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0};
+        const SOSFloat::SAMPLE_SIZE channel_odd[9]={0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
+        const SOSFloat::SAMPLE_SIZE channel_last[9]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
         const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {channel_even,channel_odd,channel_even,channel_odd,channel_last};//vst host assume const
         const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
-        std::size_t numSamples = 10;//vst numSamples
+        std::size_t numSamples = 9;//vst numSamples
         std::size_t actualSamplePosition = 0;//vst actualSamplePosition
-        functor(channelBuffers32,actualSamplePosition,numSamples);
+        functor(channelBuffers32,numSamples);
         //deallocating source not needed: Owned by vst
         //error: free(): invalid pointer
         //for (size_t i=0;i<numInputs;i++)

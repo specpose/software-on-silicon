@@ -8,10 +8,11 @@ using namespace SOS;
 
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
-#include "software-on-silicon/arafallback_helpers.hpp"
-using RING_BUFFER = std::vector<std::tuple<unsigned int,std::vector<SAMPLE_SIZE>, unsigned int>>;
-using MEMORY_CONTROLLER = std::vector<SAMPLE_SIZE>;
-using READ_BUFFER = std::vector<SAMPLE_SIZE>;
+//using RING_BUFFER = std::vector<std::tuple<unsigned int,std::vector<SAMPLE_SIZE>, unsigned int>>;
+using RING_BUFFER = std::vector<std::tuple<unsigned int,SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,unsigned int>>;
+//using MEMORY_CONTROLLER = std::vector<SAMPLE_SIZE>;
+using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;//10000
+using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
 class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
@@ -20,10 +21,11 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
     {}
     protected:
     void read(){
+        for (std::size_t channel=0;channel<_size.size();channel++){
         //readbuffer
-        const auto start = _size.getReadBufferStartRef().load();
+        const auto start = _size[channel].getReadBufferStartRef().load();
         auto current = start;
-        const auto end = _size.getReadBufferAfterLastRef().load();
+        const auto end = _size[channel].getReadBufferAfterLastRef().load();
         //memorycontroller
         const auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
@@ -35,12 +37,15 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
             if (!wait()) {
                 //if the distance of the lval from its start is bigger than
                 //the (the rval offset to rval end)
-                if (std::distance(start,current)>=std::distance(readerStart+readOffset,readerEnd))
+                if (std::distance(start,current)>=std::distance(readerStart+readOffset,readerEnd)){
                     *current = 0.0;
-                else
-                    *current = *(readerPos++);
+                } else {
+                    *current = (**readerPos)[channel];
+                    readerPos++;
+                }
                 ++current;
             }
+        }
         }
     }
 };
@@ -80,40 +85,51 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     private:
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type> {
+class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>() {
+    WriteTaskImpl(const std::size_t vst_numInputs) :
+    SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(vst_numInputs),
+    _vst_numInputs(vst_numInputs)
+    {
         resize(0);
     }
-    virtual void resize(typename std::tuple_element<1,RING_BUFFER::value_type>::type::difference_type newsize){
+    virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         memorycontroller.reserve(newsize);
-        while(memorycontroller.size()<newsize)
-            memorycontroller.push_back(0.0);
+        while(memorycontroller.size()<newsize){
+            auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
+            memorycontroller.push_back(entry);
+        }
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
     };
     //helper function, not inherited
     void write(const RING_BUFFER::value_type character) {
-        resize(std::get<0>(character)+std::get<2>(character));
+        resize(std::get<0>(character)+std::get<2>(character));//offset + length
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<2>(character)+std::get<0>(character))
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
-        for(int i=0;i<std::get<0>(character);i++)
-            SOS::Behavior::WriteTask<std::tuple_element<1,RING_BUFFER::value_type>::type>::write(std::get<1>(character)[i]);
+        for(std::size_t i=0;i<std::get<0>(character);i++)
+            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(std::get<1>(character));
     }
     //not inherited
     void clearMemoryController() {
+        for(auto entry : memorycontroller)
+            if (entry)
+                delete entry;
         memorycontroller.clear();
         memorycontroller.resize(0);
     }
+    private:
+    std::size_t _vst_numInputs;
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
-        Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
+        Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds,
+        std::size_t vst_numInputs
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl(vst_numInputs) {}
     protected:
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
@@ -124,8 +140,8 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
 };
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
-    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
-    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, std::size_t vst_numInputs) :
+    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables),vst_numInputs),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
         //multiple inheritance: ambiguous base-class call
