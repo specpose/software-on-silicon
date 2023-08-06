@@ -168,12 +168,8 @@ namespace SOS {
             protected:
             virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
-                    //for(std::size_t channel=0;channel<_vst_numInputs;channel++)
-                    /*if (*writerPos){
-                        delete *writerPos;
-                        *writerPos = nullptr;
-                    }*/
-                    (*writerPos)=character;
+                    for(std::size_t channel=0;channel<_vst_numInputs;channel++)
+                        (*writerPos)[channel]=character[channel];//memorycontroller<-ringbuffer(offset and position already resolved)
                     writerPos++;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);

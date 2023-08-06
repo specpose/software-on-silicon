@@ -6,30 +6,46 @@ namespace SOSFloat {
 //Helper classes
 /*class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
+    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t numInputs, bool start=false) : _readerBus(readerBus),vst_numInputs(numInputs){
         if (start)
-            _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
+            _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
     }
     ~Functor1(){
         _thread.join();
     }
-    void operator()(){
+    void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples){
+        hostwriter(channel_ptrs,vst_numInputs, vst_numSamples);
+    }
+    void test_loop(){
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
+            const SOSFloat::SAMPLE_SIZE blink[333]={};
             switch(count++){
                 case 0:
-                    hostwriter('*', 333);//lock free write
+                    //hostwriter('*', 333);//lock free write
+                    std::fill(&blink[0],&blink[332],1.0);
                     break;
                 case 1:
-                    hostwriter('_', 333);
+                    std::fill(&blink[0],&blink[332],0.0);
                     break;
                 case 2:
-                    hostwriter('_', 333);
+                    std::fill(&blink[0],&blink[332],0.0);
                     count=0;
                     break;
             }
+            const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
+            const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
+            std::size_t numSamples = 9;//vst numSamples
+            std::size_t actualSamplePosition = 0;//vst actualSamplePosition
+            (channelBuffers32,numSamples);
+            //deallocating source not needed: Owned by vst
+            //error: free(): invalid pointer
+            //for (size_t i=0;i<numInputs;i++)
+            //    delete channelBuffers32[i];
+            //error: free(): invalid size
+            //delete channelBuffers32;
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -43,10 +59,11 @@ namespace SOSFloat {
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
-    RingBufferImpl buffer{ringbufferbus,_readerBus};
+    RingBufferImpl buffer{ringbufferbus,_readerBus,vst_numInputs};
 
     PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
     unsigned int count = 0;
+    std::size_t vst_numInputs;//vst numInputs
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
 };*/
@@ -107,9 +124,9 @@ int main (){
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        auto print = randomread[4].begin();//HACK: hard-coded channel 5
-        while (print!=randomread[4].end())//HACK: hard-coded channel 5
-            std::cout << (*print)++;
+        //auto print = randomread[4].begin();//HACK: hard-coded channel 5
+        //while (print!=randomread[4].end())//HACK: hard-coded channel 5
+        //    std::cout << (*print)++;
         std::cout << std::endl;
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }

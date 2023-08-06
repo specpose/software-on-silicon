@@ -8,9 +8,7 @@ using namespace SOS;
 
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
-//using RING_BUFFER = std::vector<std::tuple<unsigned int,std::vector<SAMPLE_SIZE>, unsigned int>>;
-using RING_BUFFER = std::vector<std::tuple<unsigned int,SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,unsigned int>>;
-//using MEMORY_CONTROLLER = std::vector<SAMPLE_SIZE>;
+using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;//10000
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
@@ -104,13 +102,13 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     };
     //helper function, not inherited
     void write(const RING_BUFFER::value_type character) {
-        resize(std::get<0>(character)+std::get<2>(character));//offset + length
+        resize(std::get<2>(character)+std::get<1>(character));//offset + length
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
-        std::get<2>(character)+std::get<0>(character))
+        std::get<2>(character)+std::get<1>(character))
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
-        for(std::size_t i=0;i<std::get<0>(character);i++)
-            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(std::get<1>(character));
+        for(std::size_t i=0;i<std::get<1>(character);i++)
+            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((*std::get<0>(character)));
     }
     //not inherited
     void clearMemoryController() {
@@ -133,6 +131,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
     protected:
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
+        throw SFA::util::logic_error("write is called",__FILE__,__func__);
         _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
         _blocker.signal.getNotifyRef().test_and_set();
