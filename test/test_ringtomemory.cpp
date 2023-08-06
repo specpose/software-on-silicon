@@ -4,7 +4,7 @@
 
 namespace SOSFloat {
 //Helper classes
-/*class Functor1 {
+class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t numInputs, bool start=false) : _readerBus(readerBus),vst_numInputs(numInputs){
         if (start)
@@ -13,25 +13,25 @@ namespace SOSFloat {
     ~Functor1(){
         _thread.join();
     }
-    void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples){
-        PieceWriter<decltype(hostmemory)>(channel_ptrs,vst_numInputs, vst_numSamples);
+    void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
+        PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void test_loop(){
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
             const auto beginning = high_resolution_clock::now();
-            const SOSFloat::SAMPLE_SIZE blink[333]={};
+            SOSFloat::SAMPLE_SIZE blink[333]={};
             switch(count++){
                 case 0:
                     //hostwriter('*', 333);//lock free write
-                    std::fill(&blink[0],&blink[332],1.0);
+                    std::fill(&(blink[0]),&(blink[332]),1.0);
                     break;
                 case 1:
-                    std::fill(&blink[0],&blink[332],0.0);
+                    std::fill(&(blink[0]),&(blink[332]),0.0);
                     break;
                 case 2:
-                    std::fill(&blink[0],&blink[332],0.0);
+                    std::fill(&(blink[0]),&(blink[332]),0.0);
                     count=0;
                     break;
             }
@@ -39,7 +39,7 @@ namespace SOSFloat {
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
             std::size_t numSamples = 9;//vst numSamples
             std::size_t actualSamplePosition = 0;//vst actualSamplePosition
-            (channelBuffers32,numSamples);
+            (channelBuffers32,numSamples,actualSamplePosition);
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
             //for (size_t i=0;i<numInputs;i++)
@@ -65,7 +65,7 @@ namespace SOSFloat {
     std::size_t vst_numInputs;//vst numInputs
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
-};*/
+};
 class Functor2 {
     public:
     Functor2(const std::size_t& vst_numInputs) : readerBus(vst_numInputs) {}
@@ -95,13 +95,13 @@ using namespace std::chrono;
 
 int main (){
     const std::size_t _ara_channelCount = 5;
-    //std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
-    //write
-    //auto functor1 = SOSFloat::Functor1(functor2.readerBus, true);
     const std::size_t ara_offset=2996;
     std::cout << "Reader reading 1000 characters per second at position " << ara_offset << "..." << std::endl;
     //read
     auto functor2 = SOSFloat::Functor2(_ara_channelCount);
+    std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
+    //write
+    auto functor1 = SOSFloat::Functor1(functor2.readerBus, true);
 
     //API: NOTCONST void* const* buffers: target
     SOSFloat::SAMPLE_SIZE** buffers = nullptr;
@@ -122,9 +122,9 @@ int main (){
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        //auto print = randomread[4].begin();//HACK: hard-coded channel 5
-        //while (print!=randomread[4].end())//HACK: hard-coded channel 5
-        //    std::cout << (*print)++;
+        auto print = randomread[4].begin();//HACK: hard-coded channel 5
+        while (print!=randomread[4].end())//HACK: hard-coded channel 5
+            std::cout << (*print)++;
         std::cout << std::endl;
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
