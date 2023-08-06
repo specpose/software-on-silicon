@@ -17,6 +17,8 @@ class Functor1 {
         PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void test_loop(){
+        ringbufferbus.signal.getNotifyRef().clear();
+        std::size_t actualSamplePosition = 0;
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
@@ -37,8 +39,8 @@ class Functor1 {
             }
             const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
-            std::size_t numSamples = 9;//vst numSamples
-            std::size_t actualSamplePosition = 0;//vst actualSamplePosition
+            std::size_t numSamples = 333;//vst numSamples
+            actualSamplePosition += 333;//vst actualSamplePosition
             (channelBuffers32,numSamples,actualSamplePosition);
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
@@ -101,7 +103,7 @@ int main (){
     auto functor2 = SOSFloat::Functor2(_ara_channelCount);
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
     //write
-    auto functor1 = SOSFloat::Functor1(functor2.readerBus, true);
+    auto functor1 = SOSFloat::Functor1(functor2.readerBus,_ara_channelCount, true);//GCC bug: true is auto-converted to std::size_t if _ara_channelCount missing!!
 
     //API: NOTCONST void* const* buffers: target
     SOSFloat::SAMPLE_SIZE** buffers = nullptr;
@@ -122,10 +124,10 @@ int main (){
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        auto print = randomread[4].begin();//HACK: hard-coded channel 5
+        /*auto print = randomread[4].begin();//HACK: hard-coded channel 5
         while (print!=randomread[4].end())//HACK: hard-coded channel 5
             std::cout << (*print)++;
-        std::cout << std::endl;
+        std::cout << std::endl;*/
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
 }
