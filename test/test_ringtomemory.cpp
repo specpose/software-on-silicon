@@ -14,7 +14,7 @@ namespace SOSFloat {
         _thread.join();
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples){
-        hostwriter(channel_ptrs,vst_numInputs, vst_numSamples);
+        PieceWriter<decltype(hostmemory)>(channel_ptrs,vst_numInputs, vst_numSamples);
     }
     void test_loop(){
         auto loopstart = high_resolution_clock::now();
@@ -61,7 +61,6 @@ namespace SOSFloat {
     //=>Piecewriter needs readerimpl running
     RingBufferImpl buffer{ringbufferbus,_readerBus,vst_numInputs};
 
-    PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
     unsigned int count = 0;
     std::size_t vst_numInputs;//vst numInputs
     //not strictly necessary, simulate real-world use-scenario

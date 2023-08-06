@@ -17,12 +17,11 @@ class Functor {
                 delete sample;
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples){
-        hostwriter(channel_ptrs,vst_numInputs, vst_numSamples);
+        PieceWriter<decltype(hostmemory)>(bus,channel_ptrs,vst_numInputs, vst_numSamples);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
     RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
-    PieceWriter<decltype(hostmemory)> hostwriter{bus};
     RingBufferImpl buffer{bus};
     std::size_t vst_numInputs;//vst numInputs
 };
