@@ -19,13 +19,13 @@ class Functor1 {
             const auto beginning = high_resolution_clock::now();
             switch(count++){
                 case 0:
-                    hostwriter('*', 333);//lock free write
+                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'*', 333);//lock free write
                     break;
                 case 1:
-                    hostwriter('_', 333);
+                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'_', 333);
                     break;
                 case 2:
-                    hostwriter('_', 333);
+                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'_', 333);
                     count=0;
                     break;
             }
@@ -44,7 +44,6 @@ class Functor1 {
     //=>Piecewriter needs readerimpl running
     RingBufferImpl buffer{ringbufferbus,_readerBus};
 
-    PieceWriter<decltype(hostmemory)> hostwriter{ringbufferbus};//not a thread!
     unsigned int count = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};

@@ -7,12 +7,12 @@ class Functor {
     public:
     Functor() {}
     void operator()(){
-        hostwriter('+',32);
+        PieceWriter<decltype(hostmemory)>(bus,'+',32);
+        //hostwriter('+',32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
     RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
-    PieceWriter<decltype(hostmemory)> hostwriter{bus};
     RingBufferImpl buffer{bus};
 };
 
