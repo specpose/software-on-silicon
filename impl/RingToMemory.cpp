@@ -86,7 +86,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl(const std::size_t vst_numInputs) :
-    SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(vst_numInputs),
+    SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
     _vst_numInputs(vst_numInputs)
     {
         resize(0);

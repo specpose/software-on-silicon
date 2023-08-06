@@ -68,7 +68,7 @@ namespace SOSFloat {
 };*/
 class Functor2 {
     public:
-    Functor2(const std::size_t vst_numInputs) : vst_numInputs(vst_numInputs), readerBus(vst_numInputs) {}
+    Functor2(const std::size_t& vst_numInputs) : readerBus(vst_numInputs) {}
     void setReadBuffer(READ_BUFFER* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);
@@ -88,7 +88,6 @@ class Functor2 {
     MemoryView::ReaderBus<READ_BUFFER> readerBus;
     private:
     READ_BUFFER* randomread;
-    const std::size_t vst_numInputs;
 };
 }
 

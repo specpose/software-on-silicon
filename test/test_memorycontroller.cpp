@@ -3,7 +3,7 @@
 namespace SOSFloat {
 class Functor {
     public:
-    Functor(const std::size_t vst_numInputs) : vst_numInputs(vst_numInputs), readerBus(vst_numInputs), controller(readerBus) {}
+    Functor(const std::size_t& vst_numInputs) : readerBus(vst_numInputs), controller(readerBus,vst_numInputs) {}
     void setReadBuffer(READ_BUFFER* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);
@@ -24,7 +24,6 @@ class Functor {
     READ_BUFFER* randomread;
     ReaderBus<READ_BUFFER> readerBus;
     WritePriorityImpl controller;
-    const std::size_t vst_numInputs;
 };
 }
 

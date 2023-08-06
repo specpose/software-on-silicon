@@ -19,7 +19,6 @@ namespace SOS {
             ReaderBus(const std::size_t vst_numInputs)
             {
                 std::get<1>(cables) = std::vector<ReadSize<_pointer_type>>(vst_numInputs);
-                //std::get<1>(cables).resize(vst_numInputs);
                 setOffset(0);
             }
             //FIFO requires BusShaker
@@ -27,6 +26,8 @@ namespace SOS {
                 std::get<0>(cables).getReadOffsetRef().store(offset);
             }
             void setReadBuffer(OutputBuffer& buffer){
+                if (buffer.size()!=std::get<1>(cables).size())
+                    throw SFA::util::logic_error("Illegal ReadBuffer size encountered",__FILE__,__func__);
                 for (int channel=0;channel<buffer.size();channel++){
                 std::get<1>(cables)[channel].getReadBufferStartRef().store(buffer[channel].begin());
                 std::get<1>(cables)[channel].getReadBufferAfterLastRef().store(buffer[channel].end());
@@ -164,12 +165,17 @@ namespace SOS {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
             using SOS::Behavior::MemoryControllerWrite<MemoryControllerType>::MemoryControllerWrite;
-            WriteTask(const std::size_t vst_numInputs) : _vst_numInputs(vst_numInputs){}
+            WriteTask() {}
             protected:
             virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
-                    for(std::size_t channel=0;channel<_vst_numInputs;channel++)
-                        (*writerPos)[channel]=character[channel];//memorycontroller<-ringbuffer(offset and position already resolved)
+                    if (!(*writerPos))
+                        throw SFA::util::logic_error("memorycontroller has not been initialized",__FILE__,__func__);
+                    if ((**writerPos).size()!=(*character).size())
+                        throw SFA::util::logic_error("Illegal character size encountered",__FILE__,__func__);
+                    const auto tmp = *writerPos;
+                    *writerPos=character;
+                    //delete tmp;
                     writerPos++;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
@@ -178,7 +184,6 @@ namespace SOS {
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
             private:
-            const std::size_t _vst_numInputs;
         };
     }
 }
