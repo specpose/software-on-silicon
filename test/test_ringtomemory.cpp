@@ -6,18 +6,34 @@ namespace SOSFloat {
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t numInputs, bool start=false) : _readerBus(readerBus),vst_numInputs(numInputs){
+    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t& maxSamplesPerProcess, bool start=false) :
+    vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
+    _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}){
+        for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
+            auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
+            for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
+                entry[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
+            std::get<0>(hostmemory[ring_entry])=entry;
+        }
+        //ringbufferbus.signal.getNotifyRef().clear();
         if (start)
-            _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
+            startTestLoop();
     }
     ~Functor1(){
         _thread.join();
+        /*for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
+            for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
+                delete std::get<0>(hostmemory[ring_entry])[sample];
+            delete std::get<0>(hostmemory[ring_entry]);
+        }*/
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
-        PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
+        PieceWriterRtM<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
+    }
+    void startTestLoop(){
+        _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
     }
     void test_loop(){
-        ringbufferbus.signal.getNotifyRef().clear();
         std::size_t actualSamplePosition = 0;
         auto loopstart = high_resolution_clock::now();
         //try {
@@ -41,7 +57,7 @@ class Functor1 {
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
             std::size_t numSamples = 333;//vst numSamples
             actualSamplePosition += 333;//vst actualSamplePosition
-            (channelBuffers32,numSamples,actualSamplePosition);
+            operator()(channelBuffers32,numSamples,actualSamplePosition);
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
             //for (size_t i=0;i<numInputs;i++)
@@ -61,12 +77,13 @@ class Functor1 {
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
-    RingBufferImpl buffer{ringbufferbus,_readerBus,vst_numInputs};
+    RingBufferImpl buffer;
 
     unsigned int count = 0;
-    std::size_t vst_numInputs;//vst numInputs
+    const std::size_t& vst_numInputs;//vst numInputs
+    const std::size_t& vst_maxSamplesPerProcess;//vst maxSamplesPerProcess
     //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
 class Functor2 {
     public:
@@ -96,15 +113,17 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t _ara_channelCount = 5;
+    const std::size_t _vst_maxSamplesPerChannel=500;//333 perProcess
+    const std::size_t _vst_numInputs = 5;
     const std::size_t ara_offset=2996;
     std::cout << "Reader reading 1000 characters per second at position " << ara_offset << "..." << std::endl;
     //read
-    auto functor2 = SOSFloat::Functor2(_ara_channelCount);
+    auto functor2 = SOSFloat::Functor2(_vst_numInputs);
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
     //write
-    auto functor1 = SOSFloat::Functor1(functor2.readerBus,_ara_channelCount, true);//GCC bug: true is auto-converted to std::size_t if _ara_channelCount missing!!
+    auto functor1 = SOSFloat::Functor1(functor2.readerBus,_vst_numInputs, _vst_maxSamplesPerChannel, false);//GCC bug: true is auto-converted to std::size_t if _vst_numInputs missing!!
 
+    const std::size_t _ara_channelCount = _vst_numInputs;
     //API: NOTCONST void* const* buffers: target
     SOSFloat::SAMPLE_SIZE** buffers = nullptr;
     buffers = new SOSFloat::SAMPLE_SIZE*[_ara_channelCount];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
@@ -121,13 +140,17 @@ int main (){
     functor2.setOffset(ara_offset);
     functor2.triggerReadStart();
 
+    functor1.startTestLoop();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        /*auto print = randomread[4].begin();//HACK: hard-coded channel 5
-        while (print!=randomread[4].end())//HACK: hard-coded channel 5
-            std::cout << (*print)++;
-        std::cout << std::endl;*/
+        if (!functor2.readerBus.signal.getAcknowledgeRef().test_and_set()){
+            auto print = randomread[4].begin();//HACK: hard-coded channel 5
+            while (print!=randomread[4].end())//HACK: hard-coded channel 5
+                std::cout << *(print++);
+            std::cout << std::endl;
+            functor2.triggerReadStart();
+        }
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
 }

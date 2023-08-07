@@ -41,7 +41,7 @@ namespace SOS {
             _item(indices),
             _bounds(bounds)
             {}
-            void read_loop() {
+            virtual void read_loop() final {
                 auto threadcurrent = _item.getThreadCurrentRef().load();
                 auto current = _item.getCurrentRef().load();
                 bool stop = false;

@@ -85,7 +85,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 };
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl(const std::size_t vst_numInputs) :
+    WriteTaskImpl(const std::size_t& vst_numInputs) :
     SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
     _vst_numInputs(vst_numInputs)
     {
@@ -97,6 +97,9 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
             memorycontroller.push_back(entry);
         }
+        for(auto& sample : memorycontroller)
+            if (sample->size()!=_vst_numInputs)
+                throw SFA::util::logic_error("Memorycontroller resize error",__FILE__,__func__);
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
     };
@@ -119,19 +122,18 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         memorycontroller.resize(0);
     }
     private:
-    std::size_t _vst_numInputs;
+    const std::size_t& _vst_numInputs;
 };
 class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds,
-        std::size_t vst_numInputs
+        const std::size_t& vst_numInputs
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl(vst_numInputs) {}
     protected:
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
-        throw SFA::util::logic_error("write is called",__FILE__,__func__);
         _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
         _blocker.signal.getNotifyRef().test_and_set();
@@ -139,7 +141,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pr
 };
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
-    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, std::size_t vst_numInputs) :
+    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, const std::size_t& vst_numInputs) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables),vst_numInputs),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
@@ -156,6 +158,7 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
+            std::this_thread::yield();
         }
     }
     protected:
