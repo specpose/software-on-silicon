@@ -7,12 +7,12 @@ namespace SOSFloat {
 class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t& maxSamplesPerProcess, bool start=false) :
-    vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
+    _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
     _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}){
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
-                entry[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
+                entry[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
             std::get<0>(hostmemory[ring_entry])=entry;
         }
         //ringbufferbus.signal.getNotifyRef().clear();
@@ -28,7 +28,12 @@ class Functor1 {
         }
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
-        PieceWriterRtM<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
+        if (!channel_ptrs)
+            throw SFA::util::logic_error("Supplied VST buffer not initialised",__FILE__,__func__);
+        for (std::size_t channel=0;channel<_vst_numInputs;channel++)
+            if (!channel_ptrs[channel])
+                throw SFA::util::logic_error("Supplied VST buffer channels not initialised",__FILE__,__func__);
+        PieceWriterRtM<decltype(hostmemory)>(ringbufferbus,channel_ptrs,_vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void startTestLoop(){
         _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
@@ -85,34 +90,63 @@ class Functor1 {
     RingBufferImpl buffer;
 
     unsigned int count = 0;
-    const std::size_t& vst_numInputs;//vst numInputs
+    const std::size_t& _vst_numInputs;//vst numInputs
     const std::size_t& vst_maxSamplesPerProcess;//vst maxSamplesPerProcess
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
 class Functor2 {
     public:
-    Functor2(const std::size_t& vst_numInputs) : readerBus(vst_numInputs) {}
-    ~Functor2(){};
-    void setReadBuffer(READ_BUFFER* buffer){
-        randomread=buffer;
+    Functor2(const std::size_t& vst_numInputs) : _ara_channelCount(vst_numInputs), readerBus(vst_numInputs) {}
+    ~Functor2(){
+        wipeBufferProxy();
+    };
+    void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t& ara_samplesPerChannel){
+        _ara_samplesPerChannel=ara_samplesPerChannel;
+        if (!buffers)
+            throw SFA::util::logic_error("Supplied ARA buffer not initialised",__FILE__,__func__);
+        for (std::size_t channel=0;channel<_ara_channelCount;channel++)
+            if (!buffers[channel])
+                throw SFA::util::logic_error("Supplied ARA buffer channels not initialised",__FILE__,__func__);
+        randomread = new SOSFloat::READ_BUFFER{};
+        for (int i=0;i<_ara_channelCount;i++){
+            randomread->push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
+        }
+        //randomread=buffer;
         readerBus.setReadBuffer(*randomread);
     }
-    void setOffset(const std::size_t offset) {
+    void setMemoryControllerOffset(const std::size_t offset) {
         readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
     }
     void triggerReadStart(){
+        if (trigger)
+            throw SFA::util::logic_error("FIFO read call already in progress",__FILE__,__func__);
+        else
+            trigger = true;
+        if (!randomread)
+            throw SFA::util::logic_error("No ReadBuffer supplied",__FILE__,__func__);
         readerBus.signal.getUpdatedRef().clear();
     }
-    void operator()(const std::size_t offset) {
+    bool operator()() {
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
-            triggerReadStart();
+            trigger = false;
+            wipeBufferProxy();
+            return true;
+        } else {
+            return false;
         }
     }
     MemoryView::ReaderBus<READ_BUFFER> readerBus;
     private:
-    READ_BUFFER* randomread;
+    void wipeBufferProxy(){
+        if (randomread)
+            delete randomread;
+        randomread=nullptr;
+    }
+    READ_BUFFER* randomread = nullptr;
+    const std::size_t& _ara_channelCount;
+    std::size_t _ara_samplesPerChannel = 0;
+    bool trigger = false;
 };
 }
 
@@ -135,28 +169,28 @@ int main (){
     buffers = new SOSFloat::SAMPLE_SIZE*[_ara_channelCount];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
     //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
     const std::size_t ara_samplesPerChannel = 1000;
-    for (std::size_t i=0;i<_ara_channelCount;i++){
-        buffers[i]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
+    for (std::size_t channel=0;channel<_ara_channelCount;channel++){
+        buffers[channel]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
     }
-    auto randomread = SOSFloat::READ_BUFFER{};
-    for (int i=0;i<_ara_channelCount;i++){
-        randomread.push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
-    }
-    functor2.setReadBuffer(&randomread);
-    functor2.setOffset(ara_offset);
+    functor2.setReadBuffer(buffers, ara_samplesPerChannel);
+    functor2.setMemoryControllerOffset(ara_offset);
     functor2.triggerReadStart();
 
     functor1.startTestLoop();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        if (!functor2.readerBus.signal.getAcknowledgeRef().test_and_set()){
-            auto print = randomread[4].begin();//HACK: hard-coded channel 5
-            while (print!=randomread[4].end())//HACK: hard-coded channel 5
+        if (functor2()){
+            auto print = &buffers[4][0];//HACK: hard-coded channel 5
+            while (print!=&buffers[4][ara_samplesPerChannel])//HACK: hard-coded channel 5
                 std::cout << *(print++);
             std::cout << std::endl;
+            functor2.setReadBuffer(buffers, ara_samplesPerChannel);
+            functor2.setMemoryControllerOffset(ara_offset);
             functor2.triggerReadStart();
+            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
+        } else {
+            std::this_thread::yield();
         }
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
 }

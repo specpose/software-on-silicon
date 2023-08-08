@@ -9,7 +9,7 @@ class Functor {
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);
     }
-    void setOffset(const std::size_t offset) {
+    void setMemoryControllerOffset(const std::size_t offset) {
         readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
     }
     void triggerReadStart(){
@@ -17,7 +17,7 @@ class Functor {
     }
     void operator()(const std::size_t offset){
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            setOffset(offset);
+            setMemoryControllerOffset(offset);
             triggerReadStart();
         }
     }
@@ -49,7 +49,7 @@ int main(){
     auto functor = SOSFloat::Functor(_ara_channelCount);
     std::cout << "Reader reading 1000 times at position "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
     functor.setReadBuffer(&randomread);
-    functor.setOffset(ara_offset);
+    functor.setMemoryControllerOffset(ara_offset);
     functor.triggerReadStart();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<12){
