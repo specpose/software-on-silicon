@@ -63,8 +63,8 @@ class Functor1 {
             }
             const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
-            actualSamplePosition += 333;//vst actualSamplePosition
             operator()(channelBuffers32,numSamples,actualSamplePosition);
+            actualSamplePosition += 333;//vst actualSamplePosition
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
             //for (size_t i=0;i<vst_numInputs;i++)
@@ -155,7 +155,7 @@ using namespace std::chrono;
 int main (){
     const std::size_t _vst_maxSamplesPerChannel=500;//333 perProcess
     const std::size_t _vst_numInputs = 5;
-    const std::size_t ara_offset=0;//2996;
+    const std::size_t ara_offset=2996;
     std::cout << "Reader reading 1000 characters per second at position " << ara_offset << "..." << std::endl;
     //read
     auto functor2 = SOSFloat::Functor2(_vst_numInputs);
