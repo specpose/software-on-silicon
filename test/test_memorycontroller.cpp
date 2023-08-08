@@ -27,6 +27,8 @@ class Functor {
 };
 }
 
+using namespace std::chrono;
+
 int main(){
     //API: NOTCONST void* const* buffers: target
     SOSFloat::SAMPLE_SIZE** buffers = nullptr;
@@ -48,7 +50,9 @@ int main(){
     functor.setReadBuffer(&randomread);
     functor.setOffset(ara_offset);
     functor.triggerReadStart();
-    while (true){
+    //auto loopstart = high_resolution_clock::now();
+    //while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10){
+    while(true){
         const auto start_tp = high_resolution_clock::now();
         functor(ara_offset);
         for (std::size_t i=0;i<ara_samplesPerChannel;i++)

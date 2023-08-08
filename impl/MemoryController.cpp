@@ -91,8 +91,12 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
             //data=entry;
         }
         _blocker.signal.getNotifyRef().clear();
-        write(data);
-        //delete data;
+        //try {
+            write(data);
+            //delete data;
+        //} catch (std::exception& e) {
+        //    stop_requested=true;
+        //}
         _blocker.signal.getNotifyRef().test_and_set();
         counter++;
         if (blink && counter==333){
