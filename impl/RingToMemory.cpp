@@ -98,6 +98,7 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
+            std::this_thread::yield();
         }
     }
     protected:
