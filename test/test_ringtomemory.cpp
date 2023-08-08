@@ -15,7 +15,7 @@ class Functor1 {
     void operator()(){
         auto loopstart = high_resolution_clock::now();
         //try {
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
             const auto beginning = high_resolution_clock::now();
             switch(count++){
                 case 0:

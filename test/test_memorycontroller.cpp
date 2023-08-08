@@ -25,11 +25,14 @@ class Functor {
     WritePriorityImpl controller{readerBus};
 };
 
+using namespace std::chrono;
+
 int main(){
     std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
     auto functor = Functor(true);
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
-    while (true){
+    auto loopstart = high_resolution_clock::now();
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<12){
         const auto start_tp = high_resolution_clock::now();
         functor(9000);
         std::this_thread::sleep_until(start_tp + duration_cast<high_resolution_clock::duration>(seconds{1}));
