@@ -4,6 +4,7 @@ namespace SOSFloat {
 class Functor {
     public:
     Functor(const std::size_t& vst_numInputs) : readerBus(vst_numInputs), controller(readerBus,vst_numInputs) {}
+    ~Functor(){}
     void setReadBuffer(READ_BUFFER* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);

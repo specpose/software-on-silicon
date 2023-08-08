@@ -71,8 +71,9 @@ namespace SOS{
             Contiguous(const std::size_t size) : std::vector<T>(size) {
                 if (this->size()!=size)
                     throw SFA::util::logic_error("Contiguous initialized incorrectly",__FILE__,__func__);
-                for(std::size_t channel;channel<this->size();channel++)
-                    (*this)[channel]=0.0;
+                std::fill(this->begin(),this->end(),0.0);
+                //for(std::size_t channel;channel<this->size();channel++)
+                //    (*this)[channel]=0.0;
             }
             ~Contiguous(){
                 //error: double free detected

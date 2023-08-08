@@ -63,13 +63,19 @@ namespace SOS {
                 p=nullptr;
             }
             T* begin(){
-                return p;
+                if (p)
+                    return p;
+                else
+                    throw SFA::util::logic_error("ARAChannel initialization error",__FILE__,__func__);
             }
             T* end(){
-                return p+size;
+                if (p)
+                    return p+size;
+                else
+                    throw SFA::util::logic_error("ARAChannel initialization error",__FILE__,__func__);
             }
             private:
-            T* p;
+            T* p = nullptr;
             const std::size_t size;
         };
     }

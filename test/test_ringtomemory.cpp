@@ -21,11 +21,11 @@ class Functor1 {
     }
     ~Functor1(){
         _thread.join();
-        /*for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
+        for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
                 delete std::get<0>(hostmemory[ring_entry])[sample];
             delete std::get<0>(hostmemory[ring_entry]);
-        }*/
+        }
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
         PieceWriterRtM<decltype(hostmemory)>(ringbufferbus,channel_ptrs,vst_numInputs, vst_numSamples, actualSamplePosition);
@@ -35,18 +35,21 @@ class Functor1 {
     }
     void test_loop(){
         std::size_t actualSamplePosition = 0;
+        const std::size_t numSamples = 333;//vst numSample
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
             const auto beginning = high_resolution_clock::now();
             SOSFloat::SAMPLE_SIZE blink[333]={};
-            switch(count++){
+            switch(count){
                 case 0:
                     //hostwriter('*', 333);//lock free write
                     std::fill(&(blink[0]),&(blink[332]),1.0);
+                    count++;
                     break;
                 case 1:
                     std::fill(&(blink[0]),&(blink[332]),0.0);
+                    count++;
                     break;
                 case 2:
                     std::fill(&(blink[0]),&(blink[332]),0.0);
@@ -55,15 +58,17 @@ class Functor1 {
             }
             const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
-            std::size_t numSamples = 333;//vst numSamples
             actualSamplePosition += 333;//vst actualSamplePosition
             operator()(channelBuffers32,numSamples,actualSamplePosition);
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
-            //for (size_t i=0;i<numInputs;i++)
+            //for (size_t i=0;i<vst_numInputs;i++)
             //    delete channelBuffers32[i];
+            //    delete channel_ptrs[i];
             //error: free(): invalid size
             //delete channelBuffers32;
+            //delete channel_ptrs;
+            //delete blink;
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -88,6 +93,7 @@ class Functor1 {
 class Functor2 {
     public:
     Functor2(const std::size_t& vst_numInputs) : readerBus(vst_numInputs) {}
+    ~Functor2(){};
     void setReadBuffer(READ_BUFFER* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);
@@ -115,7 +121,7 @@ using namespace std::chrono;
 int main (){
     const std::size_t _vst_maxSamplesPerChannel=500;//333 perProcess
     const std::size_t _vst_numInputs = 5;
-    const std::size_t ara_offset=2996;
+    const std::size_t ara_offset=0;//2996;
     std::cout << "Reader reading 1000 characters per second at position " << ara_offset << "..." << std::endl;
     //read
     auto functor2 = SOSFloat::Functor2(_vst_numInputs);
