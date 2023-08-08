@@ -91,11 +91,14 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     {
         resize(0);
     }
+    ~WriteTaskImpl(){
+        clearMemoryController();
+    }
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
-            auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
-            memorycontroller.push_back(entry);
+            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
+            memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
         }
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)

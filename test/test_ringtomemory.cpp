@@ -10,12 +10,12 @@ class Functor1 {
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
     _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}){
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
-            auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
+            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
+            std::get<0>(hostmemory[ring_entry]) = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
-                entry[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
-            std::get<0>(hostmemory[ring_entry])=entry;
+                std::get<0>(hostmemory[ring_entry])[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
+            //std::get<0>(hostmemory[ring_entry])=entry;
         }
-        //ringbufferbus.signal.getNotifyRef().clear();
         if (start)
             startTestLoop();
     }
@@ -192,5 +192,12 @@ int main (){
         } else {
             std::this_thread::yield();
         }
+    }
+
+    //deallocating target: Needed ARAFallback is a host
+    if (buffers){
+        for (std::size_t i=0;i<_ara_channelCount;i++)
+            delete buffers[i];
+        delete buffers;
     }
 }
