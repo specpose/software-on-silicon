@@ -50,9 +50,8 @@ int main(){
     functor.setReadBuffer(&randomread);
     functor.setOffset(ara_offset);
     functor.triggerReadStart();
-    //auto loopstart = high_resolution_clock::now();
-    //while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10){
-    while(true){
+    auto loopstart = high_resolution_clock::now();
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<12){
         const auto start_tp = high_resolution_clock::now();
         functor(ara_offset);
         for (std::size_t i=0;i<ara_samplesPerChannel;i++)

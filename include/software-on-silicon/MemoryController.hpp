@@ -151,11 +151,7 @@ namespace SOS {
         template<typename BufferType> class MemoryControllerWrite {
             public:
             MemoryControllerWrite() {}
-            virtual ~MemoryControllerWrite(){
-                for(auto& entry : memorycontroller)
-                    if (entry)
-                        delete entry;
-            };
+            virtual ~MemoryControllerWrite(){};
             protected:
             virtual void write(const typename BufferType::value_type WORD)=0;
             protected:
@@ -173,9 +169,11 @@ namespace SOS {
                         throw SFA::util::logic_error("memorycontroller has not been initialized",__FILE__,__func__);
                     if ((**writerPos).size()!=(*character).size())
                         throw SFA::util::logic_error("Illegal character size encountered",__FILE__,__func__);
-                    const auto tmp = *writerPos;
-                    *writerPos=character;
-                    //delete tmp;
+                    //const auto tmp = *writerPos;
+                    //*writerPos=character;
+                    ////delete tmp;
+                    for(std::size_t channel=0;channel<(**writerPos).size();channel++)
+                        (**writerPos)[channel]=(*character)[channel];
                     writerPos++;
                 } else {
                     throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
