@@ -33,6 +33,7 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
+            std::this_thread::yield();
         }
     }
     private:
