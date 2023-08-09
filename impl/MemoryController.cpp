@@ -1,5 +1,6 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/EventLoop.hpp"
+#include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <chrono>

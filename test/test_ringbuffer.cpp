@@ -1,7 +1,6 @@
 #include <iostream>
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-#include <chrono>
 
 namespace SOSFloat {
 class Functor {
