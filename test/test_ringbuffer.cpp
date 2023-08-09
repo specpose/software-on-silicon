@@ -1,14 +1,11 @@
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-#include <iostream>
-#include <chrono>
 
 class Functor {
     public:
     Functor() {}
     void operator()(){
         PieceWriter<decltype(hostmemory)>(bus,'+',32);
-        //hostwriter('+',32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};

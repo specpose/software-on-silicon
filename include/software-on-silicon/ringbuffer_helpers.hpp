@@ -1,7 +1,7 @@
 template<typename Piece> void PieceWriter_write(typename Piece::value_type character, typename Piece::iterator current){
     *current=character;
 }
-template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, typename Piece::value_type character, typename Piece::difference_type length){//value type, amount, offset, (value_detail)
+template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, typename Piece::value_type character, typename Piece::difference_type length){
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();

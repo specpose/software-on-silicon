@@ -1,5 +1,3 @@
-//#include <iostream>
-
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct ReadSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
@@ -56,11 +54,11 @@ namespace SOS {
         template<typename S, typename... Others> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;//mix-in: could also be local type
+            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
             PassthruSimpleController(typename bus_type::signal_type& signal, typename subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::Notify,S>(signal),
             _foreign(passThru),
-            _child(subcontroller_type{_foreign, args...})//_foreign contains BlockerBus, args.. contains ReaderBus
+            _child(subcontroller_type{_foreign, args...})
             {}
             protected:
             typename subcontroller_type::bus_type& _foreign;

@@ -1,7 +1,7 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/EventLoop.hpp"
-#include "software-on-silicon/loop_helpers.hpp"
 #include <iostream>
+#include "software-on-silicon/loop_helpers.hpp"
 
 using namespace SOS::MemoryView;
 using namespace std::chrono;
