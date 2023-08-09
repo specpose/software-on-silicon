@@ -1,3 +1,9 @@
+/*
+
+Not used in implementation of ARAFallback. This is only a preliminary refactoring check to get ARAFallback RingToMemory working.
+
+*/
+
 #include "MemoryController.cpp"
 
 namespace SOSFloat {

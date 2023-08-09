@@ -9,11 +9,9 @@ class Functor1 {
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
     _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}){
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
-            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             std::get<0>(hostmemory[ring_entry]) = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
                 std::get<0>(hostmemory[ring_entry])[sample]= new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
-            //std::get<0>(hostmemory[ring_entry])=entry;
         }
         if (start)
             startTestLoop();
@@ -44,10 +42,9 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
             const auto beginning = high_resolution_clock::now();
-            SOSFloat::SAMPLE_SIZE blink[333]={};
+            SOSFloat::SAMPLE_SIZE blink[333]={};//vst AudioEffect: avoid heap allocation and locks
             switch(count){
                 case 0:
-                    //hostwriter('*', 333);//lock free write
                     std::fill(&(blink[0]),&(blink[332]),1.0);
                     count++;
                     break;
@@ -62,7 +59,7 @@ class Functor1 {
             }
             const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
-            operator()(channelBuffers32,numSamples,actualSamplePosition);
+            operator()(channelBuffers32,numSamples,actualSamplePosition);//lock free write
             actualSamplePosition += 333;//vst actualSamplePosition
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer

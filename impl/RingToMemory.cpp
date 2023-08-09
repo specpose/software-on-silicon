@@ -10,7 +10,7 @@ using namespace SOS;
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
 using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
-using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;//10000
+using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
 class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
@@ -98,7 +98,6 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
-            //auto entry = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs);
             memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
         }
         for(auto& sample : memorycontroller)

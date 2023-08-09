@@ -72,8 +72,6 @@ namespace SOS{
                 if (this->size()!=size)
                     throw SFA::util::logic_error("Contiguous initialized incorrectly",__FILE__,__func__);
                 std::fill(this->begin(),this->end(),0.0);
-                //for(std::size_t channel;channel<this->size();channel++)
-                //    (*this)[channel]=0.0;
             }
             ~Contiguous(){
                 //error: double free detected
@@ -85,13 +83,10 @@ namespace SOS{
             Contiguous& operator=(const std::vector<T>& other){
                 if (other.size()!=this->size())
                     throw SFA::util::logic_error("operator=() used incorrectly",__FILE__,__func__);
-                for (int channel=0;channel<std::vector<T>::size();channel++)
+                for (std::size_t channel=0;channel<std::vector<T>::size();channel++)
                     (*this)[channel]=other[channel];
                 return *this;
             }
-            /*Contiguous& operator=(Contiguous& other){
-                return std::vector<T>::operator=(other);
-            }*/
         };
     }
     namespace Behavior {

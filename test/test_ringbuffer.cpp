@@ -1,3 +1,9 @@
+/*
+
+Not used in implementation of ARAFallback. This is only a preliminary refactoring check to get ARAFallback RingToMemory working.
+
+*/
+
 #include <iostream>
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
@@ -6,7 +12,6 @@ namespace SOSFloat {
 class Functor {
     public:
     Functor(const std::size_t numInputs) : vst_numInputs(numInputs) {
-        //hostmemory.fill(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(5));
         for(auto& sample : hostmemory)
             sample=new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(vst_numInputs);
     }
@@ -37,8 +42,8 @@ int main(){
         //from source
         const SOSFloat::SAMPLE_SIZE channel_even[9]={0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0};
         const SOSFloat::SAMPLE_SIZE channel_odd[9]={0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
-        const SOSFloat::SAMPLE_SIZE channel_last[9]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
-        const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {channel_even,channel_odd,channel_even,channel_odd,channel_last};//vst host assume const
+        const SOSFloat::SAMPLE_SIZE channel_first[9]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
+        const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {channel_first,channel_odd,channel_even,channel_odd,channel_even};//vst host assume const
         const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
         std::size_t numSamples = 9;//vst numSamples
         std::size_t actualSamplePosition = 0;//vst actualSamplePosition

@@ -14,7 +14,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     protected:
-    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<(*character)[0];}//HACK: hard-coded channel 0
+    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<(*character)[4];}//HACK: hard-coded channel 5
 };
 class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public RingBufferTaskImpl {
     public:

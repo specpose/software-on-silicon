@@ -9,7 +9,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
     //std::cout<<"=";
     std::cout<<length;
-    for (std::size_t i=0;i<length;i++){//up to length 9
+    for (std::size_t i=0;i<length;i++){
     if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
         //write directly to HOSTmemory
         PieceWriter_write<Piece>(current,buffer,channels,i);
@@ -27,7 +27,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
     }
     }
 }
-//has different for(for)
+//has different for{for{}}
 template<typename Piece> void PieceWriterRtM(SOS::MemoryView::RingBufferBus<Piece>& myBus, const SAMPLE_SIZE* buffer[], const std::size_t channels, const std::size_t length, const std::size_t position=0){//value type, amount, offset, (value_detail)
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
