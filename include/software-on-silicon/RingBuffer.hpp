@@ -24,9 +24,9 @@ namespace SOS {
                 if(std::distance(begin,afterlast)<2)
                     SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough,__FILE__,__func__);
                 //=>explicitly initialize wires
-                std::get<0>(cables).getThreadCurrentRef().store(begin);
+                std::get<0>(cables).getThreadCurrentRef() = begin;
                 auto next = begin;
-                std::get<0>(cables).getCurrentRef().store(++next);
+                std::get<0>(cables).getCurrentRef() = ++next;
             }
             cables_type cables;
             const_cables_type const_cables;

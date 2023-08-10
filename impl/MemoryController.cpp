@@ -94,8 +94,8 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getWritingRef().clear();
         for(auto& entry : memorycontroller)
             entry = new SOS::MemoryView::Contiguous<typename std::remove_pointer<MEMORY_CONTROLLER::value_type>::type::value_type>(5);
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        std::get<0>(_blocker.cables).getBKStartRef() = memorycontroller.begin();
+        std::get<0>(_blocker.cables).getBKEndRef() = memorycontroller.end();
     }
     ~WriteTaskImpl(){
         _blocker.signal.getWritingRef().clear();

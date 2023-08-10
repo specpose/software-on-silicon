@@ -37,16 +37,16 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
     protected:
     void read(){
         for (std::size_t channel=0;channel<_size.size();channel++){
-        const auto start = _size[channel].getReadBufferStartRef().load();
+        const auto start = _size[channel].getReadBufferStartRef();
         auto current = start;
-        const auto end = _size[channel].getReadBufferAfterLastRef().load();
+        const auto end = _size[channel].getReadBufferAfterLastRef();
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                const auto readerStart = _memorycontroller_size.getBKStartRef().load() + readOffset;
-                const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
+                const auto readerStart = _memorycontroller_size.getBKStartRef() + readOffset;
+                const auto readerEnd = _memorycontroller_size.getBKEndRef();
                 if (std::distance(start,current)>=std::distance(readerStart,readerEnd)){
                     //SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                     *current = 0.0;
@@ -116,8 +116,8 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
         }
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        std::get<0>(_blocker.cables).getBKStartRef() = memorycontroller.begin();
+        std::get<0>(_blocker.cables).getBKEndRef() = memorycontroller.end();
         ara_sampleCount = memorycontroller.size();
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)
@@ -130,10 +130,10 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getWritingRef().clear();
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
         _blocker.signal.getWritingRef().test_and_set();
-        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
+        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef(),std::get<0>(_blocker.cables).getBKEndRef())<
         std::get<2>(character)+std::get<1>(character))
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
-        writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
+        writerPos = std::get<0>(_blocker.cables).getBKStartRef() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++){
             _blocker.signal.getWritingRef().clear();
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((std::get<0>(character))[i]);

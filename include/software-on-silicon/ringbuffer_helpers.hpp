@@ -4,19 +4,19 @@ template<typename Piece> void PieceWriter_write(typename Piece::iterator current
         (**current)[channel]=buffer[channel][sampleIndex];
 }
 template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, const SAMPLE_SIZE* buffer[], const std::size_t channels, const std::size_t length){//value type, amount, offset, (value_detail)
-    auto current = std::get<0>(myBus.cables).getCurrentRef().load();
+    auto current = std::get<0>(myBus.cables).getCurrentRef();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
     //std::cout<<"=";
     std::cout<<length;
     for (std::size_t i=0;i<length;i++){
-        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
+        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef()){
             //write directly to HOSTmemory
             PieceWriter_write<Piece>(current,buffer,channels,i);
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
                 current = std::get<0>(myBus.const_cables).getWriterStartRef();
-            std::get<0>(myBus.cables).getCurrentRef().store(current);
+            std::get<0>(myBus.cables).getCurrentRef() = current;
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
@@ -29,11 +29,11 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
 }
 //has different for{for{}}
 template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, const SAMPLE_SIZE* buffer[], const std::size_t channels, const std::size_t length, const std::size_t position){//value type, amount, offset, (value_detail)
-    auto current = std::get<0>(myBus.cables).getCurrentRef().load();
+    auto current = std::get<0>(myBus.cables).getCurrentRef();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
     //std::cout<<"=";
-    if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
+    if (current!=std::get<0>(myBus.cables).getThreadCurrentRef()){
         //write directly to HOSTmemory
         std::get<1>(*current)=length;
         std::get<2>(*current)=position;
@@ -45,7 +45,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         ++current;
         if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
             current = std::get<0>(myBus.const_cables).getWriterStartRef();
-        std::get<0>(myBus.cables).getCurrentRef().store(current);
+        std::get<0>(myBus.cables).getCurrentRef() = current;
         myBus.signal.getNotifyRef().clear();
     } else {
         //write last bit
