@@ -24,9 +24,9 @@ namespace SOS {
                 if(std::distance(begin,afterlast)<2)
                     throw SFA::util::logic_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
                 //=>explicitly initialize wires
-                std::get<0>(cables).getThreadCurrentRef().store(begin);
+                std::get<0>(cables).getThreadCurrentRef() = begin;
                 auto next = begin;
-                std::get<0>(cables).getCurrentRef().store(++next);
+                std::get<0>(cables).getCurrentRef() = ++next;
             }
             cables_type cables;
             const_cables_type const_cables;
@@ -42,8 +42,8 @@ namespace SOS {
             _bounds(bounds)
             {}
             virtual void read_loop() final {
-                auto threadcurrent = _item.getThreadCurrentRef().load();
-                auto current = _item.getCurrentRef().load();
+                auto threadcurrent = _item.getThreadCurrentRef();
+                auto current = _item.getCurrentRef();
                 bool stop = false;
                 while(!stop){//if: possible less writes than reads
                     ++threadcurrent;
@@ -51,7 +51,7 @@ namespace SOS {
                         threadcurrent=_bounds.getWriterStartRef();
                     if (threadcurrent!=current) {
                         write(*threadcurrent);
-                        _item.getThreadCurrentRef().store(threadcurrent);
+                        _item.getThreadCurrentRef() = threadcurrent;
                     } else {
                         stop = true;
                     }

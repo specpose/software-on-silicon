@@ -22,15 +22,15 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
     void read(){
         for (std::size_t channel=0;channel<_size.size();channel++){
         //readbuffer
-        const auto start = _size[channel].getReadBufferStartRef().load();
+        const auto start = _size[channel].getReadBufferStartRef();
         auto current = start;
-        const auto end = _size[channel].getReadBufferAfterLastRef().load();
+        const auto end = _size[channel].getReadBufferAfterLastRef();
         //memorycontroller
-        const auto readOffset = _offset.getReadOffsetRef().load();
+        const auto readOffset = _offset.getReadOffsetRef();
         if (readOffset<0)
             throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-        const auto readerStart = _memorycontroller_size.getBKStartRef().load();
-        const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
+        const auto readerStart = _memorycontroller_size.getBKStartRef();
+        const auto readerEnd = _memorycontroller_size.getBKEndRef();
         auto readerPos = readerStart+readOffset;
         while (current!=end){
             if (!wait()) {
@@ -103,16 +103,16 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)
                 throw SFA::util::logic_error("Memorycontroller resize error",__FILE__,__func__);
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        std::get<0>(_blocker.cables).getBKStartRef() = memorycontroller.begin();
+        std::get<0>(_blocker.cables).getBKEndRef() = memorycontroller.end();
     };
     //helper function, not inherited
     void write(const RING_BUFFER::value_type character) {
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
-        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
+        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef(),std::get<0>(_blocker.cables).getBKEndRef())<
         std::get<2>(character)+std::get<1>(character))
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
-        writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
+        writerPos = std::get<0>(_blocker.cables).getBKStartRef() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++)
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((*std::get<0>(character)));
     }

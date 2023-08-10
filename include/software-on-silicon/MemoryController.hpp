@@ -21,14 +21,14 @@ namespace SOS {
             }
             //FIFO requires BusShaker
             void setOffset(_difference_type offset){
-                std::get<0>(cables).getReadOffsetRef().store(offset);
+                std::get<0>(cables).getReadOffsetRef() = offset;
             }
             void setReadBuffer(OutputBuffer& buffer){
                 if (buffer.size()!=std::get<1>(cables).size())
                     throw SFA::util::logic_error("Illegal ReadBuffer size encountered",__FILE__,__func__);
                 for (int channel=0;channel<buffer.size();channel++){
-                std::get<1>(cables)[channel].getReadBufferStartRef().store(buffer[channel].begin());
-                std::get<1>(cables)[channel].getReadBufferAfterLastRef().store(buffer[channel].end());
+                std::get<1>(cables)[channel].getReadBufferStartRef() = buffer[channel].begin();
+                std::get<1>(cables)[channel].getReadBufferAfterLastRef() = buffer[channel].end();
                 }
             }
             cables_type cables;
@@ -45,8 +45,8 @@ namespace SOS {
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             using const_cables_type = std::tuple< >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
-                std::get<0>(cables).getBKStartRef().store(start);
-                std::get<0>(cables).getBKEndRef().store(start);
+                std::get<0>(cables).getBKStartRef() = start;
+                std::get<0>(cables).getBKEndRef() = start;
             }
             signal_type signal;
             cables_type cables;
@@ -116,15 +116,15 @@ namespace SOS {
             protected:
             void read(){
                 for (std::size_t channel=0;channel<_size.size();channel++){
-                auto current = _size[channel].getReadBufferStartRef().load();
-                const auto end = _size[channel].getReadBufferAfterLastRef().load();
-                const auto readOffset = _offset.getReadOffsetRef().load();
+                auto current = _size[channel].getReadBufferStartRef();
+                const auto end = _size[channel].getReadBufferAfterLastRef();
+                const auto readOffset = _offset.getReadOffsetRef();
                 if (readOffset<0)
                     throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-                if (std::distance(_memorycontroller_size.getBKStartRef().load(),_memorycontroller_size.getBKEndRef().load())
+                if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-                auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
+                auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
                 while (current!=end){
                     if (!wait()) {
                         *current = (**readerPos)[channel];
@@ -168,7 +168,7 @@ namespace SOS {
             WriteTask() {}
             protected:
             virtual void write(const typename MemoryControllerType::value_type character) {
-                if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
+                if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef()) {
                     if (!(*writerPos))
                         throw SFA::util::logic_error("memorycontroller has not been initialized",__FILE__,__func__);
                     if ((**writerPos).size()!=(*character).size())
@@ -181,7 +181,7 @@ namespace SOS {
                 }
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
-            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
+            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef();
             private:
         };
     }
