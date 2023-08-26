@@ -88,23 +88,22 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl(const std::size_t& vst_numInputs) :
     SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
-    _vst_numInputs(vst_numInputs)
-    {
-        resize(0);
-    }
+    _vst_numInputs(vst_numInputs) {}
     ~WriteTaskImpl(){
         clearMemoryController();
     }
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         memorycontroller.reserve(newsize);
+        _blocker.signal.getNotifyRef().clear();
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
         }
+        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
+        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        _blocker.signal.getNotifyRef().test_and_set();
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)
                 throw SFA::util::logic_error("Memorycontroller resize error",__FILE__,__func__);
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
     };
     //helper function, not inherited
     void write(const RING_BUFFER::value_type character) {
@@ -118,11 +117,14 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
     //not inherited
     void clearMemoryController() {
+        _blocker.signal.getNotifyRef().clear();
         for(auto entry : memorycontroller)
             if (entry)
                 delete entry;
         memorycontroller.clear();
-        memorycontroller.resize(0);
+        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
+        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        _blocker.signal.getNotifyRef().test_and_set();
     }
     private:
     const std::size_t& _vst_numInputs;
