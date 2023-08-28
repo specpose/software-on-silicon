@@ -26,21 +26,20 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
         auto current = start;
         const auto end = _size[channel].getReadBufferAfterLastRef().load();
         //memorycontroller
-        const auto readOffset = _offset.getReadOffsetRef().load();
+        auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-        const auto readerStart = _memorycontroller_size.getBKStartRef().load();
-        const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
-        auto readerPos = readerStart+readOffset;
         while (current!=end){
             if (!wait()) {
+                const auto readerStart = _memorycontroller_size.getBKStartRef().load();
+                const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
                 //if the distance of the lval from its start is bigger than
                 //the (the rval offset to rval end)
                 if (std::distance(start,current)>=std::distance(readerStart+readOffset,readerEnd)){
                     *current = 0.0;
                 } else {
-                    *current = (**readerPos)[channel];
-                    readerPos++;
+                    *current = (**(readerStart + readOffset))[channel];
+                    readOffset++;
                 }
                 ++current;
             }
