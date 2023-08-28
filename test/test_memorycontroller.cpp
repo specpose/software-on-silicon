@@ -45,6 +45,9 @@ int main(){
     const std::size_t ara_samplesPerChannel = 1000;
     for (std::size_t i=0;i<_ara_channelCount;i++){
         buffers[i]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
+        for (std::size_t channel = 0; channel < ara_samplesPerChannel; channel++) {
+            buffers[i][channel] = 0.0;
+        }
     }
     const std::size_t ara_offset=7991;
     auto randomread = SOSFloat::READ_BUFFER{};

@@ -118,17 +118,18 @@ namespace SOS {
                 for (std::size_t channel=0;channel<_size.size();channel++){
                 auto current = _size[channel].getReadBufferStartRef();
                 const auto end = _size[channel].getReadBufferAfterLastRef();
-                const auto readOffset = _offset.getReadOffsetRef();
+                auto readOffset = _offset.getReadOffsetRef();
                 if (readOffset<0)
                     throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
                 if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
                 <(std::distance(current,end)+readOffset))
                     throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
-                auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
                 while (current!=end){
                     if (!wait()) {
+                        //readOffset stays valid with resize (grow), but not clearMemoryController
+                        auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
                         *current = (**readerPos)[channel];
-                        readerPos++;
+                        readOffset++;
                         ++current;
                     }
                 }
