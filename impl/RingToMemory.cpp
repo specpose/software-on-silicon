@@ -246,3 +246,5 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     std::thread _thread = std::thread{};
 };
 }
+
+#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL
