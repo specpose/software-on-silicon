@@ -1,3 +1,6 @@
+#define OLD_ITERATOR_DEBUG_LEVEL _ITERATOR_DEBUG_LEVEL
+#define _ITERATOR_DEBUG_LEVEL 0
+
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/EventLoop.hpp"
 #include <iostream>
@@ -175,3 +178,5 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
     std::thread _thread = std::thread{};
 };
 }
+
+#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL
