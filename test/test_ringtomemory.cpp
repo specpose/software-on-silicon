@@ -95,7 +95,7 @@ class Functor1 {
 };
 class Functor2 {
     public:
-    Functor2(const std::size_t& vst_numInputs) : _ara_channelCount(vst_numInputs), readerBus(vst_numInputs) {}
+    Functor2(const std::size_t& vst_numInputs) : vst_numChannels(vst_numInputs), readerBus(vst_numInputs) {}
     ~Functor2(){
         wipeBufferProxy();
     };
@@ -103,11 +103,11 @@ class Functor2 {
         _ara_samplesPerChannel=ara_samplesPerChannel;
         if (!buffers)
             throw SFA::util::logic_error("Supplied ARA buffer not initialised",__FILE__,__func__);
-        for (std::size_t channel=0;channel<_ara_channelCount;channel++)
+        for (std::size_t channel=0;channel<vst_numChannels;channel++)
             if (!buffers[channel])
                 throw SFA::util::logic_error("Supplied ARA buffer channels not initialised",__FILE__,__func__);
         randomread = new SOSFloat::READ_BUFFER{};
-        for (int i=0;i<_ara_channelCount;i++){
+        for (int i=0;i<vst_numChannels;i++){
             randomread->push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
         }
         //randomread=buffer;
@@ -135,6 +135,7 @@ class Functor2 {
         }
     }
     MemoryView::ReaderBus<READ_BUFFER> readerBus;
+    const std::size_t vst_numChannels;
     private:
     void wipeBufferProxy(){
         if (randomread)
@@ -142,7 +143,6 @@ class Functor2 {
         randomread=nullptr;
     }
     READ_BUFFER* randomread = nullptr;
-    const std::size_t& _ara_channelCount;
     std::size_t _ara_samplesPerChannel = 0;
     bool trigger = false;
 };
@@ -159,15 +159,14 @@ int main (){
     auto functor2 = SOSFloat::Functor2(_vst_numInputs);
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
     //write
-    auto functor1 = SOSFloat::Functor1(functor2.readerBus,_vst_numInputs, _vst_maxSamplesPerChannel, false);//GCC bug: true is auto-converted to std::size_t if _vst_numInputs missing!!
+    auto functor1 = SOSFloat::Functor1(functor2.readerBus,functor2.vst_numChannels, _vst_maxSamplesPerChannel, false);//GCC bug: true is auto-converted to std::size_t if _vst_numInputs missing!!
 
-    const std::size_t _ara_channelCount = _vst_numInputs;
     //API: NOTCONST void* const* buffers: target
     SOSFloat::SAMPLE_SIZE** buffers = nullptr;
-    buffers = new SOSFloat::SAMPLE_SIZE*[_ara_channelCount];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
+    buffers = new SOSFloat::SAMPLE_SIZE*[functor2.vst_numChannels];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
     //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
     const std::size_t ara_samplesPerChannel = 1000;
-    for (std::size_t channel=0;channel<_ara_channelCount;channel++){
+    for (std::size_t channel=0;channel<functor2.vst_numChannels;channel++){
         buffers[channel]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
     }
     functor2.setReadBuffer(buffers, ara_samplesPerChannel);
@@ -194,7 +193,7 @@ int main (){
 
     //deallocating target: Needed ARAFallback is a host
     if (buffers){
-        for (std::size_t i=0;i<_ara_channelCount;i++)
+        for (std::size_t i=0;i<functor2.vst_numChannels;i++)
             delete buffers[i];
         delete buffers;
     }
