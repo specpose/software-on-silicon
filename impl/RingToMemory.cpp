@@ -95,8 +95,8 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         clearMemoryController();
     }
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
-        memorycontroller.reserve(newsize);
         _blocker.signal.getNotifyRef().clear();
+        memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
         }
