@@ -122,9 +122,11 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     void clearMemoryController() {
         _blocker.signal.getNotifyRef().clear();
         ara_sampleCount = 0;
-        for(auto entry : memorycontroller)
-            if (entry)
-                delete entry;
+        for(std::size_t i = 0;i<memorycontroller.size();i++)
+            if (memorycontroller[i]){
+                delete memorycontroller[i];
+                memorycontroller[i] = nullptr;
+            }
         memorycontroller.clear();
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
