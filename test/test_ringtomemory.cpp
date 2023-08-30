@@ -7,7 +7,8 @@ class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t& maxSamplesPerProcess, bool start=false) :
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
-    _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}){
+    _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}),
+    ara_sampleCount(buffer.ara_sampleCount) {
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             std::get<0>(hostmemory[ring_entry]) = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
@@ -76,6 +77,7 @@ class Functor1 {
         //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
         //}
     }
+    const MEMORY_CONTROLLER::difference_type& ara_sampleCount;
     private:
     MemoryView::ReaderBus<READ_BUFFER>& _readerBus;
 
