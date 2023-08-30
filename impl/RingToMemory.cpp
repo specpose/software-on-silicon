@@ -180,3 +180,4 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
 }
 
 #define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL
+#undef OLD_ITERATOR_DEBUG_LEVEL
