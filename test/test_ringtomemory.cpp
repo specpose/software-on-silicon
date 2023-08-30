@@ -5,7 +5,7 @@ namespace SOSFloat {
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t& maxSamplesPerProcess, bool start=false) :
+    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t maxSamplesPerProcess, bool start=false) :
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
     _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}),
     ara_sampleCount(buffer.ara_sampleCount) {
@@ -89,13 +89,13 @@ class Functor1 {
 
     unsigned int count = 0;
     const std::size_t& _vst_numInputs;//vst numInputs
-    const std::size_t& vst_maxSamplesPerProcess;//vst maxSamplesPerProcess
+    const std::size_t vst_maxSamplesPerProcess;//vst maxSamplesPerProcess
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
 class Functor2 {
     public:
-    Functor2(const std::size_t& vst_numInputs) : vst_numChannels(vst_numInputs), readerBus(vst_numInputs) {}
+    Functor2(const std::size_t vst_numInputs) : vst_numChannels(vst_numInputs), readerBus(vst_numInputs) {}
     ~Functor2(){
         wipeBufferProxy();
     };
