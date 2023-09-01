@@ -160,12 +160,20 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables),vst_numInputs),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
-        //multiple inheritance: ambiguous base-class call
+        //multiple inheritance: refer to sub-routine in this.event_loop
         _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     ~RingBufferImpl() final{
         stop_requested=true;
         _thread.join();
+    }
+    void stop() {
+        stop_requested = true;
+        _thread.join();
+    }
+    void start() {
+        //multiple inheritance: refer to sub-routine in this.event_loop
+        _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     //Overriding PassthruSimpleController
     void event_loop(){

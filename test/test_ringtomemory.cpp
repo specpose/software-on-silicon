@@ -37,9 +37,11 @@ class Functor1 {
         _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
     }
     void reset() {//only call after last Piecewriter.write
+        buffer.stop();
         auto previous = std::get<0>(ringbufferbus.cables).getCurrentRef().load();
         std::get<0>(ringbufferbus.cables).getThreadCurrentRef().store(--previous);
         buffer.clearMemoryController();
+        buffer.start();
     }
     void test_loop(){
         std::size_t actualSamplePosition = 0;
