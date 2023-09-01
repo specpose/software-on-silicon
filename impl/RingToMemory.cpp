@@ -130,6 +130,9 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
                 delete memorycontroller[i];
                 memorycontroller[i] = nullptr;
             }
+            else {
+                throw SFA::util::logic_error("MemoryController corrupted",__FILE__,__func__);
+            }
         memorycontroller.clear();
         std::get<0>(_blocker.cables).getBKStartRef() = (memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef() = (memorycontroller.end());
