@@ -157,6 +157,7 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pu
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, const std::size_t& vst_numInputs) :
+    rB(rB),
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables),vst_numInputs),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
@@ -167,13 +168,8 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
         stop_requested=true;
         _thread.join();
     }
-    void stop() {
-        stop_requested = true;
-        _thread.join();
-    }
-    void start() {
-        //multiple inheritance: refer to sub-routine in this.event_loop
-        _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
+    void resetAndRestart() {
+        clear_memorycontroller = true;
     }
     //Overriding PassthruSimpleController
     void event_loop(){
@@ -181,12 +177,20 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
+            if (clear_memorycontroller) {
+                auto previous = std::get<0>(rB.cables).getCurrentRef().load();
+                std::get<0>(rB.cables).getThreadCurrentRef().store(--previous);
+                clearMemoryController();
+                clear_memorycontroller = false;
+            }
             std::this_thread::yield();
         }
     }
     protected:
     bool stop_requested = false;
+    bool clear_memorycontroller = false;
     private:
+    MemoryView::RingBufferBus<RING_BUFFER>& rB;
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
