@@ -38,8 +38,11 @@ class Functor1 {
     }
     void reset() {//only call after last Piecewriter.write
         buffer.stop();
-        auto previous = std::get<0>(ringbufferbus.cables).getCurrentRef().load();
-        std::get<0>(ringbufferbus.cables).getThreadCurrentRef().store(--previous);
+        //auto previous = std::get<0>(ringbufferbus.cables).getCurrentRef().load();
+        //std::get<0>(ringbufferbus.cables).getThreadCurrentRef().store(--previous);
+        std::get<0>(ringbufferbus.cables).getThreadCurrentRef().store(hostmemory.begin());
+        auto next = hostmemory.begin();
+        std::get<0>(ringbufferbus.cables).getCurrentRef().store(++next);
         buffer.clearMemoryController();
         buffer.start();
     }
