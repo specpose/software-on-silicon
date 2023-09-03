@@ -102,7 +102,7 @@ class Functor2 {
     ~Functor2(){
         wipeBufferProxy();
     };
-    void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t& ara_samplesPerChannel){
+    void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t ara_samplesPerChannel){
         _ara_samplesPerChannel=ara_samplesPerChannel;
         if (!buffers)
             throw SFA::util::logic_error("Supplied ARA buffer not initialised",__FILE__,__func__);
