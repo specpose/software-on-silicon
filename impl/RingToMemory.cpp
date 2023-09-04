@@ -32,8 +32,7 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
         while (current!=end){
             if (!wait()) {
                 auto readerStart = _memorycontroller_size.getBKStartRef().load();
-                for (std::size_t i = 0; i < readOffset; i++)
-                    ++readerStart;
+                readerStart += readOffset;
                 const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
                 //if the distance of the lval from its start is bigger than
                 //the (the rval offset to rval end)
