@@ -103,7 +103,8 @@ class Functor2 {
         wipeBufferProxy();
     };
     void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t ara_samplesPerChannel){
-        _ara_samplesPerChannel=ara_samplesPerChannel;
+        if (randomread)
+            throw SFA::util::logic_error("operator()() call has not finished",__FILE__,__func__);
         if (!buffers)
             throw SFA::util::logic_error("Supplied ARA buffer not initialised",__FILE__,__func__);
         for (std::size_t channel=0;channel<vst_numChannels;channel++)
@@ -130,8 +131,8 @@ class Functor2 {
     }
     bool operator()() {
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            trigger = false;
             wipeBufferProxy();
+            trigger = false;
             return true;
         } else {
             return false;
@@ -172,26 +173,21 @@ int main (){
     for (std::size_t channel=0;channel<functor2.vst_numChannels;channel++){
         buffers[channel]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
     }
-    functor2.setReadBuffer(buffers, ara_samplesPerChannel);
-    functor2.setMemoryControllerOffset(ara_offset);
-    functor2.triggerReadStart();
 
     functor1.startTestLoop();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
-        if (functor2()){
-            auto print = &buffers[4][0];//HACK: hard-coded channel 5
-            while (print!=&buffers[4][ara_samplesPerChannel])//HACK: hard-coded channel 5
-                std::cout << *(print++);
-            std::cout << std::endl;
-            functor2.setReadBuffer(buffers, ara_samplesPerChannel);
-            functor2.setMemoryControllerOffset(ara_offset);
-            functor2.triggerReadStart();
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
-        } else {
+        functor2.setReadBuffer(buffers, ara_samplesPerChannel);
+        functor2.setMemoryControllerOffset(ara_offset);
+        functor2.triggerReadStart();
+        while(!functor2())
             std::this_thread::yield();
-        }
+        auto print = &buffers[4][0];//HACK: hard-coded channel 5
+        while (print!=&buffers[4][ara_samplesPerChannel])//HACK: hard-coded channel 5
+            std::cout << *(print++);
+        std::cout << std::endl;
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
 
     //deallocating target: Needed ARAFallback is a host
