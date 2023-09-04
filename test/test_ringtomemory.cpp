@@ -165,19 +165,20 @@ int main (){
     //write
     auto functor1 = SOSFloat::Functor1(functor2.readerBus,functor2.vst_numChannels, _vst_maxSamplesPerChannel, false);//GCC bug: true is auto-converted to std::size_t if _vst_numInputs missing!!
 
-    //API: NOTCONST void* const* buffers: target
-    SOSFloat::SAMPLE_SIZE** buffers = nullptr;
-    buffers = new SOSFloat::SAMPLE_SIZE*[functor2.vst_numChannels];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
-    //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
-    const std::size_t ara_samplesPerChannel = 1000;
-    for (std::size_t channel=0;channel<functor2.vst_numChannels;channel++){
-        buffers[channel]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
-    }
-
     functor1.startTestLoop();
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
+
+        //API: NOTCONST void* const* buffers: target
+        SOSFloat::SAMPLE_SIZE** buffers = nullptr;
+        buffers = new SOSFloat::SAMPLE_SIZE*[functor2.vst_numChannels];//OLD: buffers = (void**)malloc(surroundsound*sizeof(void*));
+        //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
+        const std::size_t ara_samplesPerChannel = 1000;
+        for (std::size_t channel=0;channel<functor2.vst_numChannels;channel++){
+            buffers[channel]=new SOSFloat::SAMPLE_SIZE[ara_samplesPerChannel];
+        }
+
         functor2.setReadBuffer(buffers, ara_samplesPerChannel);
         functor2.setMemoryControllerOffset(ara_offset);
         functor2.triggerReadStart();
@@ -187,13 +188,14 @@ int main (){
         while (print!=&buffers[4][ara_samplesPerChannel])//HACK: hard-coded channel 5
             std::cout << *(print++);
         std::cout << std::endl;
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
-    }
 
-    //deallocating target: Needed ARAFallback is a host
-    if (buffers){
-        for (std::size_t i=0;i<functor2.vst_numChannels;i++)
-            delete buffers[i];
-        delete buffers;
+        //deallocating target: Needed ARAFallback is a host
+        if (buffers){
+            for (std::size_t i=0;i<functor2.vst_numChannels;i++)
+                delete buffers[i];
+            delete buffers;
+        }
+
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
     }
 }
