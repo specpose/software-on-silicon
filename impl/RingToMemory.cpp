@@ -115,7 +115,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++)
-            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((*std::get<0>(character)));
+            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((std::get<0>(character))[i]);
     }
     //not inherited
     void clearMemoryController() {
