@@ -100,6 +100,13 @@ class Functor2 {
     public:
     Functor2(const std::size_t vst_numInputs) : vst_numChannels(vst_numInputs), readerBus(vst_numInputs) {}
     ~Functor2(){
+        if (trigger){
+            while(readerBus.signal.getAcknowledgeRef().test_and_set()){
+                std::this_thread::yield();//potentially deprioritising its own read?
+            }
+        }
+        trigger=true;//not blocking, inhibiting
+        readerBus.signal.getUpdatedRef().test_and_set();
         wipeBufferProxy();
     };
     void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t ara_samplesPerChannel){
