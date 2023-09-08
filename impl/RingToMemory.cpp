@@ -139,15 +139,16 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     private:
     const std::size_t& _vst_numInputs;
 };
-class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, public WriteTaskImpl {
+//multiple inheritance: destruction order
+class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBufferTask<RING_BUFFER> {
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds,
         const std::size_t& vst_numInputs
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl(vst_numInputs) {}
+        ) : WriteTaskImpl(vst_numInputs), SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
     protected:
-    //multiple inheritance: ambiguous override!
+    //multiple inheritance: overrides RingBufferTask
     virtual void write(const RING_BUFFER::value_type character) final {
         _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
