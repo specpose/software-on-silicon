@@ -82,6 +82,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         }
     }
     private:
+    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     std::thread _thread;
 };
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
@@ -145,7 +146,6 @@ class TransferRingToMemory : protected Behavior::RingBufferTask<RING_BUFFER>, pu
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds,
         const std::size_t& vst_numInputs
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl(vst_numInputs) {}
-    ~TransferRingToMemory(){_blocker.signal.getNotifyRef().test_and_set();}
     protected:
     //multiple inheritance: ambiguous override!
     virtual void write(const RING_BUFFER::value_type character) final {
@@ -187,7 +187,7 @@ class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::Pas
         }
     }
     protected:
-    bool stop_requested = false;
+    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     bool clear_memorycontroller = false;
     private:
     MemoryView::RingBufferBus<RING_BUFFER>& rB;
