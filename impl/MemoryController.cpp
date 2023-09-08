@@ -77,8 +77,10 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 };
 using namespace std::chrono;
 
-class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
+//multiple inheritance: destruction order
+class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public WriteTaskImpl {
     public:
+    //multiple inheritance: construction order
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<READ_BUFFER>& passThruHostMem,
         const std::size_t& vst_numInputs
