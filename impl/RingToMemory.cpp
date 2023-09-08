@@ -95,7 +95,6 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         clearMemoryController();
     }
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
-        _blocker.signal.getNotifyRef().clear();
         memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(new SOS::MemoryView::Contiguous<SAMPLE_SIZE>(_vst_numInputs));
@@ -103,20 +102,24 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
         ara_sampleCount = memorycontroller.size();
-        _blocker.signal.getNotifyRef().test_and_set();
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)
                 throw SFA::util::logic_error("Memorycontroller resize error",__FILE__,__func__);
     };
-    //helper function, not inherited
+    //not inherited: overload
     void write(const RING_BUFFER::value_type character) {
+        _blocker.signal.getNotifyRef().clear();
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
+        _blocker.signal.getNotifyRef().test_and_set();
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<2>(character)+std::get<1>(character))
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
-        for(std::size_t i=0;i<std::get<1>(character);i++)
+        for(std::size_t i=0;i<std::get<1>(character);i++){
+            _blocker.signal.getNotifyRef().clear();
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((std::get<0>(character))[i]);
+            _blocker.signal.getNotifyRef().test_and_set();
+        }
     }
     //not inherited
     void clearMemoryController() {
@@ -150,9 +153,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     protected:
     //multiple inheritance: overrides RingBufferTask
     virtual void write(const RING_BUFFER::value_type character) final {
-        _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
-        _blocker.signal.getNotifyRef().test_and_set();
     }
 };
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
