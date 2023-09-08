@@ -66,6 +66,12 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         this->memorycontroller.fill('-');
     }
+    protected:
+    virtual void write(const MEMORY_CONTROLLER::value_type character) override {
+        _blocker.signal.getNotifyRef().clear();
+        SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
+        _blocker.signal.getNotifyRef().test_and_set();
+    }
 };
 //multiple inheritance: destruction order
 class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBufferTask<RING_BUFFER> {
@@ -77,10 +83,8 @@ class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBu
     protected:
     //multiple inheritance: overrides RingBufferTask
     virtual void write(const MEMORY_CONTROLLER::value_type character) final {
-        _blocker.signal.getNotifyRef().clear();
         WriteTaskImpl::write(character);
-        _blocker.signal.getNotifyRef().test_and_set();
-        }
+    }
 };
 class RingBufferImpl : public TransferRingToMemory, protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>> {
     public:

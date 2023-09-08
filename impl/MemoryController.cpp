@@ -54,6 +54,12 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         this->memorycontroller.fill('-');
     }
+    protected:
+    virtual void write(const MEMORY_CONTROLLER::value_type character) override {
+        _blocker.signal.getNotifyRef().clear();
+        SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
+        _blocker.signal.getNotifyRef().test_and_set();
+    }
 };
 using namespace std::chrono;
 
@@ -82,13 +88,7 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
             data = '*';
         else
             data = '_';
-        _blocker.signal.getNotifyRef().clear();
-        try {
-            write(data);
-        } catch (std::exception& e) {
-            stop_requested=true;
-        }
-        _blocker.signal.getNotifyRef().test_and_set();
+        write(data);
         counter++;
         if (blink && counter==333){
             blink = false;
