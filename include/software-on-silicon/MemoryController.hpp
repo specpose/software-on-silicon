@@ -151,7 +151,6 @@ namespace SOS {
             ~Reader(){}
             virtual void event_loop(){};
             protected:
-            bool stop_requested = false;
             typename bus_type::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {

@@ -37,7 +37,7 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
         }
     }
     private:
-    bool stop_requested = false;
+    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};

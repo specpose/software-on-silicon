@@ -20,7 +20,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
     }
     void event_loop(){
         const auto start = high_resolution_clock::now();
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){
+        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){//REMOVE: Needs signaling
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -56,7 +56,7 @@ class ControllerImpl : public Thread<SubControllerImpl> {
 
         std::cout<<"Controller loop running for 5s..."<<std::endl;
         const auto start = high_resolution_clock::now();
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){
+        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){//REMOVE: Needs signaling
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 operator()();

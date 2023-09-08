@@ -48,6 +48,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         }
     }
     private:
+    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     std::thread _thread;
 };
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
@@ -128,7 +129,7 @@ class WritePriorityImpl : public WriteTaskImpl, public PassthruThread<ReaderImpl
         }
     }
     private:
-    bool stop_requested = false;
+    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     std::thread _thread;
 };
 }
