@@ -17,7 +17,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
-        _thread = start(this);
+        //multiple inheritance: not ambiguous
+        _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
     }
     ~ReaderImpl(){
         stop_requested = true;
@@ -73,13 +74,14 @@ class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::Rea
         WriteTaskImpl{},
         PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
         {
-            _thread = start(this);
+            //multiple inheritance: starts PassthruThread, not ReaderImpl
+            _thread = PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
         };
     virtual ~WritePriorityImpl(){
         stop_requested = true;
         _thread.join();
     };
-    //Overriding PassThru not ReaderImpl!
+    //multiple inheritance: Overriding PassThru not ReaderImpl
     void event_loop(){
         int counter = 0;
         bool blink = true;

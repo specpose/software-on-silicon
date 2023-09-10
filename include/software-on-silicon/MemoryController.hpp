@@ -60,6 +60,9 @@ namespace SOS {
             _foreign(passThru),
             _child(subcontroller_type{_foreign, args...})
             {}
+            ~PassthruSimpleController(){
+                //delete _child;
+            }
             protected:
             typename subcontroller_type::bus_type& _foreign;
             private:
@@ -74,6 +77,9 @@ namespace SOS {
             _foreign(passThru),
             _child(subcontroller_type{_foreign, args...})
             {}
+            ~PassthruEventController(){
+                //delete _child;
+            }
             protected:
             typename subcontroller_type::bus_type& _foreign;
             private:

@@ -95,6 +95,9 @@ namespace SOS{
             Controller<SOS::MemoryView::Notify, S>(signal),
             _child(subcontroller_type{_foreign, args...})
             {}
+            ~SimpleController(){
+                //delete _child;
+            }
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:
@@ -116,6 +119,9 @@ namespace SOS{
             Controller<SOS::MemoryView::HandShake, S>(signal),
             _child(subcontroller_type{_foreign, args...})
             {}
+            ~EventController(){
+                //delete _child;
+            }
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             private:

@@ -29,7 +29,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
-        _thread = start(this);
+        //multiple inheritance: not ambiguous
+        _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
     }
     ~ReaderImpl(){
         stop_requested = true;
@@ -94,14 +95,14 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
-        //multiple inheritance: ambiguous base-class call
+        //multiple inheritance: PassthruSimpleController, not ReaderImpl
         _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     ~RingBufferImpl() final{
         stop_requested=true;
         _thread.join();
     }
-    //Overriding PassthruSimpleController
+    //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
         while(!stop_requested){
             if(!_intrinsic.getNotifyRef().test_and_set()){
