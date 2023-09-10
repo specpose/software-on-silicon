@@ -55,7 +55,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
     ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
-        _thread = start(this);
+        //multiple inheritance: not ambiguous
+        _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
     }
     ~ReaderImpl(){
         stop_requested = true;
@@ -165,7 +166,7 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables),vst_numInputs),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
-        //multiple inheritance: refer to sub-routine in this.event_loop
+        //multiple inheritance: PassthruSimpleController, not ReaderImpl
         _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     ~RingBufferImpl() final{
@@ -175,7 +176,7 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
     void resetAndRestart() {
         clear_memorycontroller = true;
     }
-    //Overriding PassthruSimpleController
+    //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
         while(!stop_requested){
             if(!_intrinsic.getNotifyRef().test_and_set()){

@@ -22,6 +22,7 @@ class BlinkLoop : public SOS::Behavior::Controller<SOS::MemoryView::Notify> {
         _thread=start(this);
     }
     ~BlinkLoop() final {
+        //delete _child;
         _thread.join();
         std::cout<<"Thread has ended normally."<<std::endl;
     }
