@@ -59,14 +59,15 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
     }
     ~ReaderImpl(){
-        stop_requested = true;
+        stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     void event_loop() final {
-        while(!stop_requested){
+        while(stop_token.getUpdatedRef().test_and_set()){
             fifo_loop();
             std::this_thread::yield();
         }
+        stop_token.getAcknowledgeRef().clear();
     }
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
@@ -83,7 +84,6 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         }
     }
     private:
-    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     std::thread _thread;
 };
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
@@ -158,7 +158,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     }
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public TransferRingToMemory {
+class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public TransferRingToMemory {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, const std::size_t& vst_numInputs) :
@@ -170,7 +170,8 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
         _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
     }
     ~RingBufferImpl() final{
-        stop_requested=true;
+        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     void resetAndRestart() {
@@ -178,7 +179,7 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
     }
     //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
-        while(!stop_requested){
+        while(stop_token.getUpdatedRef().test_and_set()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
@@ -190,9 +191,9 @@ class RingBufferImpl : protected SOS::Behavior::PassthruSimpleController<ReaderI
             }
             std::this_thread::yield();
         }
+        stop_token.getAcknowledgeRef().clear();
     }
     protected:
-    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     bool clear_memorycontroller = false;
     private:
     MemoryView::RingBufferBus<RING_BUFFER>& rB;
