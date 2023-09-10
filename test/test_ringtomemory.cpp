@@ -7,8 +7,7 @@ class Functor1 {
     public:
     Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t maxSamplesPerProcess, bool start=false) :
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
-    _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus,numInputs}),
-    ara_sampleCount(buffer.ara_sampleCount) {
+    _readerBus(readerBus), buffer(new RingBufferImpl{ringbufferbus,_readerBus,numInputs}) {
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             std::get<0>(hostmemory[ring_entry]) = new SOS::MemoryView::Contiguous<SAMPLE_SIZE>*[vst_maxSamplesPerProcess];
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
@@ -19,6 +18,7 @@ class Functor1 {
     }
     ~Functor1(){
         _thread.join();
+        delete buffer;
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
                 delete std::get<0>(hostmemory[ring_entry])[sample];
@@ -38,7 +38,7 @@ class Functor1 {
         _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
     }
     void reset() {//only call after last Piecewriter.write
-        buffer.resetAndRestart();
+        buffer->resetAndRestart();
     }
     void test_loop(){
         std::size_t actualSamplePosition = 0;
@@ -81,7 +81,12 @@ class Functor1 {
         //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
         //}
     }
-    const MEMORY_CONTROLLER::difference_type& ara_sampleCount;
+    MEMORY_CONTROLLER::difference_type ara_sampleCount() {
+        if (buffer)
+            return buffer->ara_sampleCount;
+        else
+            return 0;
+    }
     private:
     MemoryView::ReaderBus<READ_BUFFER>& _readerBus;
 
@@ -89,7 +94,7 @@ class Functor1 {
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
-    RingBufferImpl buffer;
+    RingBufferImpl* buffer=nullptr;
 
     unsigned int count = 0;
     const std::size_t& _vst_numInputs;//vst numInputs
