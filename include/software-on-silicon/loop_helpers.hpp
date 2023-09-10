@@ -7,7 +7,9 @@ template<typename S> class Thread {
     public:
     using subcontroller_type = S;
     Thread() : _child(subcontroller_type{_foreign}) {}
-    virtual ~Thread() {};
+    virtual ~Thread() {
+        //delete _child;
+    };
     protected:
     virtual void event_loop()=0;
     template<typename C> static std::thread start(C* startme){
@@ -32,7 +34,9 @@ template<typename S, typename PassthruBusType, typename... Others> class Passthr
     public:
     using subcontroller_type = S;
     PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
-    virtual ~PassthruThread() {};
+    virtual ~PassthruThread() {
+        //delete _child;
+    };
     protected:
     virtual void event_loop()=0;
     template<typename C> static std::thread start(C* startme){
@@ -57,6 +61,7 @@ template<typename DurationType,
         _thread = start(this);
     }
     ~Timer(){
+        //delete _child;
         stop_requested = true;
         _thread.join();
         std::cout<<"Timer spent "<<duration_cast<DurationType>(t_counter -
