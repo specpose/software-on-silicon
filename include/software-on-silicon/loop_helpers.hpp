@@ -7,16 +7,21 @@ template<typename S> class Thread {
     public:
     using subcontroller_type = S;
     Thread() : _child(subcontroller_type{_foreign}) {}
-    virtual ~Thread() {
-        //delete _child;
-    };
+    bool stop(){//dont need thread in here
+        stop_token.getUpdatedRef().clear();
+        while(stop_token.getAcknowledgeRef().test_and_set()){
+            std::this_thread::yield();//caller thread, not LoopImpl
+        }
+        stop_token.getAcknowledgeRef().clear();
+        return true;
+    }
+    SOS::MemoryView::HandShake stop_token;
     protected:
     virtual void event_loop()=0;
     template<typename C> static std::thread start(C* startme){
         return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
     }
     typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
-    private:
     S _child;
 };
 template<> class Thread<SOS::Behavior::DummyController> {
@@ -34,16 +39,21 @@ template<typename S, typename PassthruBusType, typename... Others> class Passthr
     public:
     using subcontroller_type = S;
     PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
-    virtual ~PassthruThread() {
-        //delete _child;
-    };
+    bool stop(){//dont need thread in here
+        stop_token.getUpdatedRef().clear();
+        while(stop_token.getAcknowledgeRef().test_and_set()){
+            std::this_thread::yield();//caller thread, not LoopImpl
+        }
+        stop_token.getAcknowledgeRef().clear();
+        return true;
+    }
+    SOS::MemoryView::HandShake stop_token;
     protected:
     virtual void event_loop()=0;
     template<typename C> static std::thread start(C* startme){
         return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
     }
     PassthruBusType& _foreign;
-    private:
     S _child;
 };
 
@@ -61,8 +71,7 @@ template<typename DurationType,
         _thread = start(this);
     }
     ~Timer(){
-        //delete _child;
-        stop_requested = true;
+        stop_token.getUpdatedRef().clear();
         _thread.join();
         std::cout<<"Timer spent "<<duration_cast<DurationType>(t_counter -
         duration_cast<high_resolution_clock::duration>(DurationType{(runCount * Period)})
@@ -75,7 +84,7 @@ template<typename DurationType,
         <<"ns more on average per "<<Period<<" duration units."<<std::endl;
     }
     void event_loop(){
-        while(!stop_requested){
+        while(stop_token.getUpdatedRef().test_and_set()){
         if (!_intrinsic.getUpdatedRef().test_and_set()){
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
@@ -86,6 +95,7 @@ template<typename DurationType,
             _intrinsic.getAcknowledgeRef().clear();
         }
         }
+        stop_token.getAcknowledgeRef().clear();
     }
     void constexpr operator()(){
         std::this_thread::sleep_for(DurationType{Period});;
@@ -96,5 +106,4 @@ template<typename DurationType,
     high_resolution_clock::duration t_counter = high_resolution_clock::duration{};
 
     std::thread _thread = std::thread{};
-    bool stop_requested = false;
 };

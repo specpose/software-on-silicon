@@ -69,11 +69,23 @@ namespace SOS{
         template<typename LoopSignalType> class Loop {
             public:
             using signal_type = LoopSignalType;
-            Loop(signal_type& signal) : _intrinsic(signal){}
+            Loop(signal_type& signal) : _intrinsic(signal){
+                stop_token.getUpdatedRef().clear();
+            }
             virtual ~Loop(){};//for thread
             virtual void event_loop()=0;
+            bool stop(){//dont need thread in here
+                stop_token.getUpdatedRef().clear();
+                while(stop_token.getAcknowledgeRef().test_and_set()){
+                    std::this_thread::yield();//caller thread, not LoopImpl
+                }
+                stop_token.getAcknowledgeRef().clear();
+                return true;
+            }
+            SOS::MemoryView::HandShake stop_token;
             protected:
-            template<typename C> static std::thread start(C* startme){
+            template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
+                startme->stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
             signal_type& _intrinsic;
@@ -95,12 +107,8 @@ namespace SOS{
             Controller<SOS::MemoryView::Notify, S>(signal),
             _child(subcontroller_type{_foreign, args...})
             {}
-            ~SimpleController(){
-                //delete _child;
-            }
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
-            private:
             S _child;
         };
         template<> class SimpleController<DummyController> : public Controller<SOS::MemoryView::Notify, DummyController> {
@@ -119,12 +127,8 @@ namespace SOS{
             Controller<SOS::MemoryView::HandShake, S>(signal),
             _child(subcontroller_type{_foreign, args...})
             {}
-            ~EventController(){
-                //delete _child;
-            }
             protected:
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
-            private:
             S _child;
         };
         template<> class EventController<DummyController> : public Controller<SOS::MemoryView::HandShake, DummyController> {
