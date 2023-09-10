@@ -16,7 +16,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     protected:
     virtual void write(const RING_BUFFER::value_type character) final {std::cout<<(*character)[4];}//HACK: hard-coded channel 5
 };
-class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public RingBufferTaskImpl {
+class RingBufferImpl : public SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
     SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(bus.signal),
@@ -25,19 +25,19 @@ class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::Du
         _thread = start(this);
     }
     ~RingBufferImpl() final{
-        stop_requested=true;
+        stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     void event_loop(){
-        while(!stop_requested){
+        while(stop_token.getUpdatedRef().test_and_set()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
             std::this_thread::yield();
         }
+        stop_token.getAcknowledgeRef().clear();
     }
     private:
-    bool stop_requested = false;//REMOVE: impl has to be in a valid state without stopping threads
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};

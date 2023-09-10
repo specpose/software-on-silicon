@@ -15,6 +15,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
         _thread=start(this);
     }
     ~SubControllerImpl() final {
+        stop_token.getUpdatedRef().clear();
         _thread.join();
         std::cout<<"SubController has ended normally."<<std::endl;
     }
@@ -31,6 +32,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
+        stop_token.getAcknowledgeRef().clear();
     };
     void operator()(){
         std::this_thread::sleep_for(milliseconds{_duration});
@@ -47,7 +49,8 @@ class ControllerImpl : public Thread<SubControllerImpl> {
     ControllerImpl() : Thread<SubControllerImpl>() {
         _thread=start(this);
     }
-    ~ControllerImpl() final {
+    ~ControllerImpl() {
+        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         _thread.join();
     }
     void event_loop(){
