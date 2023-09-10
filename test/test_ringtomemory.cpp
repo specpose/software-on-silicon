@@ -24,6 +24,7 @@ class Functor1 {
                 delete std::get<0>(hostmemory[ring_entry])[sample];
             delete std::get<0>(hostmemory[ring_entry]);
         }
+        _readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
         if (!channel_ptrs)
