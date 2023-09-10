@@ -10,6 +10,7 @@ class Functor1 {
     }
     ~Functor1(){
         _thread.join();
+        _readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
     void operator()(){
         auto loopstart = high_resolution_clock::now();
