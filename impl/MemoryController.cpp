@@ -42,8 +42,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         }
     }
     bool wait() final {
-        if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
-            _blocked_signal.getNotifyRef().clear();
+        if (!_blocked_signal.getUpdatedRef().test_and_set()) {//intermittent wait when write
+            _blocked_signal.getUpdatedRef().clear();
             return true;
         } else {
             return false;
@@ -55,25 +55,25 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl(const std::size_t& vst_numInputs) : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>{} {
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
         for(auto& entry : memorycontroller)
             entry = new SOS::MemoryView::Contiguous<typename std::remove_pointer<MEMORY_CONTROLLER::value_type>::type::value_type>(5);
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
     }
     ~WriteTaskImpl(){
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
         for(auto& entry : memorycontroller)
             if (entry)
                 delete entry;
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
     }
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
     }
 };
 using namespace std::chrono;

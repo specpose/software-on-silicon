@@ -40,7 +40,7 @@ namespace SOS {
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
         template<typename MemoryControllerType> struct BlockerBus{
-            using signal_type = SOS::MemoryView::Notify;
+            using signal_type = SOS::MemoryView::HandShake;
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             using const_cables_type = std::tuple< >;

@@ -44,9 +44,11 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                 }
                 ++current;
             }
+            acknowledge();
         }
         }
     }
+    virtual void acknowledge()=0;
 };
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
                     private ReadTaskImpl {
@@ -76,12 +78,16 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         }
     }
     virtual bool wait() final {
-        if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
-            _blocked_signal.getNotifyRef().clear();
+        if (!_blocked_signal.getUpdatedRef().test_and_set()) {//intermittent wait when write
+            _blocked_signal.getUpdatedRef().clear();
             return true;
         } else {
+            _blocked_signal.getAcknowledgeRef().test_and_set();//started individual read
             return false;
         }
+    }
+    virtual void acknowledge() final{
+        _blocked_signal.getAcknowledgeRef().clear();//ended individual read
     }
     private:
     std::thread _thread;
@@ -109,22 +115,26 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     };
     //not inherited: overload
     void write(const RING_BUFFER::value_type character) {
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<2>(character)+std::get<1>(character))
             throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++){
-            _blocker.signal.getNotifyRef().clear();
+            _blocker.signal.getUpdatedRef().clear();
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((std::get<0>(character))[i]);
-            _blocker.signal.getNotifyRef().test_and_set();
+            _blocker.signal.getUpdatedRef().test_and_set();
         }
     }
     //not inherited
     void clearMemoryController() {
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
+        while(_blocker.signal.getAcknowledgeRef().test_and_set()){
+            std::this_thread::yield();
+        }//acknowledge => finished a pending read
+        _blocker.signal.getAcknowledgeRef().clear();
         ara_sampleCount = 0;
         for(std::size_t i = 0;i<memorycontroller.size();i++)
             if (memorycontroller[i]){
@@ -137,7 +147,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         memorycontroller.clear();
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
     }
     MEMORY_CONTROLLER::difference_type ara_sampleCount;
     private:
