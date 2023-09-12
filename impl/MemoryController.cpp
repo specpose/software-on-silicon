@@ -10,7 +10,8 @@
 using namespace SOS::MemoryView;
 class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    ReadTaskImpl(SOS::MemoryView::HandShake& stop_token,reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    stop_token(stop_token),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
     {}
     protected:
@@ -31,26 +32,31 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
             }
         }
     }
+    private:
+    SOS::MemoryView::HandShake& stop_token;
 };
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+                    public SOS::Behavior::Loop,
                     private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    SOS::Behavior::Loop(),
+    ReadTaskImpl(Loop::stop_token,std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
-        _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        //_thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        _thread = start(this);
     }
     ~ReaderImpl(){
         _thread.join();
     }
     virtual void event_loop() final {
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(Loop::stop_token.getUpdatedRef().test_and_set()){
             fifo_loop();
             std::this_thread::yield();
         }
-        stop_token.getAcknowledgeRef().clear();
+        Loop::stop_token.getAcknowledgeRef().clear();
     }
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
