@@ -30,7 +30,7 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-        while (current!=end){
+        while (current!=end && !exit_loop()){
             if (!wait()) {
                 auto readerStart = _memorycontroller_size.getBKStartRef().load();
                 readerStart += readOffset;
@@ -50,18 +50,17 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
         }
     }
     virtual void acknowledge()=0;
+    virtual bool exit_loop()=0;
     private:
     SOS::MemoryView::HandShake& stop_token;
 };
 //main branch: Copy End from MemoryController.cpp
 
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
-                    public SOS::Behavior::Loop,
                     private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::Loop(),
     ReadTaskImpl(Loop::stop_token,std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         //multiple inheritance: not ambiguous
@@ -71,31 +70,10 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         _thread.join();
     }
-    void event_loop() final {
-        while(Loop::stop_token.getUpdatedRef().test_and_set()){
-            fifo_loop();
-            std::this_thread::yield();
-        }
-        Loop::stop_token.getAcknowledgeRef().clear();
-    }
-    void fifo_loop() {
-        if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-            ReadTaskImpl::read();//FIFO whole buffer with intermittent waits when write
-            _intrinsic.getAcknowledgeRef().clear();
-        }
-    }
-    virtual bool wait() final {
-        if (!_blocked_signal.getUpdatedRef().test_and_set()) {//intermittent wait when write
-            _blocked_signal.getUpdatedRef().clear();
-            return true;
-        } else {
-            _blocked_signal.getAcknowledgeRef().test_and_set();//started individual read
-            return false;
-        }
-    }
-    virtual void acknowledge() final{
-        _blocked_signal.getAcknowledgeRef().clear();//ended individual read
-    }
+    virtual void read() final {ReadTaskImpl::read();};
+    virtual void acknowledge() final {SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::acknowledge();};
+    virtual bool wait() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::wait();};
+    virtual bool exit_loop() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::exit_loop();};
     private:
     std::thread _thread;
 };
