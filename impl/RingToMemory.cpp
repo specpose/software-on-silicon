@@ -60,7 +60,6 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
     }
     ~ReaderImpl(){
-        stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     void event_loop() final {
