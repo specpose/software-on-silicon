@@ -15,7 +15,6 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
         _thread=start(this);
     }
     ~SubControllerImpl() final {
-        stop_token.getUpdatedRef().clear();
         _thread.join();
         std::cout<<"SubController has ended normally."<<std::endl;
     }
