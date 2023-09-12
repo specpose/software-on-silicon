@@ -25,7 +25,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         stop_token.getUpdatedRef().clear();
         _thread.join();
     }
-    void event_loop() final {
+    virtual void event_loop() final {
         while(stop_token.getUpdatedRef().test_and_set()){
             fifo_loop();
             std::this_thread::yield();
@@ -78,7 +78,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public WriteTaskImpl {
+class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
@@ -89,7 +89,8 @@ class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::Rea
         PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
         {
             //multiple inheritance: starts PassthruThread, not ReaderImpl
-            _thread = PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
+            //_thread = PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
+            _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
         _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child

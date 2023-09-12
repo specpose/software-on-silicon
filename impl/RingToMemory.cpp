@@ -167,7 +167,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     }
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public TransferRingToMemory {
+class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public TransferRingToMemory, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd, const std::size_t& vst_numInputs) :
@@ -176,7 +176,8 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(rB.signal,_blocker,rd)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl
-        _thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
+        //_thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
+        _thread = start(this);
     }
     ~RingBufferImpl() final{
         _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
