@@ -1,58 +1,28 @@
+#include "EventLoop.hpp"
 #include <chrono>
 
 using namespace std::chrono;
 
 //Loops always have at least one signal for termination acknowledge if used for single run
-template<typename S> class Thread {
+template<typename S> class Thread : public SOS::Behavior::Loop {
     public:
     using subcontroller_type = S;
-    Thread() : _child(subcontroller_type{_foreign}) {}
-    bool stop(){//dont need thread in here
-        stop_token.getUpdatedRef().clear();
-        while(stop_token.getAcknowledgeRef().test_and_set()){
-            std::this_thread::yield();//caller thread, not LoopImpl
-        }
-        stop_token.getAcknowledgeRef().clear();
-        return true;
-    }
-    SOS::MemoryView::HandShake stop_token;
+    Thread() : Loop(), _child(subcontroller_type{_foreign}) {}
     protected:
-    virtual void event_loop()=0;
-    template<typename C> static std::thread start(C* startme){
-        return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-    }
     typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
     S _child;
 };
-template<> class Thread<SOS::Behavior::DummyController> {
+template<> class Thread<SOS::Behavior::DummyController> : public SOS::Behavior::Loop {
     public:
     using subcontroller_type = SOS::Behavior::DummyController;
-    Thread() {}
+    Thread() : Loop() {}
     virtual ~Thread() {};
-    protected:
-    virtual void event_loop()=0;
-    template<typename C> static std::thread start(C* startme){
-        return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-    }
 };
-template<typename S, typename PassthruBusType, typename... Others> class PassthruThread {
+template<typename S, typename PassthruBusType, typename... Others> class PassthruThread : public SOS::Behavior::Loop {
     public:
     using subcontroller_type = S;
-    PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
-    bool stop(){//dont need thread in here
-        stop_token.getUpdatedRef().clear();
-        while(stop_token.getAcknowledgeRef().test_and_set()){
-            std::this_thread::yield();//caller thread, not LoopImpl
-        }
-        stop_token.getAcknowledgeRef().clear();
-        return true;
-    }
-    SOS::MemoryView::HandShake stop_token;
+    PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : Loop(), _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
     protected:
-    virtual void event_loop()=0;
-    template<typename C> static std::thread start(C* startme){
-        return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-    }
     PassthruBusType& _foreign;
     S _child;
 };

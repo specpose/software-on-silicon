@@ -90,10 +90,9 @@ namespace SOS{
         };
     }
     namespace Behavior {
-        template<typename LoopSignalType> class Loop {
+        class Loop {
             public:
-            using signal_type = LoopSignalType;
-            Loop(signal_type& signal) : _intrinsic(signal){
+            Loop() {
                 stop_token.getUpdatedRef().clear();
             }
             virtual ~Loop(){};//for thread
@@ -112,15 +111,16 @@ namespace SOS{
                 startme->stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
-            signal_type& _intrinsic;
         };
         class DummyController {};
         //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
         //A Blink doesnt need a Bus
-        template<typename LoopSignalType, typename S=DummyController> class Controller : public Loop<LoopSignalType> {
+        template<typename LoopSignalType, typename S=DummyController> class Controller : public Loop {
             public:
             using subcontroller_type = S;
-            Controller(typename Loop<LoopSignalType>::signal_type& signal) : Loop<LoopSignalType>(signal) {}
+            Controller(LoopSignalType& signal) : Loop(), _intrinsic(signal) {}
+            protected:
+            LoopSignalType& _intrinsic;
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
         template<typename S, typename... Others> class SimpleController : public Controller<SOS::MemoryView::Notify, S> {
