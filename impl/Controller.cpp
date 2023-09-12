@@ -6,10 +6,11 @@ using namespace SOS::MemoryView;
 using namespace std::chrono;
 
 //needs a bus because it is a subcontroller
-class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::DummyController> {
+class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop {
     public:
     SubControllerImpl(BusNotifier& bus) :
-    SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(bus.signal) {
+    SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(bus.signal),
+    SOS::Behavior::Loop() {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
     }
@@ -43,9 +44,9 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public Thread<SubControllerImpl> {
+class ControllerImpl : public Thread<SubControllerImpl>, public SOS::Behavior::Loop {
     public:
-    ControllerImpl() : Thread<SubControllerImpl>() {
+    ControllerImpl() : Thread<SubControllerImpl>(), Loop() {
         _thread=start(this);
     }
     ~ControllerImpl() {
