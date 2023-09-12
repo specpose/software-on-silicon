@@ -91,13 +91,47 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventController<SOS::Behavior::DummyController>,
+        public SOS::Behavior::Loop {
             public:
             using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
             Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::EventController<SOS::Behavior::DummyController>(outside.signal) {}
+            SOS::Behavior::EventController<SOS::Behavior::DummyController>(outside.signal),
+            SOS::Behavior::Loop() {}
             ~Reader(){}
+            void event_loop() final {
+            while(Loop::stop_token.getUpdatedRef().test_and_set()){
+                    fifo_loop();
+                    std::this_thread::yield();
+                }
+                Loop::stop_token.getAcknowledgeRef().clear();
+            }
+            void fifo_loop() {
+                if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+        //                        std::cout << "S";
+                    read();//FIFO whole buffer with intermittent waits when write
+        //                        std::cout << "F";
+                    _intrinsic.getAcknowledgeRef().clear();
+                }
+            }
+            virtual void read()=0;
+            virtual bool wait() {
+                if (!_blocked_signal.getNotifyRef().test_and_set()) {//intermittent wait when write
+                    _blocked_signal.getNotifyRef().clear();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            virtual bool exit_loop() {
+                if (!Loop::stop_token.getUpdatedRef().test_and_set()) {
+                    Loop::stop_token.getUpdatedRef().clear();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
             protected:
             typename bus_type::signal_type& _blocked_signal;
         };
