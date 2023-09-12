@@ -10,13 +10,41 @@ using MEMORY_CONTROLLER=std::array<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,100
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
 using namespace SOS::MemoryView;
-
+class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
+    {}
+    protected:
+    void read(){
+        for (std::size_t channel=0;channel<_size.size();channel++){
+        const auto start = _size[channel].getReadBufferStartRef().load();
+        auto current = start;
+        const auto end = _size[channel].getReadBufferAfterLastRef().load();
+        auto readOffset = _offset.getReadOffsetRef().load();
+        if (readOffset<0)
+            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
+        while (current!=end){
+            if (!wait()) {
+                if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
+                    < (std::distance(start, end) + readOffset))
+                    throw SFA::util::runtime_error("Read index out of bounds", __FILE__, __func__);
+                //readOffset stays valid with resize (grow), but not clearMemoryController
+                auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
+                *current = (**readerPos)[channel];
+                readOffset++;
+                ++current;
+            }
+        }
+        }
+    }
+};
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
-                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+                    private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
+    ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         //multiple inheritance: not ambiguous
         _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
@@ -34,7 +62,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
 //                        std::cout << "S";
-            SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>::read();//FIFO whole buffer with intermittent waits when write
+            ReadTaskImpl::read();//FIFO whole buffer with intermittent waits when write
 //                        std::cout << "F";
             _intrinsic.getAcknowledgeRef().clear();
         }

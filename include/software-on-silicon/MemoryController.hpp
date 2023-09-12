@@ -112,28 +112,7 @@ namespace SOS {
             //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
-            void read(){
-                for (std::size_t channel=0;channel<_size.size();channel++){
-                const auto start = _size[channel].getReadBufferStartRef().load();
-                auto current = start;
-                const auto end = _size[channel].getReadBufferAfterLastRef().load();
-                auto readOffset = _offset.getReadOffsetRef().load();
-                if (readOffset<0)
-                    throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-                while (current!=end){
-                    if (!wait()) {
-                        if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
-                            < (std::distance(start, end) + readOffset))
-                            throw SFA::util::runtime_error("Read index out of bounds", __FILE__, __func__);
-                        //readOffset stays valid with resize (grow), but not clearMemoryController
-                        auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
-                        *current = (**readerPos)[channel];
-                        readOffset++;
-                        ++current;
-                    }
-                }
-                }
-            }
+            virtual void read()=0;
             virtual bool wait()=0;
             reader_length_ct& _size;
             reader_offset_ct& _offset;
