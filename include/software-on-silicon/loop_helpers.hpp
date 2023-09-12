@@ -4,24 +4,24 @@
 using namespace std::chrono;
 
 //Loops always have at least one signal for termination acknowledge if used for single run
-template<typename S> class Thread : public SOS::Behavior::Loop {
+template<typename S> class Thread {
     public:
     using subcontroller_type = S;
-    Thread() : Loop(), _child(subcontroller_type{_foreign}) {}
+    Thread() : _child(subcontroller_type{_foreign}) {}
     protected:
     typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
     S _child;
 };
-template<> class Thread<SOS::Behavior::DummyController> : public SOS::Behavior::Loop {
+template<> class Thread<SOS::Behavior::DummyController> {
     public:
     using subcontroller_type = SOS::Behavior::DummyController;
-    Thread() : Loop() {}
+    Thread() {}
     virtual ~Thread() {};
 };
-template<typename S, typename PassthruBusType, typename... Others> class PassthruThread : public SOS::Behavior::Loop {
+template<typename S, typename PassthruBusType, typename... Others> class PassthruThread {
     public:
     using subcontroller_type = S;
-    PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : Loop(), _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
+    PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
     protected:
     PassthruBusType& _foreign;
     S _child;
@@ -34,10 +34,11 @@ template<typename DurationType,
         typename PeriodType = typename std::enable_if<
             true, typename DurationType::duration
             >::type
-        > class Timer : public SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type> {//no bus here
+        > class Timer : public SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
-    SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>(bussignal) {
+    SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>(bussignal),
+    SOS::Behavior::Loop() {
         _thread = start(this);
     }
     ~Timer(){

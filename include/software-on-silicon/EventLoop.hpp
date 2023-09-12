@@ -91,10 +91,10 @@ namespace SOS{
         class DummyController {};
         //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
         //A Blink doesnt need a Bus
-        template<typename LoopSignalType, typename S=DummyController> class Controller : public Loop {
+        template<typename LoopSignalType, typename S=DummyController> class Controller {
             public:
             using subcontroller_type = S;
-            Controller(LoopSignalType& signal) : Loop(), _intrinsic(signal) {}
+            Controller(LoopSignalType& signal) : _intrinsic(signal) {}
             protected:
             LoopSignalType& _intrinsic;
         };
