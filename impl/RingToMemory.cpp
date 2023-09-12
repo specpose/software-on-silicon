@@ -20,13 +20,36 @@
 #define READ_BUFFER std::array<char,1000>
 
 using namespace SOS;
-
+class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+    public:
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
+    {}
+    protected:
+    void read(){
+        auto current = _size.getReadBufferStartRef();
+        const auto end = _size.getReadBufferAfterLastRef();
+        const auto readOffset = _offset.getReadOffsetRef().load();
+        if (readOffset<0)
+            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
+        if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
+        <(std::distance(current,end)+readOffset))
+            throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
+        auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
+        while (current!=end){
+            if (!wait()) {
+                *current = *(readerPos++);
+                ++current;
+            }
+        }
+    }
+};
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
-                    private SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+                    private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
         _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
@@ -44,7 +67,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
 //                        std::cout << "S";
-            SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>::read();//FIFO whole buffer with intermittent waits when write
+            ReadTaskImpl::read();//FIFO whole buffer with intermittent waits when write
 //                        std::cout << "F";
             _intrinsic.getAcknowledgeRef().clear();
         }
