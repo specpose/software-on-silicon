@@ -12,9 +12,11 @@ using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZ
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
+//main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    ReadTaskImpl(SOS::MemoryView::HandShake& stop_token,reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
+    stop_token(stop_token),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
     {}
     protected:
@@ -48,26 +50,33 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
         }
     }
     virtual void acknowledge()=0;
+    private:
+    SOS::MemoryView::HandShake& stop_token;
 };
+//main branch: Copy End from MemoryController.cpp
+
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+                    public SOS::Behavior::Loop,
                     private ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
+    SOS::Behavior::Loop(),
+    ReadTaskImpl(Loop::stop_token,std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
         //multiple inheritance: not ambiguous
-        _thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        //_thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        _thread = start(this);
     }
     ~ReaderImpl(){
         _thread.join();
     }
     void event_loop() final {
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(Loop::stop_token.getUpdatedRef().test_and_set()){
             fifo_loop();
             std::this_thread::yield();
         }
-        stop_token.getAcknowledgeRef().clear();
+        Loop::stop_token.getAcknowledgeRef().clear();
     }
     void fifo_loop() {
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
