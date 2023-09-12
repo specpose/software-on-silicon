@@ -108,7 +108,7 @@ namespace SOS{
             SOS::MemoryView::HandShake stop_token;
             protected:
             template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
-                startme->stop_token.getUpdatedRef().test_and_set();
+                startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
