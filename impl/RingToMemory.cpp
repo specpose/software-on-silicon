@@ -47,8 +47,8 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                     readOffset++;
                 }
                 ++current;
+                acknowledge();
             }
-            acknowledge();
         }
         }
     }
@@ -119,10 +119,6 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     //not inherited
     void clearMemoryController() {
         _blocker.signal.getUpdatedRef().clear();
-        while(_blocker.signal.getAcknowledgeRef().test_and_set()){
-            std::this_thread::yield();
-        }//acknowledge => finished a pending read
-        _blocker.signal.getAcknowledgeRef().clear();
         ara_sampleCount = 0;
         for(std::size_t i = 0;i<memorycontroller.size();i++)
             if (memorycontroller[i]){
@@ -183,8 +179,12 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
                 RingBufferTask::read_loop();
             }
             if (clear_memorycontroller) {
+                //stop and omit the pending transfer writes
                 auto previous = std::get<0>(rB.cables).getCurrentRef();
                 std::get<0>(rB.cables).getThreadCurrentRef() = --previous;
+                while(_blocker.signal.getAcknowledgeRef().test_and_set()){
+                    std::this_thread::yield();
+                }//acknowledge => finished a pending read
                 clearMemoryController();
                 clear_memorycontroller = false;
             }
