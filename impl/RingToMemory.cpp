@@ -179,7 +179,8 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
                 //stop and omit the pending transfer writes
                 auto previous = std::get<0>(rB.cables).getCurrentRef().load();
                 std::get<0>(rB.cables).getThreadCurrentRef().store(--previous);
-                while(_blocker.signal.getAcknowledgeRef().test_and_set()){
+                while(!_blocker.signal.getAcknowledgeRef().test_and_set()){
+                    _blocker.signal.getAcknowledgeRef().clear();
                     std::this_thread::yield();
                 }//acknowledge => finished a pending read
                 clearMemoryController();

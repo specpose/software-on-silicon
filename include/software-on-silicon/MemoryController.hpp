@@ -148,7 +148,7 @@ namespace SOS {
                     _blocked_signal.getUpdatedRef().clear();
                     return true;
                 } else {
-                    _blocked_signal.getAcknowledgeRef().test_and_set();//started individual read
+                    _blocked_signal.getAcknowledgeRef().clear();//started individual read
                     return false;
                 }
             }
@@ -161,7 +161,7 @@ namespace SOS {
                 }
             }
             virtual void acknowledge() {
-                _blocked_signal.getAcknowledgeRef().clear();//ended individual read
+                _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
             protected:
             typename bus_type::signal_type& _blocked_signal;
