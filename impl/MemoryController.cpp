@@ -30,6 +30,7 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                 *current = *(readerPos++);
                 ++current;
             }
+            std::this_thread::yield();
         }
     }
     virtual bool exit_loop()=0;
