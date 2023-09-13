@@ -128,9 +128,8 @@ namespace SOS {
             SOS::Behavior::Loop() {}
             ~Reader(){}
             void event_loop() final {
-            while(Loop::stop_token.getUpdatedRef().test_and_set()){
+                while(Loop::stop_token.getUpdatedRef().test_and_set()){
                     fifo_loop();
-                    std::this_thread::yield();
                 }
                 Loop::stop_token.getAcknowledgeRef().clear();
             }

@@ -37,6 +37,7 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                 ++current;
                 acknowledge();
             }
+            std::this_thread::yield();
         }
         }
     }
