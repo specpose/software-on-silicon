@@ -35,10 +35,12 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                 *current = (**readerPos)[channel];
                 readOffset++;
                 ++current;
+                acknowledge();
             }
         }
         }
     }
+    virtual void acknowledge()=0;
     virtual bool exit_loop()=0;
     private:
     SOS::MemoryView::HandShake& stop_token;
@@ -58,6 +60,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread.join();
     }
     virtual void read() final {ReadTaskImpl::read();};
+    virtual void acknowledge() final {SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::acknowledge();};
     virtual bool wait() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::wait();};
     virtual bool exit_loop() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::exit_loop();};
     private:

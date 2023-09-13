@@ -44,8 +44,8 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
                     readOffset++;
                 }
                 ++current;
+                acknowledge();
             }
-            acknowledge();
         }
         }
     }
