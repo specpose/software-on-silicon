@@ -27,7 +27,7 @@ class BlinkLoop : public SOS::Behavior::Controller<SOS::MemoryView::Notify>, pub
     }
     void event_loop(){
         const auto start = high_resolution_clock::now();
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){//REMOVE: Needs signaling
+        while(stop_token.getUpdatedRef().test_and_set()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -38,6 +38,8 @@ class BlinkLoop : public SOS::Behavior::Controller<SOS::MemoryView::Notify>, pub
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
+        std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
+        stop_token.getAcknowledgeRef().clear();
     }
     void operator()(){
         predicate();
