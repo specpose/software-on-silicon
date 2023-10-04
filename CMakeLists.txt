@@ -40,6 +40,13 @@ target_include_directories(test_RingToMemory
     ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
 target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemory.cpp)
+add_executable(test_MCUFPGA)
+target_include_directories(test_MCUFPGA
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_MCUFPGA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_mcufpga.cpp)
 
 add_library(${PROJECT_NAME} STATIC)
 target_include_directories(${PROJECT_NAME}

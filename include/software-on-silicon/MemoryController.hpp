@@ -114,32 +114,32 @@ namespace SOS {
             protected:
             virtual void read()=0;
             virtual bool wait()=0;
+            virtual bool exit_loop()=0;
+            virtual void acknowledge()=0;
             reader_length_ct& _size;
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
         template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventController<SOS::Behavior::DummyController>,
-        public SOS::Behavior::Loop {
+        public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
             Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::EventController<SOS::Behavior::DummyController>(outside.signal),
-            SOS::Behavior::Loop() {}
+            SOS::Behavior::Loop()
+            {}
             ~Reader(){}
             void event_loop() final {
                 while(Loop::stop_token.getUpdatedRef().test_and_set()){
-                    fifo_loop();
-                }
-                Loop::stop_token.getAcknowledgeRef().clear();
-            }
-            void fifo_loop() {
-                if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+                    if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
         //                        std::cout << "S";
                     read();//FIFO whole buffer with intermittent waits when write
         //                        std::cout << "F";
                     _intrinsic.getAcknowledgeRef().clear();
+                    }
                 }
+                Loop::stop_token.getAcknowledgeRef().clear();
             }
             virtual void read()=0;
             virtual bool wait() {
