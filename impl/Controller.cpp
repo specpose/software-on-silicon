@@ -19,8 +19,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
         std::cout<<"SubController has ended normally."<<std::endl;
     }
     void event_loop(){
-        const auto start = high_resolution_clock::now();
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){//REMOVE: Needs signaling
+        while(stop_token.getUpdatedRef().test_and_set()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -56,9 +55,7 @@ class ControllerImpl : public Thread<SubControllerImpl>, public SOS::Behavior::L
         auto waiterBus = SOS::MemoryView::BusShaker{};
         auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
-        std::cout<<"Controller loop running for 5s..."<<std::endl;
-        const auto start = high_resolution_clock::now();
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){//REMOVE: Needs signaling
+        while(stop_token.getUpdatedRef().test_and_set()){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 operator()();
@@ -66,6 +63,7 @@ class ControllerImpl : public Thread<SubControllerImpl>, public SOS::Behavior::L
             std::this_thread::yield();
         }
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
+        stop_token.getAcknowledgeRef().clear();
     }
     void operator()(){
         if (!_foreign.signal.getNotifyRef().test_and_set()) {
