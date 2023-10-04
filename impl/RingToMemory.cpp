@@ -21,11 +21,10 @@
 
 using namespace SOS;
 //main branch: Copy Start from MemoryController.cpp
-class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReadTaskImpl : public virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
-    ReadTaskImpl(SOS::MemoryView::HandShake& stop_token,reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) :
-    stop_token(stop_token),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
+    //: SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
     {}
     protected:
     void read(){
@@ -46,18 +45,16 @@ class ReadTaskImpl : public SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLE
             std::this_thread::yield();
         }
     }
-    virtual bool exit_loop()=0;
-    private:
-    SOS::MemoryView::HandShake& stop_token;
 };
 //main branch: Copy End from MemoryController.cpp
 
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
-                    private ReadTaskImpl {
+                    private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
     SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
-    ReadTaskImpl(Loop::stop_token,std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)),
+    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
         //_thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
@@ -67,8 +64,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread.join();
     }
     virtual void read() final {ReadTaskImpl::read();};
-    virtual bool wait() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::wait();};
-    virtual bool exit_loop() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::exit_loop();};
+    //virtual bool wait() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::wait();};
+    //virtual bool exit_loop() final {return SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::exit_loop();};
     private:
     std::thread _thread;
 };
