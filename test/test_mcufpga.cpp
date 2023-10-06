@@ -5,37 +5,41 @@
 #include <limits>
 #include <bitset>
 
-#define DMA std::array<char,std::numeric_limits<unsigned char>::max()-2>
+#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-2>
 DMA com_buffer;
 
 using namespace SOS::MemoryView;
 class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-    void write(char w){
-        std::bitset<8> out = write_assemble(w);
+    void write(unsigned char w){
+        std::bitset<8> out;
         switch (writeCount) {
             case 0:
-            writeCount++;
+                out = write_assemble(w);
+                writeCount++;
             break;
             case 1:
+                out = write_assemble(w);
                 out = write_recover(out);//recover last 1 2bit
                 writeCount++;
             break;
             case 2://call 3
+                out = write_assemble(w);
                 out = write_recover(out);//recover last 2 2bit
                 writeCount++;
             break;
             case 3:
+                out = write_assemble(w, false);
                 out = write_recover(out);;//recover 3 2bit from call 3 only
                 writeCount=0;
             break;
         }
-        com_buffer[writePos++]=*reinterpret_cast<char*>(&out);
+        com_buffer[writePos++]=*reinterpret_cast<unsigned char*>(&out);
         if (writePos==com_buffer.size())
             writePos=0;
     }
-    bool read(char r){
-        std::bitset<24> temp{ reinterpret_cast<std::bitset<sizeof(char) * 8>*>(&r)->to_ullong()};
+    bool read(unsigned char r){
+        std::bitset<24> temp{ reinterpret_cast<std::bitset<sizeof(unsigned char) * 8>*>(&r)->to_ullong()};
         if (temp[7])
             fpga_updated.clear();
         if (temp[6])
@@ -64,8 +68,8 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         }
         return false;
     }
-    std::array<char,3> read_flush(){
-        std::array<char,3> result = *reinterpret_cast<std::array<char,3>*>(&in);
+    std::array<unsigned char,3> read_flush(){
+        std::array<unsigned char,3> result = *reinterpret_cast<std::array<unsigned char,3>*>(&in);
         return result;
     }
     private:
@@ -79,10 +83,12 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     std::atomic_flag mcu_acknowledge;//read bit 1
     std::array<std::bitset<8>,3> writeAssembly;
     std::array<std::bitset<24>,4> readAssembly;
-    std::bitset<8> write_assemble(char w){
+    std::bitset<8> write_assemble(unsigned char w,bool assemble=true){
         std::bitset<8> out;
-        writeAssembly[writeCount]=w;
-        out = writeAssembly[writeCount]>>(writeCount+1)*2;
+        if (assemble){
+            writeAssembly[writeCount]=w;
+            out = writeAssembly[writeCount]>>(writeCount+1)*2;
+        }
         if (!mcu_updated.test_and_set()){
             mcu_updated.clear();
             out.set(7,1);
@@ -126,9 +132,9 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         if (write3plus1<3){
             DMA::value_type data;
             if (blink)
-                data = '*';
+                data = 42;//'*'
             else
-                data = '_';
+                data = 95;//'_'
             write(data);
             counter++;
             if (blink && counter==333){
@@ -140,7 +146,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
             }
             write3plus1++;
         } else if (write3plus1==3){
-            write('?');//empty write
+            write(63);//'?' empty write
         }
         std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
@@ -163,14 +169,14 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private Seria
     void event_loop(){
         int read4minus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
-            char data = com_buffer[readPos++];
+            unsigned char data = com_buffer[readPos++];
             if (readPos==com_buffer.size())
                 readPos=0;
             while(read(data)){
             }
             auto read3bytes = read_flush();
             for(int i=0;i<3;i++)
-                std::cout<<read3bytes[i];
+                printf("%c",read3bytes[i]);
             std::this_thread::yield();
         }
         stop_token.getAcknowledgeRef().clear();
