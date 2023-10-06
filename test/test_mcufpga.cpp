@@ -35,9 +35,9 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     }
     bool read(char r){
         std::bitset<24> temp{ reinterpret_cast<std::bitset<sizeof(char) * 8>*>(&r)->to_ullong()};
-        if (temp[16])
+        if (temp[7])
             fpga_updated.clear();
-        if (temp[17])
+        if (temp[6])
             mcu_acknowledge.clear();
         std::bitset<24> in;
         switch (readCount) {
@@ -84,11 +84,11 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         out = writeAssembly[writeCount]>>(writeCount+1)*2;
         if (!mcu_updated.test_and_set()){
             mcu_updated.clear();
-            out.set(0,1);
+            out.set(7,1);
         }
         if (!fpga_acknowledge.test_and_set()){
             fpga_acknowledge.clear();
-            out.set(1,1);
+            out.set(6,1);
         }
         return out;
     }
@@ -156,6 +156,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private Seria
     }
     ~MCUThread() {
         _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     void event_loop(){
@@ -169,6 +170,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private Seria
             auto read3bytes = read_flush();
             for(int i=0;i<3;i++)
                 std::cout<<read3bytes[i];
+            std::this_thread::yield();
         }
         stop_token.getAcknowledgeRef().clear();
     }
@@ -179,5 +181,10 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private Seria
 };
 
 int main () {
-    MCUThread host;
+    auto host= MCUThread();
+    const auto start = high_resolution_clock::now();
+    while (duration_cast<seconds>(high_resolution_clock::now() - start).count() < 5) {
+        std::this_thread::yield();
+    }
+    host.stop();
 }
