@@ -33,12 +33,13 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
                 writeCount=0;
             break;
         }
-        com_buffer[writePos++]=*reinterpret_cast<unsigned char*>(&out);
+        unsigned long c = out.to_ulong();
+        com_buffer[writePos++]=static_cast<unsigned char>(c);
         if (writePos==com_buffer.size())
             writePos=0;
     }
     bool read(unsigned char r){
-        std::bitset<24> temp{ reinterpret_cast<std::bitset<sizeof(unsigned char) * 8>*>(&r)->to_ullong()};
+        std::bitset<24> temp{ static_cast<unsigned long>(r)};
         if (temp[7])
             fpga_updated.clear();
         if (temp[6])
@@ -68,7 +69,10 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         return false;
     }
     std::array<unsigned char,3> read_flush(){
-        std::array<unsigned char,3> result = *reinterpret_cast<std::array<unsigned char,3>*>(&in);
+        std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(in[23]));//ERROR
+        result[0] = static_cast<unsigned char>((in >> 16).to_ulong());
+        result[1] = static_cast<unsigned char>(((in << 8)>> 16).to_ulong());
+        result[2] = static_cast<unsigned char>(((in << 16) >> 16).to_ulong());
         return result;
     }
     private:
