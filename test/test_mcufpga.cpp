@@ -34,7 +34,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             writePos=0;
     }
     bool read(char r){
-        std::bitset<24> temp{r};
+        std::bitset<24> temp{ reinterpret_cast<std::bitset<sizeof(char) * 8>*>(&r)->to_ullong()};
         if (temp[16])
             fpga_updated.clear();
         if (temp[17])
