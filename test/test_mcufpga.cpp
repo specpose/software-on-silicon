@@ -5,6 +5,7 @@
 #include <bitset>
 
 #define DMA std::array<char,std::numeric_limits<unsigned char>::max()-2>
+DMA com_buffer;
 
 using namespace SOS::MemoryView;
 class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
@@ -28,6 +29,9 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
                 writeCount=0;
             break;
         }
+        com_buffer[writePos++]=*reinterpret_cast<char*>(&out);
+        if (writePos==com_buffer.size())
+            writePos=0;
     }
     bool read(char r){
         std::bitset<24> temp{r};
@@ -64,6 +68,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         return result;
     }
     private:
+    unsigned int writePos = 0;
     unsigned int writeCount = 0;
     unsigned int readCount = 0;
     std::bitset<24> in;
@@ -99,7 +104,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         in = in ^ temp;//overlay
     }
 };
-class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop {
+class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private Serial {
     public:
     using bus_type = WriteLock;
     FPGA(bus_type& myBus) :
@@ -112,6 +117,33 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         _thread.join();
     }
     void event_loop(){
+        int write3plus1 = 0;
+        int counter = 0;
+        bool blink = true;
+        while(stop_token.getUpdatedRef().test_and_set()){
+        const auto start = high_resolution_clock::now();
+        if (write3plus1<3){
+            DMA::value_type data;
+            if (blink)
+                data = '*';
+            else
+                data = '_';
+            write(data);
+            counter++;
+            if (blink && counter==333){
+                blink = false;
+                counter=0;
+            } else if (!blink && counter==666) {
+                blink = true;
+                counter=0;
+            }
+            write3plus1++;
+        } else if (write3plus1==3){
+            write('?');//empty write
+        }
+        std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
+        }
+        stop_token.getAcknowledgeRef().clear();
     }
     private:
     DMA embeddedMirror;
@@ -127,11 +159,21 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private Seria
         _thread.join();
     }
     void event_loop(){
+        int read4minus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
+            char data = com_buffer[readPos++];
+            if (readPos==com_buffer.size())
+                readPos=0;
+            while(read(data)){
+            }
+            auto read3bytes = read_flush();
+            for(int i=0;i<3;i++)
+                std::cout<<read3bytes[i];
         }
         stop_token.getAcknowledgeRef().clear();
     }
     private:
+    unsigned int readPos = 0;
     DMA hostMirror;
     std::thread _thread = std::thread{};
 };
