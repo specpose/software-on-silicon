@@ -15,6 +15,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         switch (writeCount) {
             case 0:
                 out = write_assemble(w);
+                //out = write_recover(out,false);
                 writeCount++;
             break;
             case 1:
@@ -33,8 +34,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
                 writeCount=0;
             break;
         }
-        unsigned long c = out.to_ulong();
-        com_buffer[writePos++]=static_cast<unsigned char>(c);
+        com_buffer[writePos++]=static_cast<unsigned char>(out.to_ulong());
         if (writePos==com_buffer.size())
             writePos=0;
     }
@@ -73,6 +73,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         result[0] = static_cast<unsigned char>((in >> 16).to_ulong());
         result[1] = static_cast<unsigned char>(((in << 8)>> 16).to_ulong());
         result[2] = static_cast<unsigned char>(((in << 16) >> 16).to_ulong());
+        in.reset();
         return result;
     }
     private:
@@ -85,7 +86,7 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     std::atomic_flag fpga_updated;//read bit 0
     std::atomic_flag mcu_acknowledge;//read bit 1
     std::array<std::bitset<8>,3> writeAssembly;
-    std::array<std::bitset<24>,4> readAssembly;
+    //std::array<std::bitset<24>,4> readAssembly;
     std::bitset<8> write_assemble(unsigned char w,bool assemble=true){
         std::bitset<8> out;
         if (assemble){
@@ -102,10 +103,12 @@ class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
         }
         return out;
     }
-    std::bitset<8> write_recover(std::bitset<8>& out){
+    std::bitset<8> write_recover(std::bitset<8>& out,bool recover=true){
         std::bitset<8> cache;
-        cache = writeAssembly[writeCount-1]<<(4-writeCount)*2;//recover last 1 2bit
-        cache = cache>>1*2;
+        if (recover){
+            cache = writeAssembly[writeCount-1]<<(4-writeCount)*2;
+            cache = cache>>1*2;
+        }
         return out^cache;
     }
     void read_shift(std::bitset<24>& temp){
