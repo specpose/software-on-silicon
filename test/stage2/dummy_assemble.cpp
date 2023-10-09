@@ -5,7 +5,7 @@ DMA com_buffer;
 #include <iostream>
 
 int main (){
-    SOS::Protocol::Serial input;
+    SOS::Protocol::SerialMCU input;
     unsigned char one = 42;
     printf("%d\n",one);
     printf("%c\n",one);
@@ -42,7 +42,7 @@ int main (){
     for(int i=0;i<5;i++){
         printf("%d\n",com_buffer[i]);
     }
-    SOS::Protocol::Serial output;
+    SOS::Protocol::SerialFPGA output;
     output.read(com_buffer[0]);
     std::cout<<output.readAssembly<<std::endl;
     output.read(com_buffer[1]);

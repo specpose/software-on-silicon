@@ -34,10 +34,7 @@ namespace SOS {
             }
             bool read(unsigned char r){
                 std::bitset<24> temp{ static_cast<unsigned long>(r)};
-                if (temp[7])
-                    fpga_updated.clear();
-                if (temp[6])
-                    mcu_acknowledge.clear();
+                read_bits(temp);
                 switch (readCount) {
                     case 0:
                     read_shift(temp);
@@ -65,14 +62,15 @@ namespace SOS {
                 readAssembly.reset();
                 return result;
             }
+            protected:
+            std::atomic_flag mcu_updated;//mcu_write,fpga_read bit 7
+            std::atomic_flag fpga_acknowledge;//mcu_write,fpga_read bit 6
+            std::atomic_flag fpga_updated;//mcu_read,fpga_write bit 7
+            std::atomic_flag mcu_acknowledge;//mcu_read,fpga_write bit 6
             private:
             unsigned int writePos = 0;
             unsigned int writeCount = 0;
             unsigned int readCount = 0;
-            std::atomic_flag mcu_updated;//write bit 0
-            std::atomic_flag fpga_acknowledge;//write bit 1
-            std::atomic_flag fpga_updated;//read bit 0
-            std::atomic_flag mcu_acknowledge;//read bit 1
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
             std::bitset<8> write_assemble(unsigned char w,bool assemble=true){
@@ -81,16 +79,10 @@ namespace SOS {
                     writeAssembly[writeCount]=w;
                     out = writeAssembly[writeCount]>>(writeCount+1)*2;
                 }
-                if (!mcu_updated.test_and_set()){
-                    mcu_updated.clear();
-                    out.set(7,1);
-                }
-                if (!fpga_acknowledge.test_and_set()){
-                    fpga_acknowledge.clear();
-                    out.set(6,1);
-                }
+                write_bits(out);
                 return out;
             }
+            virtual void write_bits(std::bitset<8>& out) = 0;
             std::bitset<8> write_recover(std::bitset<8>& out,bool recover=true){
                 std::bitset<8> cache;
                 if (recover){
@@ -99,10 +91,49 @@ namespace SOS {
                 }
                 return out^cache;
             }
+            virtual void read_bits(std::bitset<24>& temp) = 0;
             void read_shift(std::bitset<24>& temp){
                 temp = temp<<(4-0)*4+2;//split off 1st 2bit
                 temp = temp>>(readCount*3)*2;//shift
                 readAssembly = readAssembly ^ temp;//overlay
+            }
+        };
+        class SerialMCU : public Serial {
+            private:
+            virtual void read_bits(std::bitset<24>& temp) final {
+                if (temp[7])
+                    fpga_updated.clear();
+                if (temp[6])
+                    mcu_acknowledge.clear();
+            }
+            virtual void write_bits(std::bitset<8>& out) final {
+                if (!mcu_updated.test_and_set()){
+                    mcu_updated.clear();
+                    out.set(7,1);
+                }
+                if (!fpga_acknowledge.test_and_set()){
+                    fpga_acknowledge.clear();
+                    out.set(6,1);
+                }
+            }
+        };
+        class SerialFPGA : public Serial {
+            private:
+            virtual void read_bits(std::bitset<24>& temp) final {
+                if (temp[7])
+                    mcu_updated.clear();
+                if (temp[6])
+                    fpga_acknowledge.clear();
+            }
+            virtual void write_bits(std::bitset<8>& out) final {
+                if (!fpga_updated.test_and_set()){
+                    fpga_updated.clear();
+                    out.set(7,1);
+                }
+                if (!mcu_acknowledge.test_and_set()){
+                    mcu_acknowledge.clear();
+                    out.set(6,1);
+                }
             }
         };
     }
