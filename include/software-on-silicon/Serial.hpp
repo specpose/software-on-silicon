@@ -103,8 +103,12 @@ namespace SOS {
             virtual void read_bits(std::bitset<24>& temp) final {
                 if (temp[7])
                     fpga_updated.clear();
+                else
+                    fpga_updated.test_and_set();
                 if (temp[6])
                     mcu_acknowledge.clear();
+                else
+                    mcu_acknowledge.test_and_set();
             }
             virtual void write_bits(std::bitset<8>& out) final {
                 if (!mcu_updated.test_and_set()){
@@ -122,8 +126,12 @@ namespace SOS {
             virtual void read_bits(std::bitset<24>& temp) final {
                 if (temp[7])
                     mcu_updated.clear();
+                else
+                    mcu_updated.test_and_set();
                 if (temp[6])
                     fpga_acknowledge.clear();
+                else
+                    fpga_acknowledge.test_and_set();
             }
             virtual void write_bits(std::bitset<8>& out) final {
                 if (!fpga_updated.test_and_set()){
