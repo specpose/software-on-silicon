@@ -1,5 +1,5 @@
 #include "software-on-silicon/EventLoop.hpp"
-#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-2>
+#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()>
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 #include <iostream>
@@ -19,6 +19,7 @@ int main (){
     printf("%c\n",0xFF);
     std::cout<<std::bitset<8>{static_cast<unsigned long>(one)}<<std::endl;
     std::bitset<8> out = input.write_assemble(one);
+    out = input.write_recover(out,false);
     input.writeCount++;
     com_buffer[0]=static_cast<unsigned char>(out.to_ulong());
     std::cout<<std::bitset<8>{static_cast<unsigned long>(two)}<<std::endl;
@@ -43,13 +44,13 @@ int main (){
     }
     SOS::Protocol::Serial output;
     output.read(com_buffer[0]);
-    std::cout<<output.in<<std::endl;
+    std::cout<<output.readAssembly<<std::endl;
     output.read(com_buffer[1]);
-    std::cout<<output.in<<std::endl;
+    std::cout<<output.readAssembly<<std::endl;
     output.read(com_buffer[2]);
-    std::cout<<output.in<<std::endl;
+    std::cout<<output.readAssembly<<std::endl;
     output.read(com_buffer[3]);
-    std::cout<<output.in<<std::endl;
+    std::cout<<output.readAssembly<<std::endl;
     auto result = output.read_flush();
     for(int i=0;i<3;i++){
         printf("%d\n",result[i]);

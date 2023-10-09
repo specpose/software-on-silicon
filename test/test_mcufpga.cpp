@@ -3,7 +3,7 @@
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
 
-#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-2>
+#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()>
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 

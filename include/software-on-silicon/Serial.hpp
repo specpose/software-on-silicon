@@ -9,7 +9,7 @@ namespace SOS {
                 switch (writeCount) {
                     case 0:
                         out = write_assemble(w);
-                        //out = write_recover(out,false);
+                        out = write_recover(out,false);
                         writeCount++;
                     break;
                     case 1:
@@ -38,49 +38,43 @@ namespace SOS {
                     fpga_updated.clear();
                 if (temp[6])
                     mcu_acknowledge.clear();
-                std::bitset<24> in;
                 switch (readCount) {
                     case 0:
                     read_shift(temp);
                     readCount++;
                     return true;
-                    //break;
                     case 1:
                     read_shift(temp);
                     readCount++;
                     return true;
-                    //break;
                     case 2:
                     read_shift(temp);
                     readCount++;
                     return true;
-                    //break;
                     case 3:
                     read_shift(temp);
                     readCount=0;
-                    //break;
                 }
                 return false;
             }
             std::array<unsigned char,3> read_flush(){
-                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(in[23]));//ERROR
-                result[0] = static_cast<unsigned char>((in >> 16).to_ulong());
-                result[1] = static_cast<unsigned char>(((in << 8)>> 16).to_ulong());
-                result[2] = static_cast<unsigned char>(((in << 16) >> 16).to_ulong());
-                in.reset();
+                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(in[23]));//wrong bit-order
+                result[0] = static_cast<unsigned char>((readAssembly >> 16).to_ulong());
+                result[1] = static_cast<unsigned char>(((readAssembly << 8)>> 16).to_ulong());
+                result[2] = static_cast<unsigned char>(((readAssembly << 16) >> 16).to_ulong());
+                readAssembly.reset();
                 return result;
             }
             private:
             unsigned int writePos = 0;
             unsigned int writeCount = 0;
             unsigned int readCount = 0;
-            std::bitset<24> in;
             std::atomic_flag mcu_updated;//write bit 0
             std::atomic_flag fpga_acknowledge;//write bit 1
             std::atomic_flag fpga_updated;//read bit 0
             std::atomic_flag mcu_acknowledge;//read bit 1
             std::array<std::bitset<8>,3> writeAssembly;
-            //std::array<std::bitset<24>,4> readAssembly;
+            std::bitset<24> readAssembly;
             std::bitset<8> write_assemble(unsigned char w,bool assemble=true){
                 std::bitset<8> out;
                 if (assemble){
@@ -108,7 +102,7 @@ namespace SOS {
             void read_shift(std::bitset<24>& temp){
                 temp = temp<<(4-0)*4+2;//split off 1st 2bit
                 temp = temp>>(readCount*3)*2;//shift
-                in = in ^ temp;//overlay
+                readAssembly = readAssembly ^ temp;//overlay
             }
         };
     }
