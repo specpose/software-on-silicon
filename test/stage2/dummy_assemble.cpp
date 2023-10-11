@@ -1,5 +1,5 @@
 #include "software-on-silicon/EventLoop.hpp"
-#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()>
+#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-1>//255%3=0
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 #include <iostream>
