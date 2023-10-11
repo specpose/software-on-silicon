@@ -4,7 +4,7 @@
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
 
-#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()>
+#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-1>//255%3=0
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 
@@ -34,7 +34,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
                     data = 42;//'*'
                 else
                     data = 95;//'_'
-                write(data);
+                SOS::Protocol::SerialFPGA::write(data);
                 counter++;
                 if (blink && counter==333){
                     blink = false;
@@ -45,7 +45,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
                 }
                 write3plus1++;
             } else if (write3plus1==3){
-                write(63);//'?' empty write
+                SOS::Protocol::SerialFPGA::write(63);//'?' empty write
                 write3plus1=0;
             }
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
@@ -54,6 +54,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
     }
     private:
     DMA embeddedMirror;
+    SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};
 };
 class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU {
@@ -72,11 +73,10 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
             unsigned char data = com_buffer[readPos++];
             if (readPos==com_buffer.size())
                 readPos=0;
+            SOS::Protocol::SerialMCU::read(data);
             if (read4minus1<3){
-                read(data);
                 read4minus1++;
             } else if (read4minus1==3){
-                read(data);
                 auto read3bytes = read_flush();
                 for(int i=0;i<3;i++)
                     printf("%c",read3bytes[i]);
@@ -89,6 +89,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
     private:
     unsigned int readPos = 0;
     DMA hostMirror;
+    SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};
 };
 
