@@ -53,6 +53,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
     }
     private:
     DMA embeddedMirror;
+    SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};
 };
 class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU {
@@ -87,6 +88,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
     private:
     unsigned int readPos = 0;
     DMA hostMirror;
+    SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};
 };
 
