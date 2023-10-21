@@ -22,25 +22,22 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         _thread.join();
     }
     void event_loop(){
-        int write3plus1 = 0;
-        int counter = 0;
-        bool blink = true;
         while(stop_token.getUpdatedRef().test_and_set()){
             const auto start = high_resolution_clock::now();
             if (write3plus1<3){
                 DMA::value_type data;
-                if (blink)
+                if (writeBlink)
                     data = 42;//'*'
                 else
                     data = 95;//'_'
                 SOS::Protocol::SerialFPGA::write(data);
-                counter++;
-                if (blink && counter==333){
-                    blink = false;
-                    counter=0;
-                } else if (!blink && counter==666) {
-                    blink = true;
-                    counter=0;
+                writeBlinkCounter++;
+                if (writeBlink && writeBlinkCounter==333){
+                    writeBlink = false;
+                    writeBlinkCounter=0;
+                } else if (!writeBlink && writeBlinkCounter==666) {
+                    writeBlink = true;
+                    writeBlinkCounter=0;
                 }
                 write3plus1++;
             } else if (write3plus1==3){
@@ -52,6 +49,9 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         stop_token.getAcknowledgeRef().clear();
     }
     private:
+    int write3plus1 = 0;
+    int writeBlinkCounter = 0;
+    bool writeBlink = true;
     DMA embeddedMirror;
     SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};

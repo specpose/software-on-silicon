@@ -8,23 +8,25 @@ namespace SOS {
                 std::bitset<8> out;
                 switch (writeCount) {
                     case 0:
-                        out = write_assemble(w);
-                        out = write_recover(out,false);
+                        out = write_assemble(writeAssembly, writeCount, w);
+                        write_bits(out);
                         writeCount++;
                     break;
                     case 1:
-                        out = write_assemble(w);
-                        out = write_recover(out);//recover last 1 2bit
+                        out = write_assemble(writeAssembly, writeCount, w);
+                        write_bits(out);
+                        out = write_recover(writeAssembly, writeCount, out);//recover last 1 2bit
                         writeCount++;
                     break;
                     case 2://call 3
-                        out = write_assemble(w);
-                        out = write_recover(out);//recover last 2 2bit
+                        out = write_assemble(writeAssembly, writeCount,w);
+                        write_bits(out);
+                        out = write_recover(writeAssembly, writeCount, out);//recover last 2 2bit
                         writeCount++;
                     break;
                     case 3:
-                        out = write_assemble(w, false);
-                        out = write_recover(out);;//recover 3 2bit from call 3 only
+                        write_bits(out);
+                        out = write_recover(writeAssembly, writeCount, out);;//recover 3 2bit from call 3 only
                         writeCount=0;
                     break;
                 }
@@ -37,25 +39,25 @@ namespace SOS {
                 read_bits(temp);
                 switch (readCount) {
                     case 0:
-                    read_shift(temp);
+                    read_shift(readAssembly, readCount, temp);
                     readCount++;
                     return true;
                     case 1:
-                    read_shift(temp);
+                    read_shift(readAssembly, readCount, temp);
                     readCount++;
                     return true;
                     case 2:
-                    read_shift(temp);
+                    read_shift(readAssembly, readCount, temp);
                     readCount++;
                     return true;
                     case 3:
-                    read_shift(temp);
+                    read_shift(readAssembly, readCount, temp);
                     readCount=0;
                 }
                 return false;
             }
             std::array<unsigned char,3> read_flush(){
-                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(in[23]));//wrong bit-order
+                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(readAssembly[0]));//wrong bit-order
                 result[0] = static_cast<unsigned char>((readAssembly >> 16).to_ulong());
                 result[1] = static_cast<unsigned char>(((readAssembly << 8)>> 16).to_ulong());
                 result[2] = static_cast<unsigned char>(((readAssembly << 16) >> 16).to_ulong());
@@ -73,26 +75,21 @@ namespace SOS {
             unsigned int readCount = 0;
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
-            std::bitset<8> write_assemble(unsigned char w,bool assemble=true){
+            static std::bitset<8> write_assemble(decltype(writeAssembly)& writeAssembly,decltype(writeCount)& writeCount, unsigned char w) {
                 std::bitset<8> out;
-                if (assemble){
-                    writeAssembly[writeCount]=w;
-                    out = writeAssembly[writeCount]>>(writeCount+1)*2;
-                }
-                write_bits(out);
+                writeAssembly[writeCount]=w;
+                out = writeAssembly[writeCount]>>(writeCount+1)*2;
                 return out;
             }
             virtual void write_bits(std::bitset<8>& out) = 0;
-            std::bitset<8> write_recover(std::bitset<8>& out,bool recover=true){
+            static std::bitset<8> write_recover(decltype(writeAssembly)& writeAssembly,decltype(writeCount)& writeCount, std::bitset<8>& out) {
                 std::bitset<8> cache;
-                if (recover){
-                    cache = writeAssembly[writeCount-1]<<(4-writeCount)*2;
-                    cache = cache>>1*2;
-                }
+                cache = writeAssembly[writeCount-1]<<(4-writeCount)*2;
+                cache = cache>>1*2;
                 return out^cache;
             }
             virtual void read_bits(std::bitset<24>& temp) = 0;
-            void read_shift(std::bitset<24>& temp){
+            static void read_shift(decltype(readAssembly)& readAssembly,decltype(readCount)& readCount, std::bitset<24>& temp){
                 temp = temp<<(4-0)*4+2;//split off 1st 2bit
                 temp = temp>>(readCount*3)*2;//shift
                 readAssembly = readAssembly ^ temp;//overlay
@@ -187,7 +184,7 @@ namespace SOS {
                     throw std::runtime_error("DMADescriptor does not exist");
                 }
             } else {
-                throw std::logic_error("get<> can not be used with DMADescriptors<>");
+                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
             }
         }
         template<typename... Objects> constexpr std::size_t DMADescriptors_size(){ return sizeof...(Objects); }
@@ -205,7 +202,7 @@ namespace SOS {
                     throw std::runtime_error("DMADescriptor does not exist");
                 }
             } else {
-                throw std::logic_error("get<> can not be used with DMADescriptors<>");
+                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
             }
         }
     }
