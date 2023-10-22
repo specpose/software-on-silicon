@@ -9,15 +9,12 @@ DMA com_buffer;
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private SOS::Protocol::SerialFPGA {
+class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private SOS::Protocol::SerialFPGA<DMA> {
     public:
     using bus_type = WriteLock;
     FPGA(bus_type& myBus) :
     SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal),
     Loop() {
-        descriptors=SOS::Protocol::DMADescriptors<DMA>(std::get<0>(objects));
-        //SOS::Protocol::get(descriptors,0).id = 0;//ALWAYS number descriptors manually
-        //SOS::Protocol::get(descriptors,0).obj = &std::get<0>(objects);//ALWAYS associate all descriptors with objects
         _thread=start(this);
     }
     ~FPGA() {
@@ -33,7 +30,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
                     data = 42;//'*'
                 else
                     data = 95;//'_'
-                SOS::Protocol::SerialFPGA::write(data);
+                SOS::Protocol::SerialFPGA<DMA>::write(data);
                 writeBlinkCounter++;
                 if (writeBlink && writeBlinkCounter==333){
                     writeBlink = false;
@@ -44,7 +41,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
                 }
                 write3plus1++;
             } else if (write3plus1==3){
-                SOS::Protocol::SerialFPGA::write(63);//'?' empty write
+                SOS::Protocol::SerialFPGA<DMA>::write(63);//'?' empty write
                 write3plus1=0;
             }
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
@@ -52,20 +49,15 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         stop_token.getAcknowledgeRef().clear();
     }
     protected:
-    SOS::Protocol::DMADescriptors<DMA> descriptors;
     private:
     int write3plus1 = 0;
     int writeBlinkCounter = 0;
     bool writeBlink = true;
-    std::tuple<DMA> objects = std::tuple<DMA>{};
     std::thread _thread = std::thread{};
 };
-class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU {
+class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU<DMA> {
     public:
     MCUThread() : Thread<FPGA>(), Loop() {
-        descriptors=SOS::Protocol::DMADescriptors<DMA>(std::get<0>(objects));
-        //SOS::Protocol::get(descriptors,0).id = 0;//ALWAYS number descriptors manually
-        //SOS::Protocol::get(descriptors,0).obj = &std::get<0>(objects);//ALWAYS associate all descriptors with objects
         _thread=start(this);
     }
     ~MCUThread() {
@@ -79,7 +71,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
             unsigned char data = com_buffer[readPos++];
             if (readPos==com_buffer.size())
                 readPos=0;
-            SOS::Protocol::SerialMCU::read(data);
+            SOS::Protocol::SerialMCU<DMA>::read(data);
             if (read4minus1<3){
                 read4minus1++;
             } else if (read4minus1==3){
@@ -92,11 +84,8 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
         }
         stop_token.getAcknowledgeRef().clear();
     }
-    protected:
-    SOS::Protocol::DMADescriptors<DMA> descriptors;
     private:
     unsigned int readPos = 0;
-    std::tuple<DMA> objects = std::tuple<DMA>{};
     std::thread _thread = std::thread{};
 };
 

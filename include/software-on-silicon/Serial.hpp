@@ -2,8 +2,32 @@
 
 namespace SOS {
     namespace Protocol {
-        class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        struct DMADescriptor {
+            DMADescriptor(){}//DANGER
+            DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){}
+            unsigned char id = 0xFF;
+            void* obj = nullptr;
+            std::size_t obj_size = 0;
+            bool synced = true;
+        };
+        template<unsigned int N> struct DescriptorHelper : public std::array<DMADescriptor,N> {
             public:
+            using std::array<DMADescriptor,N>::array;
+            template<typename... T> void operator()(T&... obj_ref){
+                (assign(obj_ref),...);
+            }
+            private:
+            template<typename T> void assign(T& obj_ref){
+                (*this)[count] = DMADescriptor(static_cast<unsigned char>(count),reinterpret_cast<void*>(&obj_ref),sizeof(obj_ref));
+                count++;
+            }
+            std::size_t count = 0;
+        };
+        template<typename... Objects> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+            public:
+            Serial(){
+                std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
+            }
             void write(unsigned char w){
                 std::bitset<8> out;
                 switch (writeCount) {
@@ -69,7 +93,9 @@ namespace SOS {
             std::atomic_flag fpga_acknowledge;//mcu_write,fpga_read bit 6
             std::atomic_flag fpga_updated;//mcu_read,fpga_write bit 7
             std::atomic_flag mcu_acknowledge;//mcu_read,fpga_write bit 6
+            std::tuple<Objects...> objects{};
             private:
+            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             unsigned int writePos = 0;
             unsigned int writeCount = 0;
             unsigned int readCount = 0;
@@ -95,53 +121,53 @@ namespace SOS {
                 readAssembly = readAssembly ^ temp;//overlay
             }
         };
-        class SerialMCU : public Serial {
+        template<typename... Objects> class SerialMCU : public Serial<Objects...> {
             private:
             virtual void read_bits(std::bitset<24>& temp) final {
                 if (temp[7])
-                    fpga_updated.clear();
+                    Serial<Objects...>::fpga_updated.clear();
                 else
-                    fpga_updated.test_and_set();
+                    Serial<Objects...>::fpga_updated.test_and_set();
                 if (temp[6])
-                    mcu_acknowledge.clear();
+                    Serial<Objects...>::mcu_acknowledge.clear();
                 else
-                    mcu_acknowledge.test_and_set();
+                    Serial<Objects...>::mcu_acknowledge.test_and_set();
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (!mcu_updated.test_and_set()){
-                    mcu_updated.clear();
+                if (!Serial<Objects...>::mcu_updated.test_and_set()){
+                    Serial<Objects...>::mcu_updated.clear();
                     out.set(7,1);
                 }
-                if (!fpga_acknowledge.test_and_set()){
-                    fpga_acknowledge.clear();
+                if (!Serial<Objects...>::fpga_acknowledge.test_and_set()){
+                    Serial<Objects...>::fpga_acknowledge.clear();
                     out.set(6,1);
                 }
             }
         };
-        class SerialFPGA : public Serial {
+        template<typename... Objects> class SerialFPGA : public Serial<Objects...> {
             private:
             virtual void read_bits(std::bitset<24>& temp) final {
                 if (temp[7])
-                    mcu_updated.clear();
+                    Serial<Objects...>::mcu_updated.clear();
                 else
-                    mcu_updated.test_and_set();
+                    Serial<Objects...>::mcu_updated.test_and_set();
                 if (temp[6])
-                    fpga_acknowledge.clear();
+                    Serial<Objects...>::fpga_acknowledge.clear();
                 else
-                    fpga_acknowledge.test_and_set();
+                    Serial<Objects...>::fpga_acknowledge.test_and_set();
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (!fpga_updated.test_and_set()){
-                    fpga_updated.clear();
+                if (!Serial<Objects...>::fpga_updated.test_and_set()){
+                    Serial<Objects...>::fpga_updated.clear();
                     out.set(7,1);
                 }
-                if (!mcu_acknowledge.test_and_set()){
-                    mcu_acknowledge.clear();
+                if (!Serial<Objects...>::mcu_acknowledge.test_and_set()){
+                    Serial<Objects...>::mcu_acknowledge.clear();
                     out.set(6,1);
                 }
             }
         };
-        struct DMADescriptor {
+        /*struct DMADescriptor {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj) : id(id),obj(obj){}
             unsigned char id;
@@ -204,6 +230,6 @@ namespace SOS {
             } else {
                 throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
             }
-        }
+        }*/
     }
 }
