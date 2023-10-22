@@ -3,7 +3,7 @@
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
 
-#define DMA std::array<unsigned char,std::numeric_limits<unsigned char>::max()-1>//255%3=0
+#define DMA std::array<unsigned char,999>//1001%3=2
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 
@@ -14,7 +14,29 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
     using bus_type = WriteLock;
     FPGA(bus_type& myBus) :
     SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal),
-    Loop() {
+    Loop(),
+    SOS::Protocol::SerialFPGA<DMA>() {
+        int writeBlinkCounter = 0;
+        bool writeBlink = true;
+        for (std::size_t i=0;i<std::get<0>(objects).size();i++){
+            DMA::value_type data;
+            if (writeBlink)
+                data = 42;//'*'
+            else
+                data = 95;//'_'
+            std::get<0>(objects)[i]=data;
+            writeBlinkCounter++;
+            if (writeBlink && writeBlinkCounter==333){
+                writeBlink = false;
+                writeBlinkCounter=0;
+            } else if (!writeBlink && writeBlinkCounter==666) {
+                writeBlink = true;
+                writeBlinkCounter=0;
+            }
+        }
+        //for (std::size_t i=0;i<std::get<0>(objects).size();i++)
+        //    printf("%c",std::get<0>(objects)[i]);
+        descriptors[0].synced=false;
         _thread=start(this);
     }
     ~FPGA() {
@@ -22,42 +44,21 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         _thread.join();
     }
     void event_loop(){
+        int write3plus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
             const auto start = high_resolution_clock::now();
-            if (write3plus1<3){
-                DMA::value_type data;
-                if (writeBlink)
-                    data = 42;//'*'
-                else
-                    data = 95;//'_'
-                SOS::Protocol::SerialFPGA<DMA>::write(data);
-                writeBlinkCounter++;
-                if (writeBlink && writeBlinkCounter==333){
-                    writeBlink = false;
-                    writeBlinkCounter=0;
-                } else if (!writeBlink && writeBlinkCounter==666) {
-                    writeBlink = true;
-                    writeBlinkCounter=0;
-                }
-                write3plus1++;
-            } else if (write3plus1==3){
-                SOS::Protocol::SerialFPGA<DMA>::write(63);//'?' empty write
-                write3plus1=0;
-            }
+            write_hook(write3plus1);
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
         stop_token.getAcknowledgeRef().clear();
     }
     protected:
     private:
-    int write3plus1 = 0;
-    int writeBlinkCounter = 0;
-    bool writeBlink = true;
     std::thread _thread = std::thread{};
 };
-class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU<DMA> {
+class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA> {
     public:
-    MCUThread() : Thread<FPGA>(), Loop() {
+    MCUThread() : Thread<FPGA>(), Loop(), SOS::Protocol::SerialMCU<DMA>() {
         _thread=start(this);
     }
     ~MCUThread() {
@@ -68,24 +69,12 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
     void event_loop(){
         int read4minus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
-            unsigned char data = com_buffer[readPos++];
-            if (readPos==com_buffer.size())
-                readPos=0;
-            SOS::Protocol::SerialMCU<DMA>::read(data);
-            if (read4minus1<3){
-                read4minus1++;
-            } else if (read4minus1==3){
-                auto read3bytes = read_flush();
-                for(int i=0;i<3;i++)
-                    printf("%c",read3bytes[i]);
-                read4minus1 = 0;
-            }
+            read_hook(read4minus1);
             std::this_thread::yield();
         }
         stop_token.getAcknowledgeRef().clear();
     }
     private:
-    unsigned int readPos = 0;
     std::thread _thread = std::thread{};
 };
 
@@ -96,4 +85,7 @@ int main () {
         std::this_thread::yield();
     }
     host.stop();
+    for (std::size_t i=0;i<std::get<0>(host.objects).size();i++){
+        printf("%c",std::get<0>(host.objects)[i]);
+    }
 }
