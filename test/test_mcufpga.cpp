@@ -10,12 +10,12 @@ DMA com_buffer;
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private SOS::Protocol::SerialFPGA {
+class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private SOS::Protocol::SerialFPGA<DMA> {
     public:
     using bus_type = WriteLock;
     FPGA(bus_type& myBus) :
     SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal),
-    Loop(){
+    Loop() {
         _thread=start(this);
     }
     ~FPGA() {
@@ -23,41 +23,40 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         _thread.join();
     }
     void event_loop(){
-        int write3plus1 = 0;
-        int counter = 0;
-        bool blink = true;
         while(stop_token.getUpdatedRef().test_and_set()){
             const auto start = high_resolution_clock::now();
             if (write3plus1<3){
                 DMA::value_type data;
-                if (blink)
+                if (writeBlink)
                     data = 42;//'*'
                 else
                     data = 95;//'_'
-                SOS::Protocol::SerialFPGA::write(data);
-                counter++;
-                if (blink && counter==333){
-                    blink = false;
-                    counter=0;
-                } else if (!blink && counter==666) {
-                    blink = true;
-                    counter=0;
+                SOS::Protocol::SerialFPGA<DMA>::write(data);
+                writeBlinkCounter++;
+                if (writeBlink && writeBlinkCounter==333){
+                    writeBlink = false;
+                    writeBlinkCounter=0;
+                } else if (!writeBlink && writeBlinkCounter==666) {
+                    writeBlink = true;
+                    writeBlinkCounter=0;
                 }
                 write3plus1++;
             } else if (write3plus1==3){
-                SOS::Protocol::SerialFPGA::write(63);//'?' empty write
+                SOS::Protocol::SerialFPGA<DMA>::write(63);//'?' empty write
                 write3plus1=0;
             }
             std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
         stop_token.getAcknowledgeRef().clear();
     }
+    protected:
     private:
-    DMA embeddedMirror;
-    SOS::Protocol::DMADescriptors<DMA> objects;
+    int write3plus1 = 0;
+    int writeBlinkCounter = 0;
+    bool writeBlink = true;
     std::thread _thread = std::thread{};
 };
-class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU {
+class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU<DMA> {
     public:
     MCUThread() : Thread<FPGA>(), Loop() {
         _thread=start(this);
@@ -73,7 +72,7 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
             unsigned char data = com_buffer[readPos++];
             if (readPos==com_buffer.size())
                 readPos=0;
-            SOS::Protocol::SerialMCU::read(data);
+            SOS::Protocol::SerialMCU<DMA>::read(data);
             if (read4minus1<3){
                 read4minus1++;
             } else if (read4minus1==3){
@@ -88,8 +87,6 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
     }
     private:
     unsigned int readPos = 0;
-    DMA hostMirror;
-    SOS::Protocol::DMADescriptors<DMA> objects;
     std::thread _thread = std::thread{};
 };
 
