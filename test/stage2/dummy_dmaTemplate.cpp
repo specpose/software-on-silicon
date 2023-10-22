@@ -17,8 +17,8 @@ template<typename First, typename... Others> class DMADescriptors<First, Others.
     typedef DMADescriptors<Others...> inherited;
     public:
     constexpr DMADescriptors(){}
-    DMADescriptors(First h, Others... t)
-    : m_head(sizeof...(Others),nullptr), inherited(t...) {}
+    DMADescriptors(First& h, Others&... t)
+    : m_head(sizeof...(Others),&h), inherited(t...) {}
     template<typename... Objects> DMADescriptors(const DMADescriptors<Objects...>& other)
     : m_head(other.head()), inherited(other.tail()) {}
     template<typename... Objects> DMADescriptors& operator=(const DMADescriptors<Objects...>& other){
@@ -74,7 +74,10 @@ DMADescriptor& get(DMADescriptors<T...>& t,unsigned char id) {
 
 int main() {
     DMADescriptors<bool,int,float> objects = DMADescriptors<bool,int,float>{};
-    objects = DMADescriptors<bool,int,float>(true,5,7.7);
+    bool one = true;
+    int two = 5;
+    float three = 7.7;
+    objects = DMADescriptors<bool,int,float>(one,two,three);
     std::cout<<static_cast<unsigned int>(objects.head().id)<<std::endl;
     std::cout<<static_cast<unsigned int>(objects.tail().head().id)<<std::endl;
     std::cout<<static_cast<unsigned int>(objects.tail().tail().head().id)<<std::endl;

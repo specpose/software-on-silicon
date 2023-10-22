@@ -153,9 +153,9 @@ namespace SOS {
         template<typename First, typename... Others> class DMADescriptors<First, Others...> : private DMADescriptors<Others...> {
             typedef DMADescriptors<Others...> inherited;
             public:
-            constexpr DMADescriptors(){}
-            DMADescriptors(First h, Others... t)
-            : m_head(sizeof...(Others),nullptr), inherited(t...) {}
+            constexpr DMADescriptors(){}//DANGER
+            DMADescriptors(First& h, Others&... t)
+            : m_head(sizeof...(Others),&h), inherited(t...) {}
             template<typename... Objects> DMADescriptors(const DMADescriptors<Objects...>& other)
             : m_head(other.head()), inherited(other.tail()) {}
             template<typename... Objects> DMADescriptors& operator=(const DMADescriptors<Objects...>& other){

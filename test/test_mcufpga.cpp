@@ -14,7 +14,10 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
     using bus_type = WriteLock;
     FPGA(bus_type& myBus) :
     SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal),
-    Loop(){
+    Loop() {
+        descriptors=SOS::Protocol::DMADescriptors<DMA>(std::get<0>(objects));
+        //SOS::Protocol::get(descriptors,0).id = 0;//ALWAYS number descriptors manually
+        //SOS::Protocol::get(descriptors,0).obj = &std::get<0>(objects);//ALWAYS associate all descriptors with objects
         _thread=start(this);
     }
     ~FPGA() {
@@ -48,17 +51,21 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         }
         stop_token.getAcknowledgeRef().clear();
     }
+    protected:
+    SOS::Protocol::DMADescriptors<DMA> descriptors;
     private:
     int write3plus1 = 0;
     int writeBlinkCounter = 0;
     bool writeBlink = true;
-    DMA embeddedMirror;
-    SOS::Protocol::DMADescriptors<DMA> objects;
+    std::tuple<DMA> objects = std::tuple<DMA>{};
     std::thread _thread = std::thread{};
 };
 class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::Protocol::SerialMCU {
     public:
     MCUThread() : Thread<FPGA>(), Loop() {
+        descriptors=SOS::Protocol::DMADescriptors<DMA>(std::get<0>(objects));
+        //SOS::Protocol::get(descriptors,0).id = 0;//ALWAYS number descriptors manually
+        //SOS::Protocol::get(descriptors,0).obj = &std::get<0>(objects);//ALWAYS associate all descriptors with objects
         _thread=start(this);
     }
     ~MCUThread() {
@@ -85,10 +92,11 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, private SOS::
         }
         stop_token.getAcknowledgeRef().clear();
     }
+    protected:
+    SOS::Protocol::DMADescriptors<DMA> descriptors;
     private:
     unsigned int readPos = 0;
-    DMA hostMirror;
-    SOS::Protocol::DMADescriptors<DMA> objects;
+    std::tuple<DMA> objects = std::tuple<DMA>{};
     std::thread _thread = std::thread{};
 };
 
