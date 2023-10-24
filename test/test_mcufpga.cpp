@@ -37,6 +37,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         //for (std::size_t i=0;i<std::get<0>(objects).size();i++)
         //    printf("%c",std::get<0>(objects)[i]);
         descriptors[0].synced=false;
+        _intrinsic.getEmbeddedOutAcknowledgeRef().clear();
         _thread=start(this);
     }
     ~FPGA() {
@@ -46,14 +47,29 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
     void event_loop(){
         int write3plus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
-            const auto start = high_resolution_clock::now();
+            //const auto start = high_resolution_clock::now();
             write_hook(write3plus1);
-            std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
+            //std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
+            std::this_thread::yield();
         }
         stop_token.getAcknowledgeRef().clear();
     }
     protected:
     private:
+    virtual bool handshake_read() final {
+        if (!_intrinsic.getHostOutUpdatedRef().test_and_set()){
+            return true;
+        }
+        return false;
+    }
+    virtual void handshake_read_ack() final {_intrinsic.getHostOutAcknowledgeRef().clear();}
+    virtual bool handshake_write() final {
+        if (!_intrinsic.getEmbeddedOutAcknowledgeRef().test_and_set()){
+            return true;
+        }
+        return false;
+    }
+    virtual void handshake_write_ack() final {_intrinsic.getEmbeddedOutUpdatedRef().clear();}
     std::thread _thread = std::thread{};
 };
 class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA> {
@@ -75,6 +91,20 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, public SOS::P
         stop_token.getAcknowledgeRef().clear();
     }
     private:
+    virtual bool handshake_read() final {
+        if (!_foreign.signal.getEmbeddedOutUpdatedRef().test_and_set()){
+            return true;
+        }
+        return false;
+    }
+    virtual void handshake_read_ack() final {_foreign.signal.getEmbeddedOutAcknowledgeRef().clear();}
+    virtual bool handshake_write() final {
+        if (!_foreign.signal.getHostOutAcknowledgeRef().test_and_set()){
+            return true;
+        }
+        return false;
+    }
+    virtual void handshake_write_ack() final {_foreign.signal.getHostOutUpdatedRef().clear();}
     std::thread _thread = std::thread{};
 };
 
