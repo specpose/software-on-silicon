@@ -4,11 +4,17 @@ namespace SOS {
     namespace Protocol {
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
-            DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){}
+            DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
+                //std::cout<<obj_size<<" mod "<<" 3 ="<<obj_size%3<<std::endl;
+                //if (obj_size%3!=2)//1 byte for object index
+                if (obj_size%3!=0)
+                    throw std::logic_error("Invalid DMAObject size");
+            }
             unsigned char id = 0xFF;
             void* obj = nullptr;
             std::size_t obj_size = 0;
-            bool synced = true;
+            bool readLock = false;//serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
+            bool synced = true;//subcontroller write checks for synced
         };
         template<unsigned int N> struct DescriptorHelper : public std::array<DMADescriptor,N> {
             public:
@@ -28,6 +34,97 @@ namespace SOS {
             Serial(){
                 std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
             }
+            protected:
+            void read_hook(int& read4minus1){
+                unsigned char data = com_buffer[readPos++];
+                if (readPos==com_buffer.size())
+                    readPos=0;
+                read(data);
+                if(!receive_lock){
+                for (std::size_t i=0;i<descriptors.size();i++){
+                    if (descriptors[i].synced==true){//thread receive_id=byte[0]
+                        receive_lock=true;
+                        descriptors[i].readLock=true;
+                        readDestination=0;//HARDCODED: object[0].id
+                        readDestinationPos=0;
+                        send_acknowledge();
+                    }
+                }
+                }
+                if(receive_lock){
+                    if (readDestinationPos==descriptors[readDestination].obj_size){//byte[0] => obj_size+1
+                        descriptors[readDestination].readLock=false;
+                        receive_lock=false;
+                        readDestinationPos=0;
+                    }
+                    if (read4minus1<3){
+                        read4minus1++;
+                    } else if (read4minus1==3){
+                        auto read3bytes = read_flush();
+                        for(std::size_t i=0;i<3;i++){
+                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];//byte[0] => obj_size+1
+                            //printf("%c",read3bytes[i]);
+                        }
+                        read4minus1 = 0;
+                    }
+                }
+            }
+            void write_hook(int& write3plus1){
+                if (!send_lock){
+                bool gotOne = false;
+                for (std::size_t i=0;i<descriptors.size();i++){
+                    if (!descriptors[i].readLock && !descriptors[i].synced && !gotOne){
+                        send_lock=true;
+                        send_request();
+                        writeOrigin=descriptors[i].id;
+                        writeOriginPos=0;
+                        gotOne=true;
+                    }
+                }
+                }
+                if (send_lock) {//PROBLEM? not acquiring lock from mcu if nothing to write
+                if (write3plus1<3){
+                    unsigned char data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                    write(data);
+                    write3plus1++;
+                } else if (write3plus1==3){
+                    if (writeOriginPos==descriptors[writeOrigin].obj_size){
+                        //throw std::runtime_error("WRITE COMPLETED");
+                        //std::cout<<std::endl<<"WRITE COMPLETED "<<writeOriginPos<<std::endl;
+                        descriptors[writeOrigin].synced=true;
+                        send_lock=false;
+                        writeOriginPos=0;
+                    }
+                    write(63);//'?' empty write
+                    write3plus1=0;
+                }
+                }
+            }
+            virtual void send_acknowledge() = 0;
+            virtual void send_request() = 0;
+            std::atomic_flag mcu_updated;//mcu_write,fpga_read bit 7
+            std::atomic_flag fpga_acknowledge;//mcu_write,fpga_read bit 6
+            std::atomic_flag fpga_updated;//mcu_read,fpga_write bit 7
+            std::atomic_flag mcu_acknowledge;//mcu_read,fpga_write bit 6
+            //protected:
+            public:
+            std::tuple<Objects...> objects{};
+            protected:
+            //private:
+            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            private:
+            bool receive_lock = false;
+            bool send_lock = false;
+            std::size_t writePos = 0;//REPLACE: com_buffer
+            unsigned int writeCount = 0;//write3plus1
+            std::size_t writeOrigin = 0;//HARDCODED: objects[0]
+            std::size_t writeOriginPos = 0;
+            std::size_t readPos = 0;//REPLACE: com_buffer
+            unsigned int readCount = 0;//read4minus1
+            std::size_t readDestination = 0;//HARDCODED: objects[0]
+            std::size_t readDestinationPos = 0;
+            std::array<std::bitset<8>,3> writeAssembly;
+            std::bitset<24> readAssembly;
             void write(unsigned char w){
                 std::bitset<8> out;
                 switch (writeCount) {
@@ -88,19 +185,6 @@ namespace SOS {
                 readAssembly.reset();
                 return result;
             }
-            protected:
-            std::atomic_flag mcu_updated;//mcu_write,fpga_read bit 7
-            std::atomic_flag fpga_acknowledge;//mcu_write,fpga_read bit 6
-            std::atomic_flag fpga_updated;//mcu_read,fpga_write bit 7
-            std::atomic_flag mcu_acknowledge;//mcu_read,fpga_write bit 6
-            std::tuple<Objects...> objects{};
-            private:
-            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
-            unsigned int writePos = 0;
-            unsigned int writeCount = 0;
-            unsigned int readCount = 0;
-            std::array<std::bitset<8>,3> writeAssembly;
-            std::bitset<24> readAssembly;
             static std::bitset<8> write_assemble(decltype(writeAssembly)& writeAssembly,decltype(writeCount)& writeCount, unsigned char w) {
                 std::bitset<8> out;
                 writeAssembly[writeCount]=w;
@@ -143,6 +227,14 @@ namespace SOS {
                     out.set(6,1);
                 }
             }
+            virtual void send_acknowledge() final {//PROBLEM? Needs MCUPriority?
+                if (!Serial<Objects...>::fpga_updated.test_and_set()){
+                    Serial<Objects...>::fpga_acknowledge.clear();
+                }
+            }
+            virtual void send_request() final {
+                Serial<Objects...>::mcu_updated.clear();
+            }
         };
         template<typename... Objects> class SerialFPGA : public Serial<Objects...> {
             private:
@@ -165,6 +257,14 @@ namespace SOS {
                     Serial<Objects...>::mcu_acknowledge.clear();
                     out.set(6,1);
                 }
+            }
+            virtual void send_acknowledge() final {
+                if (!Serial<Objects...>::mcu_updated.test_and_set()){
+                    Serial<Objects...>::mcu_acknowledge.clear();
+                }
+            }
+            virtual void send_request() final {
+                Serial<Objects...>::fpga_updated.clear();
             }
         };
         /*struct DMADescriptor {
