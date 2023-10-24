@@ -1,13 +1,5 @@
-/*
-    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random
-    memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
-
-    ControllerHost<Writer<Reader<SubController>>>
-
-    It is not suitable for reading from a FPGA gpio when the processing needs immediate, timed pre-processing because of the signaling
-
-    ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
-*/
+#define OLD_ITERATOR_DEBUG_LEVEL _ITERATOR_DEBUG_LEVEL//DISABLE
+#define _ITERATOR_DEBUG_LEVEL 0//DISABLE
 
 #include <iostream>
 #include "error.cpp"
@@ -247,5 +239,5 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
 };
 }
 
-#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL
-#undef OLD_ITERATOR_DEBUG_LEVEL
+#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL//DISABLE
+#undef OLD_ITERATOR_DEBUG_LEVEL//DISABLE
