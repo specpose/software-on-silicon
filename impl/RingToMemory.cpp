@@ -1,5 +1,5 @@
-#define OLD_ITERATOR_DEBUG_LEVEL _ITERATOR_DEBUG_LEVEL
-#define _ITERATOR_DEBUG_LEVEL 0
+#define OLD_ITERATOR_DEBUG_LEVEL _ITERATOR_DEBUG_LEVEL//DISABLE
+#define _ITERATOR_DEBUG_LEVEL 0//DISABLE
 
 #include "software-on-silicon/error.hpp"
 #include <iostream>
@@ -11,7 +11,7 @@ using namespace SOS;
 
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
-using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
+using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//400//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
@@ -199,5 +199,5 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
 };
 }
 
-#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL
-#undef OLD_ITERATOR_DEBUG_LEVEL
+#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL//DISABLE
+#undef OLD_ITERATOR_DEBUG_LEVEL//DISABLE
