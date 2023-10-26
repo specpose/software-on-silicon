@@ -54,5 +54,48 @@ namespace SOS {
             Controller<SOS::MemoryView::BiDirectionalSignal, DummyController>(signal)
             {}
         };
+        template<typename... Objects> class SerialFPGAController :
+        public virtual SOS::Protocol::Serial<Objects...>,
+        public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController> {
+            public:
+            using bus_type = SOS::MemoryView::WriteLock;
+            SerialFPGAController(bus_type& myBus) :
+            SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal) {}
+            virtual bool handshake_read() final {
+                if (!_intrinsic.getHostOutUpdatedRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_read_ack() final {_intrinsic.getHostOutAcknowledgeRef().clear();}
+            virtual bool handshake_write() final {
+                if (!_intrinsic.getEmbeddedOutAcknowledgeRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_write_ack() final {_intrinsic.getEmbeddedOutUpdatedRef().clear();}
+        };
+        template<typename FPGAType, typename... Objects> class SerialMCUThread :
+        public virtual SOS::Protocol::Serial<Objects...>,
+        public Thread<FPGAType> {
+            public:
+            SerialMCUThread() :
+            Thread<FPGAType>() {}
+            virtual bool handshake_read() final {
+                if (!Thread<FPGAType>::_foreign.signal.getEmbeddedOutUpdatedRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_read_ack() final {Thread<FPGAType>::_foreign.signal.getEmbeddedOutAcknowledgeRef().clear();}
+            virtual bool handshake_write() final {
+                if (!Thread<FPGAType>::_foreign.signal.getHostOutAcknowledgeRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_write_ack() final {Thread<FPGAType>::_foreign.signal.getHostOutUpdatedRef().clear();}
+        };
     }
 }

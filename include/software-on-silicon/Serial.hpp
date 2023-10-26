@@ -215,38 +215,9 @@ namespace SOS {
                 readAssembly = readAssembly ^ temp;//overlay
             }
         };
-        template<typename... Objects> class SerialMCU : public Serial<Objects...> {
-            private:
-            virtual void read_bits(std::bitset<24>& temp) final {
-                if (temp[7])
-                    Serial<Objects...>::fpga_updated.clear();
-                else
-                    Serial<Objects...>::fpga_updated.test_and_set();
-                if (temp[6])
-                    Serial<Objects...>::mcu_acknowledge.clear();
-                else
-                    Serial<Objects...>::mcu_acknowledge.test_and_set();
-            }
-            virtual void write_bits(std::bitset<8>& out) final {
-                if (!Serial<Objects...>::mcu_updated.test_and_set()){
-                    Serial<Objects...>::mcu_updated.clear();
-                    out.set(7,1);
-                }
-                if (!Serial<Objects...>::fpga_acknowledge.test_and_set()){
-                    Serial<Objects...>::fpga_acknowledge.clear();
-                    out.set(6,1);
-                }
-            }
-            virtual void send_acknowledge() final {//PROBLEM? Needs MCUPriority?
-                if (!Serial<Objects...>::fpga_updated.test_and_set()){
-                    Serial<Objects...>::fpga_acknowledge.clear();
-                }
-            }
-            virtual void send_request() final {
-                Serial<Objects...>::mcu_updated.clear();
-            }
-        };
-        template<typename... Objects> class SerialFPGA : public Serial<Objects...> {
+        template<typename... Objects> class SerialFPGA : public virtual Serial<Objects...> {
+            public:
+            //SerialFPGA() : Serial<Objects...>() {}
             private:
             virtual void read_bits(std::bitset<24>& temp) final {
                 if (temp[7])
@@ -275,6 +246,39 @@ namespace SOS {
             }
             virtual void send_request() final {
                 Serial<Objects...>::fpga_updated.clear();
+            }
+        };
+        template<typename... Objects> class SerialMCU : public virtual Serial<Objects...> {
+            public:
+            //SerialMCU() : Serial<Objects...>() {}
+            private:
+            virtual void read_bits(std::bitset<24>& temp) final {
+                if (temp[7])
+                    Serial<Objects...>::fpga_updated.clear();
+                else
+                    Serial<Objects...>::fpga_updated.test_and_set();
+                if (temp[6])
+                    Serial<Objects...>::mcu_acknowledge.clear();
+                else
+                    Serial<Objects...>::mcu_acknowledge.test_and_set();
+            }
+            virtual void write_bits(std::bitset<8>& out) final {
+                if (!Serial<Objects...>::mcu_updated.test_and_set()){
+                    Serial<Objects...>::mcu_updated.clear();
+                    out.set(7,1);
+                }
+                if (!Serial<Objects...>::fpga_acknowledge.test_and_set()){
+                    Serial<Objects...>::fpga_acknowledge.clear();
+                    out.set(6,1);
+                }
+            }
+            virtual void send_acknowledge() final {//PROBLEM? Needs MCUPriority?
+                if (!Serial<Objects...>::fpga_updated.test_and_set()){
+                    Serial<Objects...>::fpga_acknowledge.clear();
+                }
+            }
+            virtual void send_request() final {
+                Serial<Objects...>::mcu_updated.clear();
             }
         };
         /*struct DMADescriptor {

@@ -1,21 +1,21 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
-#include "software-on-silicon/MCUFPGA.hpp"
-#include <limits>
-
 #define DMA std::array<unsigned char,999>//1001%3=2
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
+#include "software-on-silicon/MCUFPGA.hpp"
+#include <limits>
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop, private SOS::Protocol::SerialFPGA<DMA> {
+class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA>, public SOS::Behavior::SerialFPGAController<DMA> {
     public:
-    using bus_type = WriteLock;
+    using bus_type = SOS::MemoryView::WriteLock;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal),
     Loop(),
-    SOS::Protocol::SerialFPGA<DMA>() {
+    SOS::Protocol::Serial<DMA>(),
+    SOS::Behavior::SerialFPGAController<DMA>(myBus)
+    {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i=0;i<std::get<0>(objects).size();i++){
@@ -44,7 +44,7 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         _thread.join();
     }
-    void event_loop(){
+    virtual void event_loop() final {
         int write3plus1 = 0;
         while(stop_token.getUpdatedRef().test_and_set()){
             //const auto start = high_resolution_clock::now();
@@ -54,31 +54,19 @@ class FPGA : public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyC
         }
         stop_token.getAcknowledgeRef().clear();
     }
-    protected:
     private:
-    virtual bool handshake_read() final {
-        if (!_intrinsic.getHostOutUpdatedRef().test_and_set()){
-            return true;
-        }
-        return false;
-    }
-    virtual void handshake_read_ack() final {_intrinsic.getHostOutAcknowledgeRef().clear();}
-    virtual bool handshake_write() final {
-        if (!_intrinsic.getEmbeddedOutAcknowledgeRef().test_and_set()){
-            return true;
-        }
-        return false;
-    }
-    virtual void handshake_write_ack() final {_intrinsic.getEmbeddedOutUpdatedRef().clear();}
     std::thread _thread = std::thread{};
 };
-class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA> {
+class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA>, public SOS::Behavior::SerialMCUThread<FPGA,DMA> {
     public:
-    MCUThread() : Thread<FPGA>(), Loop(), SOS::Protocol::SerialMCU<DMA>() {
+    MCUThread() :
+    Loop(),
+    SOS::Protocol::Serial<DMA>(),
+    SOS::Behavior::SerialMCUThread<FPGA,DMA>() {
         _thread=start(this);
     }
     ~MCUThread() {
-        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
     }
@@ -91,20 +79,6 @@ class MCUThread : public Thread<FPGA>, public SOS::Behavior::Loop, public SOS::P
         stop_token.getAcknowledgeRef().clear();
     }
     private:
-    virtual bool handshake_read() final {
-        if (!_foreign.signal.getEmbeddedOutUpdatedRef().test_and_set()){
-            return true;
-        }
-        return false;
-    }
-    virtual void handshake_read_ack() final {_foreign.signal.getEmbeddedOutAcknowledgeRef().clear();}
-    virtual bool handshake_write() final {
-        if (!_foreign.signal.getHostOutAcknowledgeRef().test_and_set()){
-            return true;
-        }
-        return false;
-    }
-    virtual void handshake_write_ack() final {_foreign.signal.getHostOutUpdatedRef().clear();}
     std::thread _thread = std::thread{};
 };
 
