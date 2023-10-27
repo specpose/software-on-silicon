@@ -1,6 +1,6 @@
 namespace SOS {
     namespace MemoryView{
-        class BiDirectionalSignal : public std::array<std::atomic_flag,4> {
+        /*class BiDirectionalSignal : public std::array<std::atomic_flag,4> {
             public:
             BiDirectionalSignal() : std::array<std::atomic_flag,4>{true,true,true,true} {}
             auto& getHostOutUpdatedRef(){return std::get<0>(*this);}
@@ -16,7 +16,7 @@ namespace SOS {
             SOS::MemoryView::bus_traits<SOS::MemoryView::Bus>::const_cables_type
         >{
             signal_type signal;
-        };
+        };*/
         /*template<typename ArithmeticType> struct HostWrite : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
             HostWrite(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
             auto& getHostWriteOffsetRef(){return std::get<0>(*this);}
@@ -27,14 +27,14 @@ namespace SOS {
             auto& getEmbeddedWriteOffsetRef(){return std::get<0>(*this);}
             auto& getEmbeddedWriteLengthRef(){return std::get<1>(*this);}
         };*/
-        struct WriteLock : public SOS::MemoryView::BusBiDirectional {//Need BiDirectionalController
+        /*struct WriteLock : public SOS::MemoryView::BusBiDirectional {//Need BiDirectionalController
             using cables_type = SOS::MemoryView::bus_traits<SOS::MemoryView::Bus>::cables_type;
             //using const_cables_type = std::tuple< HostWrite<char>, EmbeddedWrite<char> >;//0: (char)mcupointer, 1: (char)fpgapointer
             using const_cables_type = SOS::MemoryView::bus_traits<SOS::MemoryView::Bus>::const_cables_type;
-        };
+        };*/
     }
     namespace Behavior{
-        template<typename S, typename... Others> class BiDirectionalController : public Controller<SOS::MemoryView::BiDirectionalSignal, S> {
+        /*template<typename S, typename... Others> class BiDirectionalController : public Controller<SOS::MemoryView::BiDirectionalSignal, S> {
             public:
             using bus_type = SOS::MemoryView::WriteLock;
             using subcontroller_type = typename Controller<SOS::MemoryView::BiDirectionalSignal, S>::subcontroller_type;
@@ -53,28 +53,35 @@ namespace SOS {
             BiDirectionalController(typename bus_type::signal_type& signal) :
             Controller<SOS::MemoryView::BiDirectionalSignal, DummyController>(signal)
             {}
-        };
+        };*/
         template<typename... Objects> class SerialFPGAController :
         public virtual SOS::Protocol::Serial<Objects...>,
-        public SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController> {
+        public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
             public:
-            using bus_type = SOS::MemoryView::WriteLock;
+            using bus_type = SOS::MemoryView::BusShaker;
             SerialFPGAController(bus_type& myBus) :
-            SOS::Behavior::BiDirectionalController<SOS::Behavior::DummyController>::BiDirectionalController(myBus.signal) {}
-            virtual bool handshake_read() final {
+            SOS::Behavior::EventController<SOS::Behavior::DummyController>::EventController(myBus.signal) {}
+            virtual bool handshake() final {
+                if (!_intrinsic.getUpdatedRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_ack() final {_intrinsic.getAcknowledgeRef().clear();}
+            /*virtual bool handshake_read() final {
                 if (!_intrinsic.getHostOutUpdatedRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_read_ack() final {_intrinsic.getHostOutAcknowledgeRef().clear();}
-            virtual bool handshake_write() final {
+            virtual void handshake_read_ack() final {_intrinsic.getHostOutAcknowledgeRef().clear();}*/
+            /*virtual bool handshake_write() final {
                 if (!_intrinsic.getEmbeddedOutAcknowledgeRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_write_ack() final {_intrinsic.getEmbeddedOutUpdatedRef().clear();}
+            virtual void handshake_write_ack() final {_intrinsic.getEmbeddedOutUpdatedRef().clear();}*/
         };
         template<typename FPGAType, typename... Objects> class SerialMCUThread :
         public virtual SOS::Protocol::Serial<Objects...>,
@@ -82,20 +89,27 @@ namespace SOS {
             public:
             SerialMCUThread() :
             Thread<FPGAType>() {}
-            virtual bool handshake_read() final {
+            virtual bool handshake() final {
+                if (!Thread<FPGAType>::_foreign.signal.getAcknowledgeRef().test_and_set()){
+                    return true;
+                }
+                return false;
+            }
+            virtual void handshake_ack() final {Thread<FPGAType>::_foreign.signal.getUpdatedRef().clear();}
+            /*virtual bool handshake_read() final {
                 if (!Thread<FPGAType>::_foreign.signal.getEmbeddedOutUpdatedRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_read_ack() final {Thread<FPGAType>::_foreign.signal.getEmbeddedOutAcknowledgeRef().clear();}
-            virtual bool handshake_write() final {
+            virtual void handshake_read_ack() final {Thread<FPGAType>::_foreign.signal.getEmbeddedOutAcknowledgeRef().clear();}*/
+            /*virtual bool handshake_write() final {
                 if (!Thread<FPGAType>::_foreign.signal.getHostOutAcknowledgeRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_write_ack() final {Thread<FPGAType>::_foreign.signal.getHostOutUpdatedRef().clear();}
+            virtual void handshake_write_ack() final {Thread<FPGAType>::_foreign.signal.getHostOutUpdatedRef().clear();}*/
         };
     }
 }

@@ -36,9 +36,9 @@ namespace SOS {
             }
             protected:
             void read_hook(int& read4minus1){
-                if (handshake_read()){
+                //if (handshake_read()){
                     unsigned char data = com_buffer[readPos++];
-                    handshake_read_ack();
+                    //handshake_read_ack();
                     if (readPos==com_buffer.size())
                         readPos=0;
                     read(data);
@@ -71,10 +71,10 @@ namespace SOS {
                         }
                         read4minus1 = 0;
                     }
-                }
+                //}
             }
             void write_hook(int& write3plus1){
-                if (handshake_write()){
+                //if (handshake_write()){
                 if (!send_lock){
                 bool gotOne = false;
                 for (std::size_t i=0;i<descriptors.size();i++){
@@ -97,6 +97,7 @@ namespace SOS {
                     } else
                         data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
                     write(data);
+                    handshake_ack();
                     write3plus1++;
                 } else if (write3plus1==3){
                     if (writeOriginPos==descriptors[writeOrigin].obj_size){
@@ -107,15 +108,18 @@ namespace SOS {
                         writeOriginPos=0;
                     }
                     write(63);//'?' empty write
+                    handshake_ack();
                     write3plus1=0;
                 }
                 }
-                }
+                //}
             }
-            virtual bool handshake_read() = 0;
-            virtual void handshake_read_ack() = 0;
-            virtual bool handshake_write() = 0;
-            virtual void handshake_write_ack() = 0;
+            virtual bool handshake() = 0;
+            virtual void handshake_ack() = 0;
+            //virtual bool handshake_read() = 0;
+            //virtual void handshake_read_ack() = 0;
+            //virtual bool handshake_write() = 0;
+            //virtual void handshake_write_ack() = 0;
             virtual void send_acknowledge() = 0;
             virtual void send_request() = 0;
             std::atomic_flag mcu_updated;//mcu_write,fpga_read bit 7
@@ -170,7 +174,7 @@ namespace SOS {
                     break;
                 }
                 com_buffer[writePos++]=static_cast<unsigned char>(out.to_ulong());
-                handshake_write_ack();
+                //handshake_write_ack();
                 if (writePos==com_buffer.size())
                     writePos=0;
             }
