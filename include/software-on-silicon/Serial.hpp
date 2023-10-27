@@ -7,7 +7,7 @@ namespace SOS {
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
                 //std::cout<<obj_size<<" mod "<<" 3 ="<<obj_size%3<<std::endl;
                 //if (obj_size%3!=2)//1 byte for object index
-                if (obj_size%3!=0)
+                if (obj_size%3!=2)
                     throw std::logic_error("Invalid DMAObject size");
             }
             unsigned char id = 0xFF;
@@ -37,39 +37,40 @@ namespace SOS {
             protected:
             void read_hook(int& read4minus1){
                 if (handshake_read()){
-                unsigned char data = com_buffer[readPos++];
-                handshake_read_ack();
-                if (readPos==com_buffer.size())
-                    readPos=0;
-                read(data);
-                if(!receive_lock){
-                for (std::size_t i=0;i<descriptors.size();i++){
-                    if (descriptors[i].synced==true){//thread receive_id=byte[0]
-                        receive_lock=true;
-                        descriptors[i].readLock=true;
-                        readDestination=0;//HARDCODED: object[0].id
-                        readDestinationPos=0;
-                        send_acknowledge();
-                    }
-                }
-                }
-                if(receive_lock){
-                    if (readDestinationPos==descriptors[readDestination].obj_size){//byte[0] => obj_size+1
-                        descriptors[readDestination].readLock=false;
-                        receive_lock=false;
-                        readDestinationPos=0;
-                    }
+                    unsigned char data = com_buffer[readPos++];
+                    handshake_read_ack();
+                    if (readPos==com_buffer.size())
+                        readPos=0;
+                    read(data);
                     if (read4minus1<3){
                         read4minus1++;
                     } else if (read4minus1==3){
                         auto read3bytes = read_flush();
-                        for(std::size_t i=0;i<3;i++){
-                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];//byte[0] => obj_size+1
-                            //printf("%c",read3bytes[i]);
+                        if (readDestinationPos==descriptors[readDestination].obj_size && receive_lock){
+                            descriptors[readDestination].readLock=false;
+                            readDestinationReceived = false;
+                            receive_lock=false;
+                        } else {
+                            for(std::size_t i=0;i<3;i++){
+                                if (!readDestinationReceived && i==0){
+                                    readDestination = static_cast<std::size_t>(read3bytes[0]);
+                                    for (std::size_t j=0;j<descriptors.size();j++){
+                                        if (descriptors[j].synced==true && readDestination==j){
+                                            readDestinationReceived = true;
+                                            receive_lock=true;
+                                            descriptors[j].readLock=true;
+                                            readDestinationPos=0;
+                                            send_acknowledge();
+                                        }
+                                    }
+                                } else {
+                                    reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                                    //printf("%c",read3bytes[i]);
+                                }
+                            }
                         }
                         read4minus1 = 0;
                     }
-                }
                 }
             }
             void write_hook(int& write3plus1){
@@ -88,7 +89,13 @@ namespace SOS {
                 }
                 if (send_lock) {//PROBLEM? not acquiring lock from mcu if nothing to write
                 if (write3plus1<3){
-                    unsigned char data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                    unsigned char data;
+                    if (!writeOriginTransmitted){
+                        unsigned long wO = writeOrigin;
+                        data = static_cast<unsigned char>(wO);
+                        writeOriginTransmitted = true;
+                    } else
+                        data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
                     write(data);
                     write3plus1++;
                 } else if (write3plus1==3){
@@ -126,10 +133,12 @@ namespace SOS {
             bool send_lock = false;
             std::size_t writePos = 0;//REPLACE: com_buffer
             unsigned int writeCount = 0;//write3plus1
+            bool writeOriginTransmitted = false;
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;
             std::size_t readPos = 0;//REPLACE: com_buffer
             unsigned int readCount = 0;//read4minus1
+            bool readDestinationReceived = false;
             std::size_t readDestination = 0;//HARDCODED: objects[0]
             std::size_t readDestinationPos = 0;
             std::array<std::bitset<8>,3> writeAssembly;

@@ -1,6 +1,6 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
-#define DMA std::array<unsigned char,999>//1001%3=2
+#define DMA std::array<unsigned char,1001>//1001%3=2
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
@@ -8,13 +8,13 @@ DMA com_buffer;
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA>, public SOS::Behavior::SerialFPGAController<DMA> {
+class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DMA>, public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     public:
     using bus_type = SOS::MemoryView::WriteLock;
     FPGA(bus_type& myBus) :
     Loop(),
-    SOS::Protocol::Serial<DMA>(),
-    SOS::Behavior::SerialFPGAController<DMA>(myBus)
+    SOS::Protocol::Serial<DMA,DMA>(),
+    SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
     {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
@@ -36,6 +36,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA>, 
         }
         //for (std::size_t i=0;i<std::get<0>(objects).size();i++)
         //    printf("%c",std::get<0>(objects)[i]);
+        std::get<1>(objects).fill('-');
         descriptors[0].synced=false;
         _intrinsic.getEmbeddedOutAcknowledgeRef().clear();
         _thread=start(this);
@@ -57,12 +58,12 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA>, 
     private:
     std::thread _thread = std::thread{};
 };
-class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA>, public SOS::Behavior::SerialMCUThread<FPGA,DMA> {
+class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA,DMA>, public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     public:
     MCUThread() :
     Loop(),
-    SOS::Protocol::Serial<DMA>(),
-    SOS::Behavior::SerialMCUThread<FPGA,DMA>() {
+    SOS::Protocol::Serial<DMA,DMA>(),
+    SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>() {
         _thread=start(this);
     }
     ~MCUThread() {
