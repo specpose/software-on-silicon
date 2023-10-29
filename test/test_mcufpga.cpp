@@ -1,6 +1,6 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
-#define DMA std::array<unsigned char,1001>//1001%3=2
+#define DMA std::array<unsigned char,999>//1001%3=2
 DMA com_buffer;
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
@@ -16,6 +16,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
     SOS::Protocol::Serial<DMA,DMA>(),
     SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
     {
+        com_buffer[0]=static_cast<unsigned char>(std::bitset<8>{"00000000"}.to_ulong());//INIT: First byte of com-buffer needs to be valid
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i=0;i<std::get<0>(objects).size();i++){
@@ -38,7 +39,9 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
         //    printf("%c",std::get<0>(objects)[i]);
         descriptors[0].synced=false;
         //_intrinsic.getEmbeddedOutAcknowledgeRef().clear();//HACK: start one-way handshake when first object ready
-        _intrinsic.getAcknowledgeRef().clear();//HACK: start one-way handshake when first object ready
+        int dontcount=0;
+        write_hook(dontcount);
+        _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
         _thread=start(this);
     }
     ~FPGA() {
@@ -48,10 +51,10 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
     virtual void event_loop() final {
         int read4minus1 = 0;
         int write3plus1 = 0;
-        if (firstRun) {//HACK
-            write_hook(write3plus1);
-            firstRun=false;
-        }
+        //if (firstRun) {//HACK
+        //    write_hook(write3plus1);
+        //    firstRun=false;
+        //}
         while(stop_token.getUpdatedRef().test_and_set()){
             if (handshake()) {
             read_hook(read4minus1);
@@ -67,7 +70,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
         stop_token.getAcknowledgeRef().clear();
     }
     private:
-    bool firstRun = true;
+    //bool firstRun = true;
     bool stateOfObjectOne = false;
     std::thread _thread = std::thread{};
 };

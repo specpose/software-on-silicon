@@ -7,7 +7,7 @@ namespace SOS {
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
                 //std::cout<<obj_size<<" mod "<<" 3 ="<<obj_size%3<<std::endl;
                 //if (obj_size%3!=2)//1 byte for object index
-                if (obj_size%3!=2)
+                if (obj_size%3!=0)
                     throw std::logic_error("Invalid DMAObject size");
             }
             unsigned char id = 0xFF;
@@ -36,66 +36,74 @@ namespace SOS {
             }
             protected:
             void read_hook(int& read4minus1){
-                //if (handshake_read()){
-                    unsigned char data = com_buffer[readPos++];
-                    //handshake_read_ack();
-                    if (readPos==com_buffer.size())
-                        readPos=0;
-                    read(data);
-                    if (read4minus1<3){
-                        read4minus1++;
-                    } else if (read4minus1==3){
-                        auto read3bytes = read_flush();
-                        if (readDestinationPos==descriptors[readDestination].obj_size && receive_lock){
-                            descriptors[readDestination].readLock=false;
-                            readDestinationReceived = false;
-                            receive_lock=false;
-                        } else {
-                            for(std::size_t i=0;i<3;i++){
-                                if (!readDestinationReceived && i==0){
-                                    readDestination = static_cast<std::size_t>(read3bytes[0]);
-                                    for (std::size_t j=0;j<descriptors.size();j++){
-                                        if (descriptors[j].synced==true && readDestination==j){
-                                            readDestinationReceived = true;
-                                            receive_lock=true;
-                                            descriptors[j].readLock=true;
-                                            readDestinationPos=0;
-                                            send_acknowledge();
-                                        }
-                                    }
-                                } else {
-                                    reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
-                                    //printf("%c",read3bytes[i]);
-                                }
+                unsigned char data = com_buffer[readPos++];
+                if (readPos==com_buffer.size())
+                    readPos=0;
+                read_bits(static_cast<unsigned long>(data));
+                if (!receive_lock){
+                    if (receive_request()){
+                        std::bitset<8> obj_id = data;
+                        obj_id = obj_id << 2;
+                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                        for (std::size_t j=0;j<descriptors.size();j++){
+                            if (descriptors[j].synced==true && descriptors[j].id==id){
+                                receive_lock=true;
+                                descriptors[j].readLock=true;
+                                readDestination = id;
+                                readDestinationPos = 0;
+                                send_acknowledge();//DANGER: change writted state from read_hook
                             }
                         }
-                        read4minus1 = 0;
                     }
-                //}
+                } else {
+                read(data);
+                if (read4minus1<3){
+                    read4minus1++;
+                } else if (read4minus1==3){
+                    auto read3bytes = read_flush();
+                    if (readDestinationPos==descriptors[readDestination].obj_size){
+                        descriptors[readDestination].readLock=false;
+                        receive_lock=false;
+                        //giving a read confirmation would require bidirectionalcontroller
+                    } else {
+                        for(std::size_t i=0;i<3;i++){
+                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                            //printf("%c",read3bytes[i]);
+                        }
+                    }
+                    read4minus1 = 0;
+                }
+                }
             }
             void write_hook(int& write3plus1){
-                //if (handshake_write()){
                 if (!send_lock){
-                bool gotOne = false;
-                for (std::size_t i=0;i<descriptors.size();i++){
-                    if (!descriptors[i].readLock && !descriptors[i].synced && !gotOne){
-                        send_lock=true;
-                        send_request();
-                        writeOrigin=descriptors[i].id;
-                        writeOriginPos=0;
-                        gotOne=true;
+                    if (receive_acknowledge()){
+                        send_lock = true;
+                    } else {
+                        bool gotOne = false;
+                        for (std::size_t i=0;i<descriptors.size();i++){
+                            if (!descriptors[i].readLock && !descriptors[i].synced && !gotOne){
+                                send_request();
+                                writeOrigin=descriptors[i].id;
+                                writeOriginPos=0;
+                                std::bitset<8> id;
+                                write_bits(id);
+                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);
+                                obj_id = obj_id >> 2;
+                                id = id ^ obj_id;
+                                com_buffer[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                                if (writePos==com_buffer.size())
+                                    writePos=0;
+                                handshake_ack();
+                                gotOne=true;
+                            }
+                        }
                     }
                 }
-                }
-                if (send_lock) {//PROBLEM? not acquiring lock from mcu if nothing to write
+                if (send_lock) {
                 if (write3plus1<3){
                     unsigned char data;
-                    if (!writeOriginTransmitted){
-                        unsigned long wO = writeOrigin;
-                        data = static_cast<unsigned char>(wO);
-                        writeOriginTransmitted = true;
-                    } else
-                        data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                    data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
                     write(data);
                     handshake_ack();
                     write3plus1++;
@@ -116,33 +124,29 @@ namespace SOS {
             }
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
-            //virtual bool handshake_read() = 0;
-            //virtual void handshake_read_ack() = 0;
-            //virtual bool handshake_write() = 0;
-            //virtual void handshake_write_ack() = 0;
-            virtual void send_acknowledge() = 0;
-            virtual void send_request() = 0;
-            std::atomic_flag mcu_updated;//mcu_write,fpga_read bit 7
-            std::atomic_flag fpga_acknowledge;//mcu_write,fpga_read bit 6
-            std::atomic_flag fpga_updated;//mcu_read,fpga_write bit 7
-            std::atomic_flag mcu_acknowledge;//mcu_read,fpga_write bit 6
+            virtual void send_acknowledge() = 0;//3
+            virtual void send_request() = 0;//1
+            virtual bool receive_request() = 0;//2
+            virtual bool receive_acknowledge() = 0;//4
             //protected:
             public:
             std::tuple<Objects...> objects{};
-            protected:
             //private:
+            protected:
             DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            bool mcu_updated = false;//mcu_write,fpga_read bit 7
+            bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
+            bool fpga_updated = false;//mcu_read,fpga_write bit 7
+            bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
             bool receive_lock = false;
             bool send_lock = false;
             std::size_t writePos = 0;//REPLACE: com_buffer
             unsigned int writeCount = 0;//write3plus1
-            bool writeOriginTransmitted = false;
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;
             std::size_t readPos = 0;//REPLACE: com_buffer
             unsigned int readCount = 0;//read4minus1
-            bool readDestinationReceived = false;
             std::size_t readDestination = 0;//HARDCODED: objects[0]
             std::size_t readDestinationPos = 0;
             std::array<std::bitset<8>,3> writeAssembly;
@@ -174,13 +178,11 @@ namespace SOS {
                     break;
                 }
                 com_buffer[writePos++]=static_cast<unsigned char>(out.to_ulong());
-                //handshake_write_ack();
                 if (writePos==com_buffer.size())
                     writePos=0;
             }
             bool read(unsigned char r){
                 std::bitset<24> temp{ static_cast<unsigned long>(r)};
-                read_bits(temp);
                 switch (readCount) {
                     case 0:
                     read_shift(readAssembly, readCount, temp);
@@ -221,7 +223,7 @@ namespace SOS {
                 cache = cache>>1*2;
                 return out^cache;
             }
-            virtual void read_bits(std::bitset<24>& temp) = 0;
+            virtual void read_bits(std::bitset<8> temp) = 0;
             static void read_shift(decltype(readAssembly)& readAssembly,decltype(readCount)& readCount, std::bitset<24>& temp){
                 temp = temp<<(4-0)*4+2;//split off 1st 2bit
                 temp = temp>>(readCount*3)*2;//shift
@@ -232,66 +234,76 @@ namespace SOS {
             public:
             //SerialFPGA() : Serial<Objects...>() {}
             private:
-            virtual void read_bits(std::bitset<24>& temp) final {
-                if (temp[7])
-                    Serial<Objects...>::mcu_updated.clear();
-                else
-                    Serial<Objects...>::mcu_updated.test_and_set();
-                if (temp[6])
-                    Serial<Objects...>::fpga_acknowledge.clear();
-                else
-                    Serial<Objects...>::fpga_acknowledge.test_and_set();
+            virtual void read_bits(std::bitset<8> temp) final {
+                Serial<Objects...>::mcu_updated=temp[7];
+                Serial<Objects...>::fpga_acknowledge=temp[6];
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (!Serial<Objects...>::fpga_updated.test_and_set()){
-                    Serial<Objects...>::fpga_updated.clear();
+                if (Serial<Objects...>::fpga_updated)
                     out.set(7,1);
-                }
-                if (!Serial<Objects...>::mcu_acknowledge.test_and_set()){
-                    Serial<Objects...>::mcu_acknowledge.clear();
+                else
+                    out.set(7,0);
+                if (Serial<Objects...>::mcu_acknowledge)
                     out.set(6,1);
-                }
+                else
+                    out.set(6,0);
             }
             virtual void send_acknowledge() final {
-                if (!Serial<Objects...>::mcu_updated.test_and_set()){
-                    Serial<Objects...>::mcu_acknowledge.clear();
+                if (Serial<Objects...>::mcu_updated){
+                    Serial<Objects...>::mcu_updated=false;
+                    Serial<Objects...>::mcu_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<Objects...>::fpga_updated.clear();
+                Serial<Objects...>::fpga_updated=true;
+            }
+            virtual bool receive_acknowledge() final {
+                if (Serial<Objects...>::fpga_acknowledge){
+                    Serial<Objects...>::fpga_acknowledge=false;
+                    return true;
+                }
+                return false;
+            }
+            virtual bool receive_request() final {
+                return Serial<Objects...>::mcu_updated;
             }
         };
         template<typename... Objects> class SerialMCU : public virtual Serial<Objects...> {
             public:
             //SerialMCU() : Serial<Objects...>() {}
             private:
-            virtual void read_bits(std::bitset<24>& temp) final {
-                if (temp[7])
-                    Serial<Objects...>::fpga_updated.clear();
-                else
-                    Serial<Objects...>::fpga_updated.test_and_set();
-                if (temp[6])
-                    Serial<Objects...>::mcu_acknowledge.clear();
-                else
-                    Serial<Objects...>::mcu_acknowledge.test_and_set();
+            virtual void read_bits(std::bitset<8> temp) final {
+                Serial<Objects...>::fpga_updated=temp[7];
+                Serial<Objects...>::mcu_acknowledge=temp[6];
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (!Serial<Objects...>::mcu_updated.test_and_set()){
-                    Serial<Objects...>::mcu_updated.clear();
+                if (Serial<Objects...>::mcu_updated)
                     out.set(7,1);
-                }
-                if (!Serial<Objects...>::fpga_acknowledge.test_and_set()){
-                    Serial<Objects...>::fpga_acknowledge.clear();
+                else
+                    out.set(7,0);
+                if (Serial<Objects...>::fpga_acknowledge)
                     out.set(6,1);
-                }
+                else
+                    out.set(6,0);
             }
             virtual void send_acknowledge() final {//PROBLEM? Needs MCUPriority?
-                if (!Serial<Objects...>::fpga_updated.test_and_set()){
-                    Serial<Objects...>::fpga_acknowledge.clear();
+                if (Serial<Objects...>::fpga_updated){
+                    Serial<Objects...>::fpga_updated=false;
+                    Serial<Objects...>::fpga_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<Objects...>::mcu_updated.clear();
+                Serial<Objects...>::mcu_updated=true;
+            }
+            virtual bool receive_acknowledge() final {
+                if (Serial<Objects...>::mcu_acknowledge){
+                    Serial<Objects...>::mcu_acknowledge=false;
+                    return true;
+                }
+                return false;
+            }
+            virtual bool receive_request() final {
+                return Serial<Objects...>::fpga_updated;
             }
         };
         /*struct DMADescriptor {
