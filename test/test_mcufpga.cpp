@@ -54,9 +54,9 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAControl
             if (handshake()) {
             read_hook(read4minus1);
             if (!stateOfObjectOne&&descriptors[1].readLock)
-                std::cout<<"Object1 read lock turned on"<<std::endl;
+                std::cout<<"FPGAObject1 read lock turned on"<<std::endl;
             else if (stateOfObjectOne&&!descriptors[1].readLock)
-                std::cout<<"Object1 read lock turned off"<<std::endl;
+                std::cout<<"FPGAObject1 read lock turned off"<<std::endl;
             stateOfObjectOne = descriptors[1].readLock;
             write_hook(write3plus1);
             }
@@ -94,9 +94,9 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThr
             if (handshake()) {
             read_hook(read4minus1);
             if (!stateOfObjectZero&&descriptors[0].readLock)
-                std::cout<<"Object0 read lock turned on"<<std::endl;
+                std::cout<<"MCUObject0 read lock turned on"<<std::endl;
             else if (stateOfObjectZero&&!descriptors[0].readLock)
-                std::cout<<"Object0 read lock turned off"<<std::endl;
+                std::cout<<"MCUObject0 read lock turned off"<<std::endl;
             stateOfObjectZero = descriptors[0].readLock;
             write_hook(write3plus1);
             }

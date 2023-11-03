@@ -64,10 +64,13 @@ namespace SOS {
                                     receive_lock=true;
                                     descriptors[j].readLock=true;
                                     readDestination = id;
+                                    std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
                                     readDestinationPos = 0;
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
                             }
+                        } else {
+                            std::cout<<typeid(*this).name()<<".";
                         }
                     }
                 } else {
@@ -102,9 +105,9 @@ namespace SOS {
                                 writeOriginPos=0;
                                 std::bitset<8> id;
                                 write_bits(id);
-                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);
-                                obj_id = obj_id >> 2;
+                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);//DANGER: overflow check
                                 id = id ^ obj_id;
+                                std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
                                 out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
                                 if (writePos==out_buffer().size())
                                     writePos=0;
