@@ -10,7 +10,6 @@ using namespace SOS::MemoryView;
 
 class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DMA>, public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     public:
-    //using bus_type = SOS::MemoryView::WriteLock;
     FPGA(bus_type& myBus) :
     Loop(),
     SOS::Protocol::Serial<DMA,DMA>(),
@@ -35,10 +34,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
                 writeBlinkCounter=0;
             }
         }
-        //for (std::size_t i=0;i<std::get<0>(objects).size();i++)
-        //    printf("%c",std::get<0>(objects)[i]);
         descriptors[0].synced=false;
-        //_intrinsic.getEmbeddedOutAcknowledgeRef().clear();//HACK: start one-way handshake when first object ready
         int dontcount=0;
         write_hook(dontcount);//scan for objects
         _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
@@ -56,10 +52,6 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
     virtual void event_loop() final {
         int read4minus1 = 0;
         int write3plus1 = 0;
-        //if (firstRun) {//HACK
-        //    write_hook(write3plus1);
-        //    firstRun=false;
-        //}
         while(stop_token.getUpdatedRef().test_and_set()){
             if (handshake()) {
             read_hook(read4minus1);
@@ -75,7 +67,6 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
         stop_token.getAcknowledgeRef().clear();
     }
     private:
-    //bool firstRun = true;
     bool stateOfObjectOne = false;
     std::thread _thread = std::thread{};
 };
@@ -87,7 +78,6 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DM
     SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>() {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
-        //_foreign.signal.getHostOutAcknowledgeRef().clear();//HACK: start one-way handshake when first object ready
         _thread=start(this);
     }
     ~MCUThread() {

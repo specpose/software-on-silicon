@@ -15,8 +15,6 @@ namespace SOS {
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
-                //std::cout<<obj_size<<" mod "<<" 3 ="<<obj_size%3<<std::endl;
-                //if (obj_size%3!=2)//1 byte for object index
                 if (obj_size%3!=0)
                     throw std::logic_error("Invalid DMAObject size");
                 //check for "10111111" => >62
@@ -80,13 +78,11 @@ namespace SOS {
                     auto read3bytes = read_flush();
                     if (readDestinationPos==descriptors[readDestination].obj_size){
                         descriptors[readDestination].readLock=false;
-                        //std::cout<<"ReadLock dest "<<readDestination<<" turned off"<<std::endl;
                         receive_lock=false;
                         //giving a read confirmation would require bidirectionalcontroller
                     } else {
                         for(std::size_t i=0;i<3;i++){
                             reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
-                            //printf("%c",read3bytes[i]);
                         }
                     }
                     read4minus1 = 0;
@@ -135,8 +131,6 @@ namespace SOS {
                     write3plus1++;
                 } else if (write3plus1==3){
                     if (writeOriginPos==descriptors[writeOrigin].obj_size){
-                        //throw std::runtime_error("WRITE COMPLETED");
-                        //std::cout<<std::endl<<"WRITE COMPLETED "<<writeOriginPos<<std::endl;
                         descriptors[writeOrigin].synced=true;
                         send_lock=false;
                         writeOriginPos=0;
@@ -330,69 +324,5 @@ namespace SOS {
                 return Serial<Objects...>::fpga_updated;
             }
         };
-        /*struct DMADescriptor {
-            DMADescriptor(){}//DANGER
-            DMADescriptor(unsigned char id, void* obj) : id(id),obj(obj){}
-            unsigned char id;
-            void* obj;
-        };
-        //Stroustrup 28.6.4
-        template<typename... Objects> class DMADescriptors;
-        template<> class DMADescriptors<> {};//DANGER
-        template<typename First, typename... Others> class DMADescriptors<First, Others...> : private DMADescriptors<Others...> {
-            typedef DMADescriptors<Others...> inherited;
-            public:
-            constexpr DMADescriptors(){}//DANGER
-            DMADescriptors(First& h, Others&... t)
-            : m_head(sizeof...(Others),&h), inherited(t...) {}
-            template<typename... Objects> DMADescriptors(const DMADescriptors<Objects...>& other)
-            : m_head(other.head()), inherited(other.tail()) {}
-            template<typename... Objects> DMADescriptors& operator=(const DMADescriptors<Objects...>& other){
-                m_head=other.head();
-                tail()=other.tail();
-                return *this;
-            }
-            //private:
-            DMADescriptor& head(){return m_head;};
-            const DMADescriptor& head() const {return m_head;};
-            inherited& tail(){return *this;};
-            const inherited& tail() const {return *this;};
-            protected:
-            DMADescriptor m_head;
-        };
-        template<unsigned char N, typename... T>
-        DMADescriptor& get(DMADescriptors<T...>& t) {
-            if constexpr(sizeof...(T)!=0){
-                if constexpr(N < sizeof...(T)){
-                    //if ((t.head().id-(sizeof...(T)-1))==id){
-                    if ((t.head().id)==N){
-                        return t.head();
-                    }
-                    return get<N>(t.tail());
-                } else {
-                    throw std::runtime_error("DMADescriptor does not exist");
-                }
-            } else {
-                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
-            }
-        }
-        template<typename... Objects> constexpr std::size_t DMADescriptors_size(){ return sizeof...(Objects); }
-        //https://stackoverflow.com/questions/1198260/how-can-you-iterate-over-the-elements-of-an-stdtuple
-        template<typename... T>
-        DMADescriptor& get(DMADescriptors<T...>& t,unsigned char id) {
-            if constexpr(sizeof...(T)!=0){
-                if (id < sizeof...(T)){
-                    //if ((t.head().id-(sizeof...(T)-1))==id){
-                    if ((t.head().id)==id){
-                        return t.head();
-                    }
-                    return get(t.tail(),id);
-                } else {
-                    throw std::runtime_error("DMADescriptor does not exist");
-                }
-            } else {
-                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
-            }
-        }*/
     }
 }
