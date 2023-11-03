@@ -48,8 +48,8 @@ namespace SOS {
             }
             protected:
             void read_hook(int& read4minus1){
-                unsigned char data = com_buffer[readPos++];
-                if (readPos==com_buffer.size())
+                unsigned char data = in_buffer()[readPos++];
+                if (readPos==in_buffer().size())
                     readPos=0;
                 read_bits(static_cast<unsigned long>(data));
                 if (!receive_lock){
@@ -105,8 +105,8 @@ namespace SOS {
                                 std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);
                                 obj_id = obj_id >> 2;
                                 id = id ^ obj_id;
-                                com_buffer[writePos++]=static_cast<unsigned char>(id.to_ulong());
-                                if (writePos==com_buffer.size())
+                                out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                                if (writePos==out_buffer().size())
                                     writePos=0;
                                 handshake_ack();
                                 gotOne=true;
@@ -115,8 +115,8 @@ namespace SOS {
                         //read in handshake -> set wire to valid state
                         if (!gotOne){
                             auto id = idleState();
-                            com_buffer[writePos++]=static_cast<unsigned char>(id.to_ulong());
-                            if (writePos==com_buffer.size())
+                            out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                            if (writePos==out_buffer().size())
                                 writePos=0;
                             handshake_ack();
                         }
@@ -150,6 +150,8 @@ namespace SOS {
             virtual bool receive_acknowledge() = 0;//4
             //private:
             protected:
+            virtual const DMA& in_buffer()=0;
+            virtual DMA& out_buffer()=0;
             std::tuple<Objects...> objects{};
             DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
@@ -159,11 +161,11 @@ namespace SOS {
             private:
             bool receive_lock = false;
             bool send_lock = false;
-            std::size_t writePos = 0;//REPLACE: com_buffer
+            std::size_t writePos = 0;//REPLACE: out_buffer
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;
-            std::size_t readPos = 0;//REPLACE: com_buffer
+            std::size_t readPos = 0;//REPLACE: in_buffer
             unsigned int readCount = 0;//read4minus1
             std::size_t readDestination = 0;//HARDCODED: objects[0]
             std::size_t readDestinationPos = 0;
@@ -195,8 +197,8 @@ namespace SOS {
                         writeCount=0;
                     break;
                 }
-                com_buffer[writePos++]=static_cast<unsigned char>(out.to_ulong());
-                if (writePos==com_buffer.size())
+                out_buffer()[writePos++]=static_cast<unsigned char>(out.to_ulong());
+                if (writePos==out_buffer().size())
                     writePos=0;
             }
             bool read(unsigned char r){

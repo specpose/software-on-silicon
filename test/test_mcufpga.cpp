@@ -1,21 +1,20 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 #define DMA std::array<unsigned char,999>//1001%3=2
-DMA com_buffer;
+DMA mcu_to_fpga_buffer;
+DMA fpga_to_mcu_buffer;
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DMA>, public SOS::Behavior::SerialFPGAController<DMA,DMA> {
+class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     public:
     FPGA(bus_type& myBus) :
     Loop(),
-    SOS::Protocol::Serial<DMA,DMA>(),
     SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
     {
-        //com_buffer[readPos++]=static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong());//INIT: First byte of com-buffer needs to be valid
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i=0;i<std::get<0>(objects).size();i++){
@@ -36,8 +35,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
         }
         descriptors[0].synced=false;
         int dontcount=0;
-        write_hook(dontcount);//scan for objects
-        _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
+        write_hook(dontcount);//INIT: First byte of com-buffer needs to be valid
         _thread=start(this);
     }
     ~FPGA() {
@@ -70,11 +68,10 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
     bool stateOfObjectOne = false;
     std::thread _thread = std::thread{};
 };
-class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DMA,DMA>, public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
+class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     public:
     MCUThread() :
     Loop(),
-    SOS::Protocol::Serial<DMA,DMA>(),
     SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>() {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
