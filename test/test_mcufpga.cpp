@@ -16,7 +16,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
     SOS::Protocol::Serial<DMA,DMA>(),
     SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
     {
-        com_buffer[0]=static_cast<unsigned char>(std::bitset<8>{"00000000"}.to_ulong());//INIT: First byte of com-buffer needs to be valid
+        //com_buffer[readPos++]=static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong());//INIT: First byte of com-buffer needs to be valid
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i=0;i<std::get<0>(objects).size();i++){
@@ -40,13 +40,18 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Protocol::SerialFPGA<DMA,DM
         descriptors[0].synced=false;
         //_intrinsic.getEmbeddedOutAcknowledgeRef().clear();//HACK: start one-way handshake when first object ready
         int dontcount=0;
-        write_hook(dontcount);
+        write_hook(dontcount);//scan for objects
         _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
         _thread=start(this);
     }
     ~FPGA() {
         //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         _thread.join();
+        std::cout<<"FPGA Object 1"<<std::endl;
+        for (std::size_t i=0;i<std::get<1>(objects).size();i++){
+            printf("%c",std::get<1>(objects)[i]);
+        }
+        std::cout<<std::endl;
     }
     virtual void event_loop() final {
         int read4minus1 = 0;
@@ -89,6 +94,11 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Protocol::SerialMCU<DM
         Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
+        std::cout<<"MCU Object 0"<<std::endl;
+        for (std::size_t i=0;i<std::get<0>(objects).size();i++){
+            printf("%c",std::get<0>(objects)[i]);
+        }
+        std::cout<<std::endl;
     }
     void event_loop(){
         int read4minus1 = 0;
@@ -120,7 +130,4 @@ int main () {
     }
     //host._child.stop();
     host.stop();
-    for (std::size_t i=0;i<std::get<0>(host.objects).size();i++){
-        printf("%c",std::get<0>(host.objects)[i]);
-    }
 }

@@ -2,6 +2,16 @@
 
 namespace SOS {
     namespace Protocol {
+        static std::bitset<8> idleState() {//constexpr
+            std::bitset<8> id;
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false
+            //set 6bit data to "111111"
+            for(std::size_t i = 0; i <= id.size()-1-2; i++){
+                id.set(i,1);
+            }
+            return id;//-> "10111111"
+        }
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
@@ -9,6 +19,10 @@ namespace SOS {
                 //if (obj_size%3!=2)//1 byte for object index
                 if (obj_size%3!=0)
                     throw std::logic_error("Invalid DMAObject size");
+                //check for "10111111" => >62
+                auto maxId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
+                if (id==maxId)
+                    throw std::logic_error("DMADescriptor id is reserved for the serial line idle state");
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -42,16 +56,19 @@ namespace SOS {
                 read_bits(static_cast<unsigned long>(data));
                 if (!receive_lock){
                     if (receive_request()){
-                        std::bitset<8> obj_id = data;
-                        obj_id = obj_id << 2;
-                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        for (std::size_t j=0;j<descriptors.size();j++){
-                            if (descriptors[j].synced==true && descriptors[j].id==id){
-                                receive_lock=true;
-                                descriptors[j].readLock=true;
-                                readDestination = id;
-                                readDestinationPos = 0;
-                                send_acknowledge();//DANGER: change writted state from read_hook
+                        std::bitset<8> obj_id = static_cast<unsigned long>(data);
+                        obj_id = (obj_id << 2) >> 2;
+                        //check for "10111111"==idle==63
+                        if (obj_id!=((idleState()<<2)>>2)){
+                            auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                            for (std::size_t j=0;j<descriptors.size();j++){
+                                if (descriptors[j].synced==true && descriptors[j].id==id){
+                                    receive_lock=true;
+                                    descriptors[j].readLock=true;
+                                    readDestination = id;
+                                    readDestinationPos = 0;
+                                    send_acknowledge();//DANGER: change writted state has to be after read_bits
+                                }
                             }
                         }
                     }
@@ -63,6 +80,7 @@ namespace SOS {
                     auto read3bytes = read_flush();
                     if (readDestinationPos==descriptors[readDestination].obj_size){
                         descriptors[readDestination].readLock=false;
+                        //std::cout<<"ReadLock dest "<<readDestination<<" turned off"<<std::endl;
                         receive_lock=false;
                         //giving a read confirmation would require bidirectionalcontroller
                     } else {
@@ -98,6 +116,14 @@ namespace SOS {
                                 gotOne=true;
                             }
                         }
+                        //read in handshake -> set wire to valid state
+                        if (!gotOne){
+                            auto id = idleState();
+                            com_buffer[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                            if (writePos==com_buffer.size())
+                                writePos=0;
+                            handshake_ack();
+                        }
                     }
                 }
                 if (send_lock) {
@@ -128,11 +154,9 @@ namespace SOS {
             virtual void send_request() = 0;//1
             virtual bool receive_request() = 0;//2
             virtual bool receive_acknowledge() = 0;//4
-            //protected:
-            public:
-            std::tuple<Objects...> objects{};
             //private:
             protected:
+            std::tuple<Objects...> objects{};
             DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
