@@ -2,13 +2,25 @@
 
 namespace SOS {
     namespace Protocol {
+        static std::bitset<8> idleState() {//constexpr
+            std::bitset<8> id;
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false
+            //set 6bit data to "111111"
+            for(std::size_t i = 0; i <= id.size()-1-2; i++){
+                id.set(i,1);
+            }
+            return id;//-> "10111111"
+        }
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
-                //std::cout<<obj_size<<" mod "<<" 3 ="<<obj_size%3<<std::endl;
-                //if (obj_size%3!=2)//1 byte for object index
                 if (obj_size%3!=0)
                     throw std::logic_error("Invalid DMAObject size");
+                //check for "10111111" => >62
+                auto maxId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
+                if (id==maxId)
+                    throw std::logic_error("DMADescriptor id is reserved for the serial line idle state");
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -36,23 +48,29 @@ namespace SOS {
             }
             protected:
             void read_hook(int& read4minus1){
-                unsigned char data = com_buffer[readPos++];
-                if (readPos==com_buffer.size())
+                unsigned char data = in_buffer()[readPos++];
+                if (readPos==in_buffer().size())
                     readPos=0;
                 read_bits(static_cast<unsigned long>(data));
                 if (!receive_lock){
                     if (receive_request()){
-                        std::bitset<8> obj_id = data;
-                        obj_id = obj_id << 2;
-                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        for (std::size_t j=0;j<descriptors.size();j++){
-                            if (descriptors[j].synced==true && descriptors[j].id==id){
-                                receive_lock=true;
-                                descriptors[j].readLock=true;
-                                readDestination = id;
-                                readDestinationPos = 0;
-                                send_acknowledge();//DANGER: change writted state from read_hook
+                        std::bitset<8> obj_id = static_cast<unsigned long>(data);
+                        obj_id = (obj_id << 2) >> 2;
+                        //check for "10111111"==idle==63
+                        if (obj_id!=((idleState()<<2)>>2)){
+                            auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                            for (std::size_t j=0;j<descriptors.size();j++){
+                                if (descriptors[j].synced==true && descriptors[j].id==id){
+                                    receive_lock=true;
+                                    descriptors[j].readLock=true;
+                                    readDestination = id;
+                                    std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
+                                    readDestinationPos = 0;
+                                    send_acknowledge();//DANGER: change writted state has to be after read_bits
+                                }
                             }
+                        } else {
+                            std::cout<<typeid(*this).name()<<".";
                         }
                     }
                 } else {
@@ -68,7 +86,6 @@ namespace SOS {
                     } else {
                         for(std::size_t i=0;i<3;i++){
                             reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
-                            //printf("%c",read3bytes[i]);
                         }
                     }
                     read4minus1 = 0;
@@ -81,22 +98,33 @@ namespace SOS {
                         send_lock = true;
                     } else {
                         bool gotOne = false;
-                        for (std::size_t i=0;i<descriptors.size();i++){
-                            if (!descriptors[i].readLock && !descriptors[i].synced && !gotOne){
+                        for (std::size_t i=0;i<descriptors.size()&& !gotOne;i++){
+                            if (!descriptors[i].readLock && !descriptors[i].synced){
                                 send_request();
                                 writeOrigin=descriptors[i].id;
                                 writeOriginPos=0;
                                 std::bitset<8> id;
                                 write_bits(id);
-                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);
-                                obj_id = obj_id >> 2;
+                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);//DANGER: overflow check
                                 id = id ^ obj_id;
-                                com_buffer[writePos++]=static_cast<unsigned char>(id.to_ulong());
-                                if (writePos==com_buffer.size())
+                                std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
+                                out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                                if (writePos==out_buffer().size())
                                     writePos=0;
                                 handshake_ack();
                                 gotOne=true;
                             }
+                        }
+                        //read in handshake -> set wire to valid state
+                        if (!gotOne){
+                            auto id = idleState();//10111111
+                            std::bitset<8> acknowledge_bit;//all 0
+                            write_bits(acknowledge_bit);
+                            id = id | acknowledge_bit;
+                            out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
+                            if (writePos==out_buffer().size())
+                                writePos=0;
+                            handshake_ack();
                         }
                     }
                 }
@@ -109,8 +137,6 @@ namespace SOS {
                     write3plus1++;
                 } else if (write3plus1==3){
                     if (writeOriginPos==descriptors[writeOrigin].obj_size){
-                        //throw std::runtime_error("WRITE COMPLETED");
-                        //std::cout<<std::endl<<"WRITE COMPLETED "<<writeOriginPos<<std::endl;
                         descriptors[writeOrigin].synced=true;
                         send_lock=false;
                         writeOriginPos=0;
@@ -128,11 +154,11 @@ namespace SOS {
             virtual void send_request() = 0;//1
             virtual bool receive_request() = 0;//2
             virtual bool receive_acknowledge() = 0;//4
-            //protected:
-            public:
-            std::tuple<Objects...> objects{};
             //private:
             protected:
+            virtual const DMA& in_buffer()=0;
+            virtual DMA& out_buffer()=0;
+            std::tuple<Objects...> objects{};
             DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
@@ -141,11 +167,14 @@ namespace SOS {
             private:
             bool receive_lock = false;
             bool send_lock = false;
-            std::size_t writePos = 0;//REPLACE: com_buffer
+            //private:
+            protected:
+            std::size_t writePos = 0;//REPLACE: out_buffer
+            private:
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;
-            std::size_t readPos = 0;//REPLACE: com_buffer
+            std::size_t readPos = 0;//REPLACE: in_buffer
             unsigned int readCount = 0;//read4minus1
             std::size_t readDestination = 0;//HARDCODED: objects[0]
             std::size_t readDestinationPos = 0;
@@ -177,8 +206,8 @@ namespace SOS {
                         writeCount=0;
                     break;
                 }
-                com_buffer[writePos++]=static_cast<unsigned char>(out.to_ulong());
-                if (writePos==com_buffer.size())
+                out_buffer()[writePos++]=static_cast<unsigned char>(out.to_ulong());
+                if (writePos==out_buffer().size())
                     writePos=0;
             }
             bool read(unsigned char r){
@@ -306,69 +335,5 @@ namespace SOS {
                 return Serial<Objects...>::fpga_updated;
             }
         };
-        /*struct DMADescriptor {
-            DMADescriptor(){}//DANGER
-            DMADescriptor(unsigned char id, void* obj) : id(id),obj(obj){}
-            unsigned char id;
-            void* obj;
-        };
-        //Stroustrup 28.6.4
-        template<typename... Objects> class DMADescriptors;
-        template<> class DMADescriptors<> {};//DANGER
-        template<typename First, typename... Others> class DMADescriptors<First, Others...> : private DMADescriptors<Others...> {
-            typedef DMADescriptors<Others...> inherited;
-            public:
-            constexpr DMADescriptors(){}//DANGER
-            DMADescriptors(First& h, Others&... t)
-            : m_head(sizeof...(Others),&h), inherited(t...) {}
-            template<typename... Objects> DMADescriptors(const DMADescriptors<Objects...>& other)
-            : m_head(other.head()), inherited(other.tail()) {}
-            template<typename... Objects> DMADescriptors& operator=(const DMADescriptors<Objects...>& other){
-                m_head=other.head();
-                tail()=other.tail();
-                return *this;
-            }
-            //private:
-            DMADescriptor& head(){return m_head;};
-            const DMADescriptor& head() const {return m_head;};
-            inherited& tail(){return *this;};
-            const inherited& tail() const {return *this;};
-            protected:
-            DMADescriptor m_head;
-        };
-        template<unsigned char N, typename... T>
-        DMADescriptor& get(DMADescriptors<T...>& t) {
-            if constexpr(sizeof...(T)!=0){
-                if constexpr(N < sizeof...(T)){
-                    //if ((t.head().id-(sizeof...(T)-1))==id){
-                    if ((t.head().id)==N){
-                        return t.head();
-                    }
-                    return get<N>(t.tail());
-                } else {
-                    throw std::runtime_error("DMADescriptor does not exist");
-                }
-            } else {
-                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
-            }
-        }
-        template<typename... Objects> constexpr std::size_t DMADescriptors_size(){ return sizeof...(Objects); }
-        //https://stackoverflow.com/questions/1198260/how-can-you-iterate-over-the-elements-of-an-stdtuple
-        template<typename... T>
-        DMADescriptor& get(DMADescriptors<T...>& t,unsigned char id) {
-            if constexpr(sizeof...(T)!=0){
-                if (id < sizeof...(T)){
-                    //if ((t.head().id-(sizeof...(T)-1))==id){
-                    if ((t.head().id)==id){
-                        return t.head();
-                    }
-                    return get(t.tail(),id);
-                } else {
-                    throw std::runtime_error("DMADescriptor does not exist");
-                }
-            } else {
-                throw std::logic_error("get<> can not be used with empty DMADescriptors<>");
-            }
-        }*/
     }
 }
