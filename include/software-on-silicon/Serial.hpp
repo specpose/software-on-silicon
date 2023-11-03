@@ -95,8 +95,8 @@ namespace SOS {
                         send_lock = true;
                     } else {
                         bool gotOne = false;
-                        for (std::size_t i=0;i<descriptors.size();i++){
-                            if (!descriptors[i].readLock && !descriptors[i].synced && !gotOne){
+                        for (std::size_t i=0;i<descriptors.size()&& !gotOne;i++){
+                            if (!descriptors[i].readLock && !descriptors[i].synced){
                                 send_request();
                                 writeOrigin=descriptors[i].id;
                                 writeOriginPos=0;
@@ -114,7 +114,10 @@ namespace SOS {
                         }
                         //read in handshake -> set wire to valid state
                         if (!gotOne){
-                            auto id = idleState();
+                            auto id = idleState();//10111111
+                            std::bitset<8> acknowledge_bit;//all 0
+                            write_bits(acknowledge_bit);
+                            id = id | acknowledge_bit;
                             out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
                             if (writePos==out_buffer().size())
                                 writePos=0;
@@ -161,7 +164,10 @@ namespace SOS {
             private:
             bool receive_lock = false;
             bool send_lock = false;
+            //private:
+            protected:
             std::size_t writePos = 0;//REPLACE: out_buffer
+            private:
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;

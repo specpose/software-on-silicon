@@ -6,9 +6,9 @@ namespace SOS {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             SerialFPGAController(bus_type& myBus) :
-            SOS::Protocol::SerialFPGA<Objects...>(),
+            SOS::Protocol::Serial<Objects...>(),
             SOS::Behavior::EventController<SOS::Behavior::DummyController>::EventController(myBus.signal) {
-                //com_buffer[readPos++]=static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong());//INIT: First byte of com-buffer needs to be valid
+                out_buffer()[SOS::Protocol::Serial<Objects...>::writePos++]=static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong());//INIT: First byte of com-buffer needs to be valid
                 _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             virtual bool handshake() final {

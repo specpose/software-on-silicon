@@ -34,8 +34,8 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAControl
             }
         }
         descriptors[0].synced=false;
-        int dontcount=0;
-        write_hook(dontcount);//INIT: First byte of com-buffer needs to be valid
+        //int dontcount=0;
+        //write_hook(dontcount);//INIT: First byte of com-buffer needs to be valid
         _thread=start(this);
     }
     ~FPGA() {
