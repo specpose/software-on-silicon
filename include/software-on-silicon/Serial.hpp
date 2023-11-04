@@ -70,7 +70,8 @@ namespace SOS {
                                 }
                             }
                         } else {
-                            std::cout<<typeid(*this).name()<<".";
+                            //std::cout<<typeid(*this).name();
+                            //std::cout<<".";
                         }
                     }
                 } else {
@@ -118,9 +119,10 @@ namespace SOS {
                         //read in handshake -> set wire to valid state
                         if (!gotOne){
                             auto id = idleState();//10111111
-                            std::bitset<8> acknowledge_bit;//all 0
-                            write_bits(acknowledge_bit);
-                            id = id | acknowledge_bit;
+                            write_bits(id);
+                            id.set(7,1);//override write_bits
+                            //std::cout<<typeid(*this).name();
+                            //std::cout<<"!";
                             out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
                             if (writePos==out_buffer().size())
                                 writePos=0;
@@ -140,6 +142,7 @@ namespace SOS {
                         descriptors[writeOrigin].synced=true;
                         send_lock=false;
                         writeOriginPos=0;
+                        std::cout<<"$";
                     }
                     write(63);//'?' empty write
                     handshake_ack();
@@ -266,6 +269,7 @@ namespace SOS {
             virtual void read_bits(std::bitset<8> temp) final {
                 Serial<Objects...>::mcu_updated=temp[7];
                 Serial<Objects...>::fpga_acknowledge=temp[6];
+                Serial<Objects...>::mcu_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
                 if (Serial<Objects...>::fpga_updated)
@@ -279,7 +283,6 @@ namespace SOS {
             }
             virtual void send_acknowledge() final {
                 if (Serial<Objects...>::mcu_updated){
-                    Serial<Objects...>::mcu_updated=false;
                     Serial<Objects...>::mcu_acknowledge=true;
                 }
             }
@@ -288,7 +291,7 @@ namespace SOS {
             }
             virtual bool receive_acknowledge() final {
                 if (Serial<Objects...>::fpga_acknowledge){
-                    Serial<Objects...>::fpga_acknowledge=false;
+                    Serial<Objects...>::fpga_updated=false;
                     return true;
                 }
                 return false;
@@ -304,6 +307,7 @@ namespace SOS {
             virtual void read_bits(std::bitset<8> temp) final {
                 Serial<Objects...>::fpga_updated=temp[7];
                 Serial<Objects...>::mcu_acknowledge=temp[6];
+                Serial<Objects...>::fpga_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
                 if (Serial<Objects...>::mcu_updated)
@@ -315,9 +319,8 @@ namespace SOS {
                 else
                     out.set(6,0);
             }
-            virtual void send_acknowledge() final {//PROBLEM? Needs MCUPriority?
+            virtual void send_acknowledge() final {
                 if (Serial<Objects...>::fpga_updated){
-                    Serial<Objects...>::fpga_updated=false;
                     Serial<Objects...>::fpga_acknowledge=true;
                 }
             }
@@ -326,7 +329,7 @@ namespace SOS {
             }
             virtual bool receive_acknowledge() final {
                 if (Serial<Objects...>::mcu_acknowledge){
-                    Serial<Objects...>::mcu_acknowledge=false;
+                    Serial<Objects...>::mcu_updated=false;
                     return true;
                 }
                 return false;
