@@ -59,6 +59,11 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAControl
             else if (stateOfObjectOne&&!descriptors[1].readLock)
                 std::cout<<"FPGAObject1 read lock turned off"<<std::endl;
             stateOfObjectOne = descriptors[1].readLock;
+            if (syncStateObjectOne&&!descriptors[1].synced)
+                std::cout<<"FPGAObject1 set to sync"<<std::endl;
+            else if (!syncStateObjectOne&&descriptors[1].synced)
+                std::cout<<"FPGAObject1 synced"<<std::endl;
+            syncStateObjectOne = descriptors[1].synced;
             write_hook(write3plus1);
             }
             std::this_thread::yield();
@@ -67,6 +72,7 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAControl
     }
     private:
     bool stateOfObjectOne = false;
+    bool syncStateObjectOne = true;
     std::thread _thread = std::thread{};
 };
 class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
@@ -99,6 +105,11 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThr
             else if (stateOfObjectZero&&!descriptors[0].readLock)
                 std::cout<<"MCUObject0 read lock turned off"<<std::endl;
             stateOfObjectZero = descriptors[0].readLock;
+            if (syncStateObjectZero&&!descriptors[0].synced)
+                std::cout<<"MCUObject0 set to sync"<<std::endl;
+            else if (!syncStateObjectZero&&descriptors[0].synced)
+                std::cout<<"MCUObject0 synced"<<std::endl;
+            syncStateObjectZero = descriptors[0].synced;
             write_hook(write3plus1);
             }
             std::this_thread::yield();
@@ -107,6 +118,7 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThr
     }
     private:
     bool stateOfObjectZero = false;
+    bool syncStateObjectZero = true;
     std::thread _thread = std::thread{};
 };
 
