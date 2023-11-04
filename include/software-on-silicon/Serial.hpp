@@ -118,9 +118,8 @@ namespace SOS {
                         //read in handshake -> set wire to valid state
                         if (!gotOne){
                             auto id = idleState();//10111111
-                            std::bitset<8> acknowledge_bit;//all 0
-                            write_bits(acknowledge_bit);
-                            id = id | acknowledge_bit;
+                            write_bits(id);
+                            id.set(7,1);//override write_bits
                             out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
                             if (writePos==out_buffer().size())
                                 writePos=0;
