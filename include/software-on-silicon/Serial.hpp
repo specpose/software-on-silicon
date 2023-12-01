@@ -51,9 +51,9 @@ namespace SOS {
                 int write3plus1 = 0;
                 while(stop_token.getUpdatedRef().test_and_set()){
                     if (handshake()) {
-                    read_hook(read4minus1);
-                    signaling_hook();
-                    write_hook(write3plus1);
+                        read_hook(read4minus1);
+                        signaling_hook();
+                        write_hook(write3plus1);
                     }
                     std::this_thread::yield();
                 }
@@ -61,7 +61,23 @@ namespace SOS {
             }
             protected:
             virtual void signaling_hook()=0;
+            virtual bool handshake() = 0;
+            virtual void handshake_ack() = 0;
+            virtual void send_acknowledge() = 0;//3
+            virtual void send_request() = 0;//1
+            virtual bool receive_request() = 0;//2
+            virtual bool receive_acknowledge() = 0;//4
+            virtual unsigned char read_byte()=0;
+            virtual void write_byte(unsigned char)=0;
+            std::tuple<Objects...> objects{};
+            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            bool mcu_updated = false;//mcu_write,fpga_read bit 7
+            bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
+            bool fpga_updated = false;//mcu_read,fpga_write bit 7
+            bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
+            bool receive_lock = false;
+            bool send_lock = false;
             void read_hook(int& read4minus1){
                 unsigned char data = read_byte();
                 read_bits(static_cast<unsigned long>(data));
@@ -82,28 +98,29 @@ namespace SOS {
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
                             }
-                        } else {
+                        }
+                        //else {
                             //std::cout<<typeid(*this).name();
                             //std::cout<<".";
-                        }
+                        //}
                     }
                 } else {
-                read(data);
-                if (read4minus1<3){
-                    read4minus1++;
-                } else if (read4minus1==3){
-                    auto read3bytes = read_flush();
-                    if (readDestinationPos==descriptors[readDestination].obj_size){
-                        descriptors[readDestination].readLock=false;
-                        receive_lock=false;
-                        //giving a read confirmation would require bidirectionalcontroller
-                    } else {
-                        for(std::size_t i=0;i<3;i++){
-                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                    read(data);
+                    if (read4minus1<3){
+                        read4minus1++;
+                    } else if (read4minus1==3){
+                        auto read3bytes = read_flush();
+                        if (readDestinationPos==descriptors[readDestination].obj_size){
+                            descriptors[readDestination].readLock=false;
+                            receive_lock=false;
+                            //giving a read confirmation would require bidirectionalcontroller
+                        } else {
+                            for(std::size_t i=0;i<3;i++){
+                                reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                            }
                         }
+                        read4minus1 = 0;
                     }
-                    read4minus1 = 0;
-                }
                 }
             }
             void write_hook(int& write3plus1){
@@ -140,49 +157,25 @@ namespace SOS {
                     }
                 }
                 if (send_lock) {
-                if (write3plus1<3){
-                    unsigned char data;
-                    data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
-                    write(data);
-                    handshake_ack();
-                    write3plus1++;
-                } else if (write3plus1==3){
-                    if (writeOriginPos==descriptors[writeOrigin].obj_size){
-                        descriptors[writeOrigin].synced=true;
-                        send_lock=false;
-                        writeOriginPos=0;
-                        std::cout<<"$";
+                    if (write3plus1<3){
+                        unsigned char data;
+                        data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                        write(data);
+                        handshake_ack();
+                        write3plus1++;
+                    } else if (write3plus1==3){
+                        if (writeOriginPos==descriptors[writeOrigin].obj_size){
+                            descriptors[writeOrigin].synced=true;
+                            send_lock=false;
+                            writeOriginPos=0;
+                            std::cout<<"$";
+                        }
+                        write(63);//'?' empty write
+                        handshake_ack();
+                        write3plus1=0;
                     }
-                    write(63);//'?' empty write
-                    handshake_ack();
-                    write3plus1=0;
                 }
-                }
-                //}
             }
-            protected:
-            virtual bool handshake() = 0;
-            virtual void handshake_ack() = 0;
-            virtual void send_acknowledge() = 0;//3
-            virtual void send_request() = 0;//1
-            virtual bool receive_request() = 0;//2
-            virtual bool receive_acknowledge() = 0;//4
-            //private:
-            protected:
-            virtual unsigned char read_byte()=0;
-            virtual void write_byte(unsigned char)=0;
-            std::tuple<Objects...> objects{};
-            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
-            bool mcu_updated = false;//mcu_write,fpga_read bit 7
-            bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
-            bool fpga_updated = false;//mcu_read,fpga_write bit 7
-            bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
-            private:
-            bool receive_lock = false;
-            bool send_lock = false;
-            //private:
-            protected:
-            private:
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;

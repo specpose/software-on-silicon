@@ -33,7 +33,7 @@ namespace SOS {
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
             SOS::Protocol::Serial<Objects...>(),
             SOS::Behavior::EventController<SOS::Behavior::DummyController>::EventController(myBus.signal) {
-                write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: First byte of com-buffer needs to be valid
+                write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
                 _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             virtual bool handshake() final {

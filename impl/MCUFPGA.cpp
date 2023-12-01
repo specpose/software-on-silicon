@@ -1,11 +1,9 @@
-#include <array>
-#define DMA std::array<unsigned char,999>//1001%3=2
-DMA mcu_to_fpga_buffer;
-DMA fpga_to_mcu_buffer;
-
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/Serial.hpp"
+#define DMA std::array<unsigned char,999>//1001%3=2
+DMA mcu_to_fpga_buffer;
+DMA fpga_to_mcu_buffer;
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
 
@@ -35,8 +33,6 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
             }
         }
         descriptors[0].synced=false;
-        //int dontcount=0;
-        //write_hook(dontcount);//INIT: First byte of com-buffer needs to be valid
         _thread=start(this);
     }
     ~FPGA() {
