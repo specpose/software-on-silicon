@@ -1,8 +1,10 @@
-#include <iostream>
-#include "software-on-silicon/loop_helpers.hpp"
+#include <array>
 #define DMA std::array<unsigned char,999>//1001%3=2
 DMA mcu_to_fpga_buffer;
 DMA fpga_to_mcu_buffer;
+
+#include <iostream>
+#include "software-on-silicon/loop_helpers.hpp"
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
 #include <limits>
@@ -12,7 +14,7 @@ using namespace SOS::MemoryView;
 class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     public:
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
+    SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus,mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
@@ -66,7 +68,7 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
 class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     public:
     MCUThread() :
-    SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>() {
+    SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
         _thread=start(this);
