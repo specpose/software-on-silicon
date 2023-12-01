@@ -21,7 +21,7 @@ namespace SOS{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
-        template<typename T, size_t N> struct TaskCable : protected std::array<std::atomic<T>,N>{
+        template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
