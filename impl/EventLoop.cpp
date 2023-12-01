@@ -14,7 +14,7 @@ class MyFunctor {
     unsigned int _duration = 333;
 };
 
-class BlinkLoop : public SOS::Behavior::Controller<SOS::MemoryView::Notify>, public SOS::Behavior::Loop {
+class BlinkLoop : private SOS::Behavior::Controller<SOS::MemoryView::Notify>, public SOS::Behavior::Loop {
     public:
     BlinkLoop(SOS::MemoryView::Notify& bussignal) :
     SOS::Behavior::Controller<SOS::MemoryView::Notify>(bussignal),

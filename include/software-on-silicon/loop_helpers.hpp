@@ -34,7 +34,7 @@ template<typename DurationType,
         typename PeriodType = typename std::enable_if<
             true, typename DurationType::duration
             >::type
-        > class Timer : public SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
+        > class Timer : private SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
     SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>(bussignal),

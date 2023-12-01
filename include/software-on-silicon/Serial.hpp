@@ -16,11 +16,11 @@ namespace SOS {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
                 if (obj_size%3!=0)
-                    throw std::logic_error("Invalid DMAObject size");
+                    throw SFA::util::logic_error("Invalid DMAObject size",__FILE__,__func__);
                 //check for "10111111" => >62
                 auto maxId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
                 if (id==maxId)
-                    throw std::logic_error("DMADescriptor id is reserved for the serial line idle state");
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the serial line idle state",__FILE__,__func__);
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -41,16 +41,45 @@ namespace SOS {
             }
             std::size_t count = 0;
         };
-        template<typename... Objects> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        template<typename... Objects> class Serial : public SOS::Behavior::Loop {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
-            Serial(){
+            Serial() : SOS::Behavior::Loop() {
                 std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
             }
+            virtual void event_loop() final {
+                int read4minus1 = 0;
+                int write3plus1 = 0;
+                while(stop_token.getUpdatedRef().test_and_set()){
+                    if (handshake()) {
+                        read_hook(read4minus1);
+                        signaling_hook();
+                        write_hook(write3plus1);
+                    }
+                    std::this_thread::yield();
+                }
+                stop_token.getAcknowledgeRef().clear();
+            }
             protected:
+            virtual void signaling_hook()=0;
+            virtual bool handshake() = 0;
+            virtual void handshake_ack() = 0;
+            virtual void send_acknowledge() = 0;//3
+            virtual void send_request() = 0;//1
+            virtual bool receive_request() = 0;//2
+            virtual bool receive_acknowledge() = 0;//4
+            virtual unsigned char read_byte()=0;
+            virtual void write_byte(unsigned char)=0;
+            std::tuple<Objects...> objects{};
+            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            bool mcu_updated = false;//mcu_write,fpga_read bit 7
+            bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
+            bool fpga_updated = false;//mcu_read,fpga_write bit 7
+            bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
+            private:
+            bool receive_lock = false;
+            bool send_lock = false;
             void read_hook(int& read4minus1){
-                unsigned char data = in_buffer()[readPos++];
-                if (readPos==in_buffer().size())
-                    readPos=0;
+                unsigned char data = read_byte();
                 read_bits(static_cast<unsigned long>(data));
                 if (!receive_lock){
                     if (receive_request()){
@@ -69,28 +98,29 @@ namespace SOS {
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
                             }
-                        } else {
+                        }
+                        //else {
                             //std::cout<<typeid(*this).name();
                             //std::cout<<".";
-                        }
+                        //}
                     }
                 } else {
-                read(data);
-                if (read4minus1<3){
-                    read4minus1++;
-                } else if (read4minus1==3){
-                    auto read3bytes = read_flush();
-                    if (readDestinationPos==descriptors[readDestination].obj_size){
-                        descriptors[readDestination].readLock=false;
-                        receive_lock=false;
-                        //giving a read confirmation would require bidirectionalcontroller
-                    } else {
-                        for(std::size_t i=0;i<3;i++){
-                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                    read(data);
+                    if (read4minus1<3){
+                        read4minus1++;
+                    } else if (read4minus1==3){
+                        auto read3bytes = read_flush();
+                        if (readDestinationPos==descriptors[readDestination].obj_size){
+                            descriptors[readDestination].readLock=false;
+                            receive_lock=false;
+                            //giving a read confirmation would require bidirectionalcontroller
+                        } else {
+                            for(std::size_t i=0;i<3;i++){
+                                reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
+                            }
                         }
+                        read4minus1 = 0;
                     }
-                    read4minus1 = 0;
-                }
                 }
             }
             void write_hook(int& write3plus1){
@@ -109,9 +139,7 @@ namespace SOS {
                                 std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);//DANGER: overflow check
                                 id = id ^ obj_id;
                                 std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
-                                out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
-                                if (writePos==out_buffer().size())
-                                    writePos=0;
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 handshake_ack();
                                 gotOne=true;
                             }
@@ -123,61 +151,34 @@ namespace SOS {
                             id.set(7,1);//override write_bits
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"!";
-                            out_buffer()[writePos++]=static_cast<unsigned char>(id.to_ulong());
-                            if (writePos==out_buffer().size())
-                                writePos=0;
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
                             handshake_ack();
                         }
                     }
                 }
                 if (send_lock) {
-                if (write3plus1<3){
-                    unsigned char data;
-                    data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
-                    write(data);
-                    handshake_ack();
-                    write3plus1++;
-                } else if (write3plus1==3){
-                    if (writeOriginPos==descriptors[writeOrigin].obj_size){
-                        descriptors[writeOrigin].synced=true;
-                        send_lock=false;
-                        writeOriginPos=0;
-                        std::cout<<"$";
+                    if (write3plus1<3){
+                        unsigned char data;
+                        data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                        write(data);
+                        handshake_ack();
+                        write3plus1++;
+                    } else if (write3plus1==3){
+                        if (writeOriginPos==descriptors[writeOrigin].obj_size){
+                            descriptors[writeOrigin].synced=true;
+                            send_lock=false;
+                            writeOriginPos=0;
+                            std::cout<<"$";
+                        }
+                        write(63);//'?' empty write
+                        handshake_ack();
+                        write3plus1=0;
                     }
-                    write(63);//'?' empty write
-                    handshake_ack();
-                    write3plus1=0;
                 }
-                }
-                //}
             }
-            virtual bool handshake() = 0;
-            virtual void handshake_ack() = 0;
-            virtual void send_acknowledge() = 0;//3
-            virtual void send_request() = 0;//1
-            virtual bool receive_request() = 0;//2
-            virtual bool receive_acknowledge() = 0;//4
-            //private:
-            protected:
-            virtual const DMA& in_buffer()=0;
-            virtual DMA& out_buffer()=0;
-            std::tuple<Objects...> objects{};
-            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
-            bool mcu_updated = false;//mcu_write,fpga_read bit 7
-            bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
-            bool fpga_updated = false;//mcu_read,fpga_write bit 7
-            bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
-            private:
-            bool receive_lock = false;
-            bool send_lock = false;
-            //private:
-            protected:
-            std::size_t writePos = 0;//REPLACE: out_buffer
-            private:
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOrigin = 0;//HARDCODED: objects[0]
             std::size_t writeOriginPos = 0;
-            std::size_t readPos = 0;//REPLACE: in_buffer
             unsigned int readCount = 0;//read4minus1
             std::size_t readDestination = 0;//HARDCODED: objects[0]
             std::size_t readDestinationPos = 0;
@@ -209,9 +210,7 @@ namespace SOS {
                         writeCount=0;
                     break;
                 }
-                out_buffer()[writePos++]=static_cast<unsigned char>(out.to_ulong());
-                if (writePos==out_buffer().size())
-                    writePos=0;
+                write_byte(static_cast<unsigned char>(out.to_ulong()));
             }
             bool read(unsigned char r){
                 std::bitset<24> temp{ static_cast<unsigned long>(r)};
