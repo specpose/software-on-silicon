@@ -9,10 +9,9 @@ DMA fpga_to_mcu_buffer;
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAController<DMA,DMA> {
+class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     public:
     FPGA(bus_type& myBus) :
-    Loop(),
     SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus)
     {
         int writeBlinkCounter = 0;
@@ -47,37 +46,26 @@ class FPGA : public SOS::Behavior::Loop, public SOS::Behavior::SerialFPGAControl
         }
         std::cout<<std::endl;
     }
-    virtual void event_loop() final {
-        int read4minus1 = 0;
-        int write3plus1 = 0;
-        while(stop_token.getUpdatedRef().test_and_set()){
-            if (handshake()) {
-            read_hook(read4minus1);
-            if (!stateOfObjectOne&&descriptors[1].readLock)
-                std::cout<<"FPGAObject1 read lock turned on"<<std::endl;
-            else if (stateOfObjectOne&&!descriptors[1].readLock)
-                std::cout<<"FPGAObject1 read lock turned off"<<std::endl;
-            stateOfObjectOne = descriptors[1].readLock;
-            if (syncStateObjectOne&&!descriptors[1].synced)
-                std::cout<<"FPGAObject1 set to sync"<<std::endl;
-            else if (!syncStateObjectOne&&descriptors[1].synced)
-                std::cout<<"FPGAObject1 synced"<<std::endl;
-            syncStateObjectOne = descriptors[1].synced;
-            write_hook(write3plus1);
-            }
-            std::this_thread::yield();
-        }
-        stop_token.getAcknowledgeRef().clear();
+    virtual void signaling_hook() final {
+        if (!stateOfObjectOne&&descriptors[1].readLock)
+            std::cout<<"FPGAObject1 read lock turned on"<<std::endl;
+        else if (stateOfObjectOne&&!descriptors[1].readLock)
+            std::cout<<"FPGAObject1 read lock turned off"<<std::endl;
+        stateOfObjectOne = descriptors[1].readLock;
+        if (syncStateObjectOne&&!descriptors[1].synced)
+            std::cout<<"FPGAObject1 set to sync"<<std::endl;
+        else if (!syncStateObjectOne&&descriptors[1].synced)
+            std::cout<<"FPGAObject1 synced"<<std::endl;
+        syncStateObjectOne = descriptors[1].synced;
     }
     private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
     std::thread _thread = std::thread{};
 };
-class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
+class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     public:
     MCUThread() :
-    Loop(),
     SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>() {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
@@ -93,27 +81,17 @@ class MCUThread : public SOS::Behavior::Loop, public SOS::Behavior::SerialMCUThr
         }
         std::cout<<std::endl;
     }
-    void event_loop(){
-        int read4minus1 = 0;
-        int write3plus1 = 0;
-        while(stop_token.getUpdatedRef().test_and_set()){
-            if (handshake()) {
-            read_hook(read4minus1);
-            if (!stateOfObjectZero&&descriptors[0].readLock)
-                std::cout<<"MCUObject0 read lock turned on"<<std::endl;
-            else if (stateOfObjectZero&&!descriptors[0].readLock)
-                std::cout<<"MCUObject0 read lock turned off"<<std::endl;
-            stateOfObjectZero = descriptors[0].readLock;
-            if (syncStateObjectZero&&!descriptors[0].synced)
-                std::cout<<"MCUObject0 set to sync"<<std::endl;
-            else if (!syncStateObjectZero&&descriptors[0].synced)
-                std::cout<<"MCUObject0 synced"<<std::endl;
-            syncStateObjectZero = descriptors[0].synced;
-            write_hook(write3plus1);
-            }
-            std::this_thread::yield();
-        }
-        stop_token.getAcknowledgeRef().clear();
+    virtual void signaling_hook(){
+        if (!stateOfObjectZero&&descriptors[0].readLock)
+            std::cout<<"MCUObject0 read lock turned on"<<std::endl;
+        else if (stateOfObjectZero&&!descriptors[0].readLock)
+            std::cout<<"MCUObject0 read lock turned off"<<std::endl;
+        stateOfObjectZero = descriptors[0].readLock;
+        if (syncStateObjectZero&&!descriptors[0].synced)
+            std::cout<<"MCUObject0 set to sync"<<std::endl;
+        else if (!syncStateObjectZero&&descriptors[0].synced)
+            std::cout<<"MCUObject0 synced"<<std::endl;
+        syncStateObjectZero = descriptors[0].synced;
     }
     private:
     bool stateOfObjectZero = false;

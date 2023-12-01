@@ -41,12 +41,27 @@ namespace SOS {
             }
             std::size_t count = 0;
         };
-        template<typename... Objects> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        template<typename... Objects> class Serial : public SOS::Behavior::Loop {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
-            Serial(){
+            Serial() : SOS::Behavior::Loop() {
                 std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
             }
+            virtual void event_loop() final {
+                int read4minus1 = 0;
+                int write3plus1 = 0;
+                while(stop_token.getUpdatedRef().test_and_set()){
+                    if (handshake()) {
+                    read_hook(read4minus1);
+                    signaling_hook();
+                    write_hook(write3plus1);
+                    }
+                    std::this_thread::yield();
+                }
+                stop_token.getAcknowledgeRef().clear();
+            }
             protected:
+            virtual void signaling_hook()=0;
+            private:
             void read_hook(int& read4minus1){
                 unsigned char data = in_buffer()[readPos++];
                 if (readPos==in_buffer().size())
@@ -151,6 +166,7 @@ namespace SOS {
                 }
                 //}
             }
+            protected:
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
