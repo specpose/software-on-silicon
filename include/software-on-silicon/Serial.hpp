@@ -16,11 +16,11 @@ namespace SOS {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
                 if (obj_size%3!=0)
-                    throw std::logic_error("Invalid DMAObject size");
+                    throw SFA::util::logic_error("Invalid DMAObject size",__FILE__,__func__);
                 //check for "10111111" => >62
                 auto maxId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
                 if (id==maxId)
-                    throw std::logic_error("DMADescriptor id is reserved for the serial line idle state");
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the serial line idle state",__FILE__,__func__);
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;

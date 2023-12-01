@@ -1,5 +1,6 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
+#include "software-on-silicon/error.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define DMA std::array<unsigned char,999>//1001%3=2
 DMA mcu_to_fpga_buffer;
