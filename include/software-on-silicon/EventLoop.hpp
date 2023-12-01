@@ -5,13 +5,13 @@
 
 namespace SOS{
     namespace MemoryView {
-        class Notify : public std::array<std::atomic_flag,1> {
+        class Notify : private std::array<std::atomic_flag,1> {
             public:
             Notify() : std::array<std::atomic_flag,1>{true} {}
             auto& getNotifyRef(){return std::get<0>(*this);}
         };
         //1+1=0
-        class HandShake : public std::array<std::atomic_flag,2> {
+        class HandShake : private std::array<std::atomic_flag,2> {
             public:
             HandShake() : std::array<std::atomic_flag,2>{true,true} {}
             auto& getUpdatedRef(){return std::get<0>(*this);}
@@ -21,7 +21,7 @@ namespace SOS{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
-        template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
+        template<typename T, size_t N> struct TaskCable : protected std::array<std::atomic<T>,N>{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
@@ -105,8 +105,8 @@ namespace SOS{
                 stop_token.getAcknowledgeRef().clear();
                 return true;
             }
-            SOS::MemoryView::HandShake stop_token;
             protected:
+            SOS::MemoryView::HandShake stop_token;
             template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
@@ -123,7 +123,7 @@ namespace SOS{
             LoopSignalType& _intrinsic;
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
-        template<typename S, typename... Others> class SimpleController : public Controller<SOS::MemoryView::Notify, S> {
+        template<typename S, typename... Others> class SimpleController : private Controller<SOS::MemoryView::Notify, S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type;
@@ -135,7 +135,7 @@ namespace SOS{
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             S _child;
         };
-        template<> class SimpleController<DummyController> : public Controller<SOS::MemoryView::Notify, DummyController> {
+        template<> class SimpleController<DummyController> : protected Controller<SOS::MemoryView::Notify, DummyController> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = DummyController;
@@ -143,7 +143,7 @@ namespace SOS{
             Controller<SOS::MemoryView::Notify, DummyController>(signal)
             {}
         };
-        template<typename S, typename... Others> class EventController : public Controller<SOS::MemoryView::HandShake, S> {
+        template<typename S, typename... Others> class EventController : private Controller<SOS::MemoryView::HandShake, S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type;
@@ -155,7 +155,7 @@ namespace SOS{
             typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
             S _child;
         };
-        template<> class EventController<DummyController> : public Controller<SOS::MemoryView::HandShake, DummyController> {
+        template<> class EventController<DummyController> : protected Controller<SOS::MemoryView::HandShake, DummyController> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = DummyController;
