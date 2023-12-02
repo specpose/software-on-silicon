@@ -10,7 +10,7 @@ using MEMORY_CONTROLLER=std::array<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,100
 using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 
 using namespace SOS::MemoryView;
-class ReadTaskImpl : public virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
     {}
@@ -55,12 +55,12 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         _thread.join();
     }
+    private:
     virtual void read() final {ReadTaskImpl::read();};
     virtual void acknowledge() final {SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::acknowledge();};
-    private:
     std::thread _thread;
 };
-class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl(const std::size_t& vst_numInputs) : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>{} {
         _blocker.signal.getUpdatedRef().clear();
@@ -87,7 +87,7 @@ class WriteTaskImpl : public SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : public PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public WriteTaskImpl, public SOS::Behavior::Loop {
+class WritePriorityImpl : private PassthruThread<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(

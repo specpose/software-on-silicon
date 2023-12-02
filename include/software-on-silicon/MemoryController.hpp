@@ -1,11 +1,11 @@
 namespace SOS {
     namespace MemoryView {
-        template<typename ArithmeticType> struct ReadSize : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+        template<typename ArithmeticType> struct ReadSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
             auto& getReadBufferStartRef(){return std::get<0>(*this);}
             auto& getReadBufferAfterLastRef(){return std::get<1>(*this);}
         };
-        template<typename ArithmeticType> struct ReadOffset : public SOS::MemoryView::TaskCable<ArithmeticType,1> {
+        template<typename ArithmeticType> struct ReadOffset : private SOS::MemoryView::TaskCable<ArithmeticType,1> {
             using SOS::MemoryView::TaskCable<ArithmeticType,1>::TaskCable;
             auto& getReadOffsetRef(){return std::get<0>(*this);}
         };
@@ -34,7 +34,7 @@ namespace SOS {
             cables_type cables;
             const_cables_type const_cables;
         };
-        template<typename ArithmeticType> struct MemoryControllerBufferSize : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+        template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
@@ -78,7 +78,7 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename S, typename... Others> class PassthruSimpleController : public Controller<SOS::MemoryView::Notify,S> {
+        template<typename S, typename... Others> class PassthruSimpleController : protected Controller<SOS::MemoryView::Notify,S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
@@ -91,7 +91,7 @@ namespace SOS {
             typename subcontroller_type::bus_type& _foreign;
             S _child;
         };
-        template<typename S, typename... Others> class PassthruEventController : public Controller<SOS::MemoryView::HandShake,S> {
+        template<typename S, typename... Others> class PassthruEventController : private Controller<SOS::MemoryView::HandShake,S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
@@ -120,7 +120,7 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::EventController<SOS::Behavior::DummyController>,
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::EventController<SOS::Behavior::DummyController>,
         public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
@@ -141,6 +141,7 @@ namespace SOS {
                 }
                 Loop::stop_token.getAcknowledgeRef().clear();
             }
+            private:
             virtual void read()=0;
             virtual bool wait() {
                 if (!_blocked_signal.getUpdatedRef().test_and_set()) {//intermittent wait when write
@@ -159,10 +160,10 @@ namespace SOS {
                     return false;
                 }
             }
+            protected:
             virtual void acknowledge() {
                 _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
-            protected:
             typename bus_type::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
@@ -171,7 +172,6 @@ namespace SOS {
             virtual ~MemoryControllerWrite(){};
             protected:
             virtual void write(const typename BufferType::value_type WORD)=0;
-            protected:
             BufferType memorycontroller = BufferType{};
         };
         template<typename MemoryControllerType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<MemoryControllerType> {
