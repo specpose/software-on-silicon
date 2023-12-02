@@ -42,7 +42,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public Thread<SubControllerImpl>, public SOS::Behavior::Loop {
+class ControllerImpl : private Thread<SubControllerImpl>, public SOS::Behavior::Loop {
     public:
     ControllerImpl() : Thread<SubControllerImpl>(), Loop() {
         _thread=start(this);

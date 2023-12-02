@@ -1,11 +1,11 @@
 namespace SOS {
     namespace MemoryView {
-        template<typename ArithmeticType> struct WriteBufferSize : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
+        template<typename ArithmeticType> struct WriteBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
             WriteBufferSize(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
             auto& getWriterStartRef(){return std::get<0>(*this);}
             auto& getWriterEndRef(){return std::get<1>(*this);}
         };
-        template<typename ArithmeticType> struct RingBufferTaskCable : public SOS::MemoryView::TaskCable<ArithmeticType,2> {
+        template<typename ArithmeticType> struct RingBufferTaskCable : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getCurrentRef(){return std::get<0>(*this);}
             auto& getThreadCurrentRef(){return std::get<1>(*this);}
@@ -41,6 +41,7 @@ namespace SOS {
             _item(indices),
             _bounds(bounds)
             {}
+            protected:
             virtual void read_loop() final {
                 auto threadcurrent = _item.getThreadCurrentRef().load();
                 auto current = _item.getCurrentRef().load();
@@ -57,7 +58,6 @@ namespace SOS {
                     }
                 }
             }
-            protected:
             virtual void write(const typename RingBufferType::value_type character)=0;
             private:
             cable_type& _item;
