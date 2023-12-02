@@ -154,7 +154,6 @@ namespace SOS {
                 }
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
-            private:
             typename BufferType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
         };
     }

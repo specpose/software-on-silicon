@@ -95,7 +95,7 @@ class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBu
     }
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : private SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, private TransferRingToMemory, public SOS::Behavior::Loop {
+class RingBufferImpl : private SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, public TransferRingToMemory, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
