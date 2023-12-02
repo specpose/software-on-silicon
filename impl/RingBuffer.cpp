@@ -12,10 +12,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     using cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::cables_type>::type;
     using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
-    protected:
+    private:
     virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character;}
 };
-class RingBufferImpl : public SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public RingBufferTaskImpl, public SOS::Behavior::Loop {
+class RingBufferImpl : private SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, private RingBufferTaskImpl, public SOS::Behavior::Loop {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
     SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(bus.signal),

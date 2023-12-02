@@ -9,21 +9,21 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         throw SFA::util::runtime_error("Individual write length too big or RingBuffer too small",__FILE__,__func__);
     }
     for (typename Piece::difference_type i= 0; i<length;i++){//Lock-free (host) write length!
-    if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
-        std::cout<<"=";
-        //write directly to HOSTmemory
-        PieceWriter_write<Piece>(character,current);
-        ++current;
-        if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
-            current = std::get<0>(myBus.const_cables).getWriterStartRef();
-        std::get<0>(myBus.cables).getCurrentRef().store(current);
-        myBus.signal.getNotifyRef().clear();
-    } else {
-        //write last bit
-        *current=character;
-        //current invalid => do not advance
-        std::cout<<std::endl;
-        throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
-    }
+        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
+            std::cout<<"=";
+            //write directly to HOSTmemory
+            PieceWriter_write<Piece>(character,current);
+            ++current;
+            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
+                current = std::get<0>(myBus.const_cables).getWriterStartRef();
+            std::get<0>(myBus.cables).getCurrentRef().store(current);
+            myBus.signal.getNotifyRef().clear();
+        } else {
+            //write last bit
+            *current=character;
+            //current invalid => do not advance
+            std::cout<<std::endl;
+            throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
+        }
     }
 }
