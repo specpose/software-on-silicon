@@ -35,13 +35,15 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
             }
         }
         descriptors[0].synced=false;
+        boot_time = high_resolution_clock::now();
         _thread=start(this);
     }
     ~FPGA() {
         //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         _thread.join();
+        kill_time = high_resolution_clock::now();
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
-        dump_objects(objects,descriptors);
+        dump_objects(objects,descriptors,boot_time,kill_time);
     }
     private:
     virtual void signaling_hook() final {
@@ -49,6 +51,9 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     }
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
+
+    std::chrono::time_point<high_resolution_clock> boot_time;
+    std::chrono::time_point<high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
 class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
@@ -57,14 +62,16 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
+        boot_time = high_resolution_clock::now();
         _thread=start(this);
     }
     ~MCUThread() {
         Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
+        kill_time = high_resolution_clock::now();
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
-        dump_objects(objects,descriptors);
+        dump_objects(objects,descriptors,boot_time,kill_time);
     }
     private:
     virtual void signaling_hook(){
@@ -72,5 +79,8 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
     }
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
+
+    std::chrono::time_point<high_resolution_clock> boot_time;
+    std::chrono::time_point<high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
