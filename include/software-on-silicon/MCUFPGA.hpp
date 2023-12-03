@@ -51,23 +51,24 @@ namespace SOS {
                 SOS::Protocol::SimulationBuffers::write_byte(byte);
             }
         };
-        template<typename FPGAType, typename... Objects> class SerialMCUThread :
+        template<typename... Objects> class SerialMCUThread :
         private SOS::Protocol::SimulationBuffers,
         public SOS::Protocol::SerialMCU<Objects...>,
-        public Thread<FPGAType> {
+        public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
             public:
-            SerialMCUThread(const DMA& in_buffer, DMA& out_buffer) :
+            using bus_type = SOS::MemoryView::BusShaker;
+            SerialMCUThread(bus_type& myBus,const DMA& in_buffer, DMA& out_buffer) :
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
             SOS::Protocol::Serial<Objects...>(),
-            Thread<FPGAType>() {}
+            SOS::Behavior::EventController<SOS::Behavior::DummyController>(myBus.signal) {}
             private:
             virtual bool handshake() final {
-                if (!Thread<FPGAType>::_foreign.signal.getAcknowledgeRef().test_and_set()){
+                if (!_intrinsic.getAcknowledgeRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {Thread<FPGAType>::_foreign.signal.getUpdatedRef().clear();}
+            virtual void handshake_ack() final {_intrinsic.getUpdatedRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::SimulationBuffers::read_byte();
             }

@@ -1,7 +1,12 @@
 template<typename... Objects> void dump_objects(std::tuple<Objects...>& objects,
-SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value>& descriptors) {
+SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value>& descriptors,
+std::chrono::time_point<high_resolution_clock> boot_time,
+std::chrono::time_point<high_resolution_clock> kill_time) {
     for (int i=0;i<sizeof...(Objects);i++){
-        std::cout<<"Object ID: "<<static_cast<unsigned long>(descriptors[i].id)<<" RX: "<<descriptors[i].rx_counter<<" TX: "<<descriptors[i].tx_counter<<std::endl;
+        double t = duration_cast<nanoseconds>(kill_time - boot_time).count();
+        std::cout<<"Object ID: "<<static_cast<unsigned long>(descriptors[i].id)
+        <<"; RX: "<<descriptors[i].rx_counter<<" => "<<descriptors[i].rx_counter/(t/std::nano::den)<<" Symbols/s"
+        <<"; TX: "<<descriptors[i].tx_counter<<" => "<<descriptors[i].tx_counter/(t/std::nano::den)<<" Symbols/s"<<std::endl;
         for (std::size_t j=0;j<descriptors[i].obj_size;j++){
             printf("%c",reinterpret_cast<char*>(descriptors[i].obj)[j]);
         }
