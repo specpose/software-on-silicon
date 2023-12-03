@@ -45,6 +45,7 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
         }
         std::cout<<std::endl;
     }
+    private:
     virtual void signaling_hook() final {
         if (!stateOfObjectOne&&descriptors[1].readLock)
             std::cout<<"FPGAObject1 read lock turned on"<<std::endl;
@@ -57,7 +58,6 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
             std::cout<<"FPGAObject1 synced"<<std::endl;
         syncStateObjectOne = descriptors[1].synced;
     }
-    private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
     std::thread _thread = std::thread{};
@@ -80,6 +80,7 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
         }
         std::cout<<std::endl;
     }
+    private:
     virtual void signaling_hook(){
         if (!stateOfObjectZero&&descriptors[0].readLock)
             std::cout<<"MCUObject0 read lock turned on"<<std::endl;
@@ -92,7 +93,6 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
             std::cout<<"MCUObject0 synced"<<std::endl;
         syncStateObjectZero = descriptors[0].synced;
     }
-    private:
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
     std::thread _thread = std::thread{};

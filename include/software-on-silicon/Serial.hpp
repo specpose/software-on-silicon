@@ -26,7 +26,7 @@ namespace SOS {
             void* obj = nullptr;
             std::size_t obj_size = 0;
             bool readLock = false;//serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
-            bool synced = true;//subcontroller write checks for synced
+            bool synced = true;//subcontroller transfer checks for synced
         };
         template<unsigned int N> struct DescriptorHelper : public std::array<DMADescriptor,N> {
             public:
@@ -177,10 +177,10 @@ namespace SOS {
                 }
             }
             unsigned int writeCount = 0;//write3plus1
-            std::size_t writeOrigin = 0;//HARDCODED: objects[0]
+            std::size_t writeOrigin = 0;
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0;//read4minus1
-            std::size_t readDestination = 0;//HARDCODED: objects[0]
+            std::size_t readDestination = 0;
             std::size_t readDestinationPos = 0;
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
