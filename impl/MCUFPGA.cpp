@@ -6,6 +6,7 @@
 DMA mcu_to_fpga_buffer;
 DMA fpga_to_mcu_buffer;
 #include "software-on-silicon/MCUFPGA.hpp"
+#include "software-on-silicon/mcufpga_helpers.hpp"
 #include <limits>
 
 using namespace SOS::MemoryView;
@@ -39,25 +40,13 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     ~FPGA() {
         //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         _thread.join();
-        std::cout<<"FPGA Object 1"<<std::endl;
-        for (std::size_t i=0;i<std::get<1>(objects).size();i++){
-            printf("%c",std::get<1>(objects)[i]);
-        }
-        std::cout<<std::endl;
-    }
-    virtual void signaling_hook() final {
-        if (!stateOfObjectOne&&descriptors[1].readLock)
-            std::cout<<"FPGAObject1 read lock turned on"<<std::endl;
-        else if (stateOfObjectOne&&!descriptors[1].readLock)
-            std::cout<<"FPGAObject1 read lock turned off"<<std::endl;
-        stateOfObjectOne = descriptors[1].readLock;
-        if (syncStateObjectOne&&!descriptors[1].synced)
-            std::cout<<"FPGAObject1 set to sync"<<std::endl;
-        else if (!syncStateObjectOne&&descriptors[1].synced)
-            std::cout<<"FPGAObject1 synced"<<std::endl;
-        syncStateObjectOne = descriptors[1].synced;
+        std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
+        dump_objects(objects,descriptors);
     }
     private:
+    virtual void signaling_hook() final {
+        
+    }
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
     std::thread _thread = std::thread{};
@@ -74,25 +63,13 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<FPGA,DMA,DMA> {
         Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
-        std::cout<<"MCU Object 0"<<std::endl;
-        for (std::size_t i=0;i<std::get<0>(objects).size();i++){
-            printf("%c",std::get<0>(objects)[i]);
-        }
-        std::cout<<std::endl;
-    }
-    virtual void signaling_hook(){
-        if (!stateOfObjectZero&&descriptors[0].readLock)
-            std::cout<<"MCUObject0 read lock turned on"<<std::endl;
-        else if (stateOfObjectZero&&!descriptors[0].readLock)
-            std::cout<<"MCUObject0 read lock turned off"<<std::endl;
-        stateOfObjectZero = descriptors[0].readLock;
-        if (syncStateObjectZero&&!descriptors[0].synced)
-            std::cout<<"MCUObject0 set to sync"<<std::endl;
-        else if (!syncStateObjectZero&&descriptors[0].synced)
-            std::cout<<"MCUObject0 synced"<<std::endl;
-        syncStateObjectZero = descriptors[0].synced;
+        std::cout<<"Dumping MCU DMA Objects"<<std::endl;
+        dump_objects(objects,descriptors);
     }
     private:
+    virtual void signaling_hook(){
+        
+    }
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
     std::thread _thread = std::thread{};

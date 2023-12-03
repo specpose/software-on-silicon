@@ -24,7 +24,7 @@ namespace SOS {
     }
     namespace Behavior{
         template<typename... Objects> class SerialFPGAController :
-        SOS::Protocol::SimulationBuffers,
+        private SOS::Protocol::SimulationBuffers,
         public SOS::Protocol::SerialFPGA<Objects...>,
         public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
             public:
@@ -36,6 +36,7 @@ namespace SOS {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
                 _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
+            private:
             virtual bool handshake() final {
                 if (!_intrinsic.getUpdatedRef().test_and_set()){
                     return true;
@@ -51,7 +52,7 @@ namespace SOS {
             }
         };
         template<typename FPGAType, typename... Objects> class SerialMCUThread :
-        SOS::Protocol::SimulationBuffers,
+        private SOS::Protocol::SimulationBuffers,
         public SOS::Protocol::SerialMCU<Objects...>,
         public Thread<FPGAType> {
             public:
@@ -59,6 +60,7 @@ namespace SOS {
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
             SOS::Protocol::Serial<Objects...>(),
             Thread<FPGAType>() {}
+            private:
             virtual bool handshake() final {
                 if (!Thread<FPGAType>::_foreign.signal.getAcknowledgeRef().test_and_set()){
                     return true;

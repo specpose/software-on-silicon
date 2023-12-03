@@ -7,5 +7,5 @@ int main () {
         std::this_thread::yield();
     }
     //host._child.stop();
-    host.stop();
+    //host.stop();
 }
