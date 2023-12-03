@@ -27,6 +27,8 @@ namespace SOS {
             std::size_t obj_size = 0;
             bool readLock = false;//serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
             bool synced = true;//subcontroller transfer checks for synced
+            int rx_counter = 0;//DEBUG
+            int tx_counter = 0;//DEBUG
         };
         template<unsigned int N> struct DescriptorHelper : public std::array<DMADescriptor,N> {
             public:
@@ -114,6 +116,7 @@ namespace SOS {
                             descriptors[readDestination].readLock=false;
                             receive_lock=false;
                             //giving a read confirmation would require bidirectionalcontroller
+                            descriptors[readDestination].rx_counter++;//DEBUG
                         } else {
                             for(std::size_t i=0;i<3;i++){
                                 reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
@@ -127,6 +130,7 @@ namespace SOS {
                 if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
+                        descriptors[writeOrigin].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<descriptors.size()&& !gotOne;i++){
@@ -168,6 +172,7 @@ namespace SOS {
                             descriptors[writeOrigin].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
+                            //std::cout<<typeid(*this).name();
                             //std::cout<<"$";
                         }
                         write(63);//'?' empty write
