@@ -26,7 +26,9 @@ namespace SOS {
             void* obj = nullptr;
             std::size_t obj_size = 0;
             bool readLock = false;//serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
-            bool synced = true;//subcontroller write checks for synced
+            bool synced = true;//subcontroller transfer checks for synced
+            int rx_counter = 0;//DEBUG
+            int tx_counter = 0;//DEBUG
         };
         template<unsigned int N> struct DescriptorHelper : public std::array<DMADescriptor,N> {
             public:
@@ -93,7 +95,7 @@ namespace SOS {
                                     receive_lock=true;
                                     descriptors[j].readLock=true;
                                     readDestination = id;
-                                    std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
+                                    //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
                                     readDestinationPos = 0;
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
@@ -114,6 +116,7 @@ namespace SOS {
                             descriptors[readDestination].readLock=false;
                             receive_lock=false;
                             //giving a read confirmation would require bidirectionalcontroller
+                            descriptors[readDestination].rx_counter++;//DEBUG
                         } else {
                             for(std::size_t i=0;i<3;i++){
                                 reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++]=read3bytes[i];
@@ -127,6 +130,7 @@ namespace SOS {
                 if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
+                        descriptors[writeOrigin].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<descriptors.size()&& !gotOne;i++){
@@ -138,7 +142,7 @@ namespace SOS {
                                 write_bits(id);
                                 std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin);//DANGER: overflow check
                                 id = id ^ obj_id;
-                                std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
+                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 handshake_ack();
                                 gotOne=true;
@@ -168,7 +172,8 @@ namespace SOS {
                             descriptors[writeOrigin].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
-                            std::cout<<"$";
+                            //std::cout<<typeid(*this).name();
+                            //std::cout<<"$";
                         }
                         write(63);//'?' empty write
                         handshake_ack();
@@ -177,10 +182,10 @@ namespace SOS {
                 }
             }
             unsigned int writeCount = 0;//write3plus1
-            std::size_t writeOrigin = 0;//HARDCODED: objects[0]
+            std::size_t writeOrigin = 0;
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0;//read4minus1
-            std::size_t readDestination = 0;//HARDCODED: objects[0]
+            std::size_t readDestination = 0;
             std::size_t readDestinationPos = 0;
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
