@@ -240,9 +240,10 @@ namespace SOS {
             }
             std::array<unsigned char,3> read_flush(){
                 std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(readAssembly[0]));//wrong bit-order
-                result[0] = static_cast<unsigned char>((readAssembly >> 16).to_ulong());
-                result[1] = static_cast<unsigned char>(((readAssembly << 8)>> 16).to_ulong());
-                result[2] = static_cast<unsigned char>(((readAssembly << 16) >> 16).to_ulong());
+                //result[0] = static_cast<unsigned char>((readAssembly >> 16).to_ulong());
+                //result[1] = static_cast<unsigned char>(((readAssembly << 8)>> 16).to_ulong());
+                //result[2] = static_cast<unsigned char>(((readAssembly << 16) >> 16).to_ulong());
+                bitsetToBytearray<3,24>(&result[0],readAssembly);
                 readAssembly.reset();
                 return result;
             }
