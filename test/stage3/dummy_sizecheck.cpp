@@ -2,7 +2,10 @@
 #include "software-on-silicon/EventLoop.hpp"
 #include <limits>
 #include "software-on-silicon/error.hpp"
-#include "software-on-silicon/serial_helpers.hpp"
+#include "software-on-silicon/Serial.hpp"
+
+using namespace SOS::Protocol;
+
 struct MaximalSymbolRate {
     MaximalSymbolRate(){
         unsigned long number = 8388607;
@@ -15,7 +18,7 @@ struct MaximalSymbolRate {
         StatusAndNumber[1] = static_cast<unsigned char>(byteOne.to_ulong());
         auto byteTwo = ((combined_bits << (3-1)*8) >> (3-1)*8);
         StatusAndNumber[2] = static_cast<unsigned char>(byteTwo.to_ulong());//little endian*/
-        bitsetToBytearray<sizeof(StatusAndNumber)>(StatusAndNumber,combined_bits);
+        bitsetToBytearray(StatusAndNumber,combined_bits);
         //std::cout<<"bytes: "<<byteZero.to_string()<<", "<<byteOne.to_string()<<", "<<byteTwo.to_string()<<std::endl;
     }
     bool mcu_owned(){
@@ -26,11 +29,11 @@ struct MaximalSymbolRate {
     }
     unsigned int getNumber(){
         std::bitset<24> combined_bits;
-        bytearrayToBitset<3>(combined_bits,StatusAndNumber);
+        bytearrayToBitset(combined_bits,StatusAndNumber);
         auto stripped = ((combined_bits << 1) >> 1);
         return stripped.to_ulong();
     }
-    unsigned char StatusAndNumber[3];//23 bits number: unsigned maxInt 8388607
+    std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
 int main () {
     unsigned int maxInt = 0;
