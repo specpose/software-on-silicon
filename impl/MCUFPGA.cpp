@@ -1,7 +1,6 @@
 #include <iostream>
 #include "software-on-silicon/error.hpp"
-#include "software-on-silicon/loop_helpers.hpp"
-#include "software-on-silicon/serial_helpers.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define DMA std::array<unsigned char,999>//1001%3=2
 DMA mcu_to_fpga_buffer;
@@ -36,14 +35,14 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
             }
         }
         descriptors[0].synced=false;
-        boot_time = high_resolution_clock::now();
+        boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
     ~FPGA() {
         //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
-        kill_time = high_resolution_clock::now();
+        kill_time = std::chrono::high_resolution_clock::now();
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
         dump_objects(objects,descriptors,boot_time,kill_time);
     }
@@ -54,8 +53,8 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
 
-    std::chrono::time_point<high_resolution_clock> boot_time;
-    std::chrono::time_point<high_resolution_clock> kill_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
 class MCUThread : public SOS::Behavior::SerialMCUThread<DMA,DMA> {
@@ -64,14 +63,14 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<DMA,DMA> {
     SOS::Behavior::SerialMCUThread<DMA,DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
-        boot_time = high_resolution_clock::now();
+        boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
     ~MCUThread() {
         //Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
-        kill_time = high_resolution_clock::now();
+        kill_time = std::chrono::high_resolution_clock::now();
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
         dump_objects(objects,descriptors,boot_time,kill_time);
     }
@@ -82,7 +81,7 @@ class MCUThread : public SOS::Behavior::SerialMCUThread<DMA,DMA> {
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
 
-    std::chrono::time_point<high_resolution_clock> boot_time;
-    std::chrono::time_point<high_resolution_clock> kill_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
