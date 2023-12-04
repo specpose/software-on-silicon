@@ -1,5 +1,4 @@
 #include "MemoryController.cpp"
-#include <iostream>
 
 class Functor {
     public:
