@@ -35,17 +35,14 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        template<typename MemoryControllerType> struct BlockerBus{
-            using signal_type = SOS::MemoryView::Notify;
+        template<typename MemoryControllerType> struct BlockerBus : public SOS::MemoryView::BusNotifier {
             using _arithmetic_type = typename MemoryControllerType::iterator;
-            using cables_type = std::tuple< >;
             using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
             //tuple requires copy constructor for any tuple that isn't default constructed
             const_cables(
             std::tuple< MemoryControllerBufferSize<_arithmetic_type> >{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
             ){}
-            signal_type signal;
             cables_type cables;
             const_cables_type const_cables;
         };
