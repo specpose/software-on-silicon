@@ -25,13 +25,13 @@ template<typename S> class Thread : private _Thread<S> {
     Thread() {}
     virtual ~Thread() {};
 };*/
-template<typename S, typename PassthruBusType, typename... Others> class PassthruThread : private _Thread<S> {
+template<typename S, typename... Others> class PassthruThread : private _Thread<S> {
     public:
     //using subcontroller_type = S;
-    PassthruThread(typename _Thread<S>::subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) :
-     _Thread<S>(), _foreign(passThru), _child(typename _Thread<S>::subcontroller_type{blocker, _foreign, args...}) {}
+    PassthruThread(typename _Thread<S>::subcontroller_type::bus_type& blocker, Others&... args) :
+     _Thread<S>(), _foreign(blocker), _child(typename _Thread<S>::subcontroller_type{_foreign, args...}) {}
     protected:
-    PassthruBusType& _foreign;
+    typename _Thread<S>::subcontroller_type::bus_type& _foreign;
     typename _Thread<S>::subcontroller_type _child;
 };
 
