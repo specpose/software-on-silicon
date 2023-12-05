@@ -43,7 +43,6 @@ namespace SOS {
             const_cables(
             std::tuple< MemoryControllerBufferSize<_arithmetic_type> >{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
             ){}
-            cables_type cables;
             const_cables_type const_cables;
         };
     }
