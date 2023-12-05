@@ -47,7 +47,6 @@ namespace SOS {
                 std::get<0>(cables).getBKEndRef().store(start);
             }
             cables_type cables;
-            const_cables_type const_cables;
         };
         template<typename T> class ARAChannel {
             public:
