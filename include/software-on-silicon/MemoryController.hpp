@@ -39,16 +39,13 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        template<typename MemoryControllerType> struct BlockerBus{
-            using signal_type = SOS::MemoryView::HandShake;
+        template<typename MemoryControllerType> struct BlockerBus : public SOS::MemoryView::BusShaker{
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
-            using const_cables_type = std::tuple< >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
                 std::get<0>(cables).getBKStartRef().store(start);
                 std::get<0>(cables).getBKEndRef().store(start);
             }
-            signal_type signal;
             cables_type cables;
             const_cables_type const_cables;
         };
