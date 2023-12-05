@@ -50,28 +50,28 @@ namespace SOS {
         template<typename S, typename... Others> class PassthruSimpleController : protected Controller<SOS::MemoryView::Notify,S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
-            PassthruSimpleController(typename bus_type::signal_type& signal, typename subcontroller_type::bus_type& passThru, Others&... args) :
+            //using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
+            PassthruSimpleController(typename bus_type::signal_type& signal, typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::Notify,S>(signal),
             _foreign(passThru),
-            _child(subcontroller_type{_foreign, args...})
+            _child(typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type{_foreign, args...})
             {}
             protected:
-            typename subcontroller_type::bus_type& _foreign;
-            S _child;
+            typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type::bus_type& _foreign;
+            typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type _child;
         };
         template<typename S, typename... Others> class PassthruEventController : private Controller<SOS::MemoryView::HandShake,S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
-            PassthruEventController(typename bus_type::signal_type& signal, typename subcontroller_type::bus_type& passThru, Others&... args) :
+            //using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
+            PassthruEventController(typename bus_type::signal_type& signal, typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::HandShake,S>(signal),
             _foreign(passThru),
-            _child(subcontroller_type{_foreign, args...})
+            _child(typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type{_foreign, args...})
             {}
             protected:
-            typename subcontroller_type::bus_type& _foreign;
-            S _child;
+            typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type::bus_type& _foreign;
+            typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type _child;
         };
         template<typename ReadBufferType, typename MemoryControllerType> class ReadTask {
             public:
@@ -88,13 +88,13 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::EventController<SOS::Behavior::DummyController>,
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::DummyController<SOS::MemoryView::HandShake>,
         public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
             Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::EventController<SOS::Behavior::DummyController>(outside.signal),
+            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(outside.signal),
             SOS::Behavior::Loop(),
             SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)) {}
             ~Reader(){}

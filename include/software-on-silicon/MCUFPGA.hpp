@@ -26,13 +26,13 @@ namespace SOS {
         template<typename... Objects> class SerialFPGAController :
         private SOS::Protocol::SimulationBuffers,
         public SOS::Protocol::SerialFPGA<Objects...>,
-        public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
+        public SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             SerialFPGAController(bus_type& myBus,const DMA& in_buffer, DMA& out_buffer) :
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
             SOS::Protocol::Serial<Objects...>(),
-            SOS::Behavior::EventController<SOS::Behavior::DummyController>::EventController(myBus.signal) {
+            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(myBus.signal) {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
                 _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
@@ -54,13 +54,13 @@ namespace SOS {
         template<typename... Objects> class SerialMCUThread :
         private SOS::Protocol::SimulationBuffers,
         public SOS::Protocol::SerialMCU<Objects...>,
-        public SOS::Behavior::EventController<SOS::Behavior::DummyController> {
+        public SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             SerialMCUThread(bus_type& myBus,const DMA& in_buffer, DMA& out_buffer) :
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
             SOS::Protocol::Serial<Objects...>(),
-            SOS::Behavior::EventController<SOS::Behavior::DummyController>(myBus.signal) {}
+            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(myBus.signal) {}
             private:
             virtual bool handshake() final {
                 if (!_intrinsic.getAcknowledgeRef().test_and_set()){
