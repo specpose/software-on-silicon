@@ -6,20 +6,10 @@
 
 using namespace SOS::Protocol;
 
-struct MaximalSymbolRate {
-    MaximalSymbolRate(){
-        unsigned long number = 8388607;
-        std::bitset<24> combined_bits{number};
-        combined_bits[23]=true;//mcu_owned        
-        //StatusAndNumber = reinterpret_cast<decltype(StatusAndNumber)>(combined_bits.to_ullong());
-        /*auto byteZero = ((combined_bits << (3-3)*8) >> (3-1)*8);
-        StatusAndNumber[0] = static_cast<unsigned char>(byteZero.to_ulong());//big end
-        auto byteOne =((combined_bits << (3-2)*8) >> (3-1)*8);
-        StatusAndNumber[1] = static_cast<unsigned char>(byteOne.to_ulong());
-        auto byteTwo = ((combined_bits << (3-1)*8) >> (3-1)*8);
-        StatusAndNumber[2] = static_cast<unsigned char>(byteTwo.to_ulong());//little endian*/
-        bitsetToBytearray(StatusAndNumber,combined_bits);
-        //std::cout<<"bytes: "<<byteZero.to_string()<<", "<<byteOne.to_string()<<", "<<byteTwo.to_string()<<std::endl;
+struct SymbolRateCounter {
+    SymbolRateCounter(){
+        setNumber(0);
+        set_mcu_owned();
     }
     bool mcu_owned(){
         std::bitset<8> first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
@@ -27,18 +17,36 @@ struct MaximalSymbolRate {
         bool result = first_byte[7];//bigend => numbering is right to left, Stroustrup 34.2.2
         return result;
     }
+    void set_mcu_owned(bool state=true){
+        std::bitset<8> save_first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
+        save_first_byte[7]= state;
+        StatusAndNumber[0]=static_cast<decltype(StatusAndNumber)::value_type>(save_first_byte.to_ulong());
+    }
     unsigned int getNumber(){
         std::bitset<24> combined_bits;
         bytearrayToBitset(combined_bits,StatusAndNumber);
         auto stripped = ((combined_bits << 1) >> 1);
         return stripped.to_ulong();
     }
+    void setNumber(unsigned int number){
+        bool save_ownership = mcu_owned();
+        std::bitset<24> combined_bits{number};
+        combined_bits[23]=save_ownership;//mcu_owned        
+        bitsetToBytearray(StatusAndNumber,combined_bits);
+    }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
 int main () {
+    std::cout<<std::numeric_limits<std::bitset<23>>::max()<<std::endl;
     unsigned int maxInt = 0;
-    auto a = MaximalSymbolRate();
-    std::cout<<"Size of MaximalSymbolRate "<<sizeof(a)<<std::endl;
+    auto a = SymbolRateCounter();
+    a.setNumber(8388607);
+    std::cout<<"Size of SymbolRateCounter "<<sizeof(a)<<std::endl;
     std::cout<<"mcu_owned: "<<a.mcu_owned()<<std::endl;
+    std::cout<<"number: "<<a.getNumber()<<std::endl;
+    a.set_mcu_owned(false);
+    std::cout<<"mcu_owned before setNumber: "<<a.mcu_owned()<<std::endl;
+    a.setNumber(8388606);
+    std::cout<<"mcu_owned after setNumber: "<<a.mcu_owned()<<std::endl;
     std::cout<<"number: "<<a.getNumber()<<std::endl;
 }

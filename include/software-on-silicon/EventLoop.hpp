@@ -151,7 +151,7 @@ namespace SOS{
             Controller<SOS::MemoryView::Notify, DummyController>(signal)
             {}
         };*/
-        template<typename S, typename... Others> class EventController : private Controller<SOS::MemoryView::HandShake, S> {
+        template<typename S, typename... Others> class EventController : protected Controller<SOS::MemoryView::HandShake, S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             //using subcontroller_type = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type;
