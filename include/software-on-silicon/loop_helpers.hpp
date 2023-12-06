@@ -4,27 +4,35 @@
 using namespace std::chrono;
 
 //Loops always have at least one signal for termination acknowledge if used for single run
-template<typename S> class Thread {
+template<typename T, typename S = typename std::enable_if<
+        std::is_base_of< SOS::Behavior::subcontroller_tag,T >::value,T
+        >::type > class _Thread {
     public:
     using subcontroller_type = S;
-    Thread() : _child(subcontroller_type{_foreign}) {}
-    protected:
-    typename subcontroller_type::bus_type _foreign = typename subcontroller_type::bus_type{};
-    S _child;
+    _Thread() {}
 };
-template<> class Thread<SOS::Behavior::DummyController> {
+template<typename S> class Thread : private _Thread<S> {
+    public:
+    //using subcontroller_type = S;
+    Thread() : _Thread<S>(), _child(typename _Thread<S>::subcontroller_type{_foreign}) {}
+    protected:
+    typename _Thread<S>::subcontroller_type::bus_type _foreign = typename _Thread<S>::subcontroller_type::bus_type{};
+    typename _Thread<S>::subcontroller_type _child;
+};
+/*template<> class Thread<SOS::Behavior::DummyController> {
     public:
     using subcontroller_type = SOS::Behavior::DummyController;
     Thread() {}
     virtual ~Thread() {};
-};
-template<typename S, typename PassthruBusType, typename... Others> class PassthruThread {
+};*/
+template<typename S, typename... Others> class PassthruThread : private _Thread<S> {
     public:
-    using subcontroller_type = S;
-    PassthruThread(typename subcontroller_type::bus_type& blocker, PassthruBusType& passThru, Others&... args) : _foreign(passThru), _child(subcontroller_type{blocker, _foreign, args...}) {}
+    //using subcontroller_type = S;
+    PassthruThread(typename _Thread<S>::subcontroller_type::bus_type& blocker, Others&... args) :
+     _Thread<S>(), _foreign(blocker), _child(typename _Thread<S>::subcontroller_type{_foreign, args...}) {}
     protected:
-    PassthruBusType& _foreign;
-    S _child;
+    typename _Thread<S>::subcontroller_type::bus_type& _foreign;
+    typename _Thread<S>::subcontroller_type _child;
 };
 
 //error: non-type template parameters of class type only available with ‘-std=c++20’ or ‘-std=gnu++20’
@@ -34,10 +42,10 @@ template<typename DurationType,
         typename PeriodType = typename std::enable_if<
             true, typename DurationType::duration
             >::type
-        > class Timer : private SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
+        > class Timer : private SOS::Behavior::DummyController<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
-    SOS::Behavior::Controller<SOS::MemoryView::BusShaker::signal_type>(bussignal),
+    SOS::Behavior::DummyController<SOS::MemoryView::BusShaker::signal_type>(bussignal),
     SOS::Behavior::Loop() {
         _thread = start(this);
     }

@@ -6,10 +6,11 @@ using namespace SOS::MemoryView;
 using namespace std::chrono;
 
 //needs a bus because it is a subcontroller
-class SubControllerImpl : public SOS::Behavior::SimpleController<SOS::Behavior::DummyController>, public SOS::Behavior::Loop {
+class SubControllerImpl : public SOS::Behavior::DummyController<SOS::MemoryView::Notify>, public SOS::Behavior::Loop {
     public:
-    SubControllerImpl(BusNotifier& bus) :
-    SOS::Behavior::SimpleController<SOS::Behavior::DummyController>(bus.signal),
+    using bus_type = SOS::MemoryView::BusNotifier;
+    SubControllerImpl(bus_type& bus) :
+    SOS::Behavior::DummyController<SOS::MemoryView::Notify>(bus.signal),
     SOS::Behavior::Loop() {
         std::cout<<"SubController running for 10s..."<<std::endl;
         _thread=start(this);
