@@ -95,8 +95,8 @@ namespace SOS {
             Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(outside.signal),
-            SOS::Behavior::Loop(),
-            SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)) {}
+            SOS::Behavior::Loop()
+            {}
             ~Reader(){}
             void event_loop() final {
                 while(Loop::stop_token.getUpdatedRef().test_and_set()){
