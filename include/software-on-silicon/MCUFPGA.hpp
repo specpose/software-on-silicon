@@ -23,27 +23,24 @@ namespace SOS {
         };
     }
     namespace Behavior{
-        template<typename... Objects> class SerialFPGAController :
-        private SOS::Protocol::SimulationBuffers,
-        public SOS::Protocol::SerialFPGA<Objects...>,
-        public SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
+        template<typename ProcessingHook, typename... Objects> class SimulationFPGA :
+        public virtual SOS::Protocol::Serial<ProcessingHook, Objects...>,
+        private SOS::Protocol::SimulationBuffers {
             public:
-            using bus_type = SOS::MemoryView::BusShaker;
-            SerialFPGAController(bus_type& myBus,const DMA& in_buffer, DMA& out_buffer) :
-            SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
-            SOS::Protocol::Serial<Objects...>(),
-            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(myBus.signal) {
+            SimulationFPGA(const DMA& in_buffer, DMA& out_buffer) :
+            SOS::Protocol::SimulationBuffers(in_buffer,out_buffer)
+            {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
-                _intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
+                SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             private:
             virtual bool handshake() final {
-                if (!_intrinsic.getUpdatedRef().test_and_set()){
+                if (!SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getUpdatedRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {_intrinsic.getAcknowledgeRef().clear();}
+            virtual void handshake_ack() final {SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getAcknowledgeRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::SimulationBuffers::read_byte();
             }
@@ -51,24 +48,21 @@ namespace SOS {
                 SOS::Protocol::SimulationBuffers::write_byte(byte);
             }
         };
-        template<typename... Objects> class SerialMCUThread :
-        private SOS::Protocol::SimulationBuffers,
-        public SOS::Protocol::SerialMCU<Objects...>,
-        public SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
+        template<typename ProcessingHook, typename... Objects> class SimulationMCU :
+        public virtual SOS::Protocol::Serial<ProcessingHook, Objects...>,
+        private SOS::Protocol::SimulationBuffers {
             public:
-            using bus_type = SOS::MemoryView::BusShaker;
-            SerialMCUThread(bus_type& myBus,const DMA& in_buffer, DMA& out_buffer) :
-            SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
-            SOS::Protocol::Serial<Objects...>(),
-            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(myBus.signal) {}
+            SimulationMCU(const DMA& in_buffer, DMA& out_buffer) :
+            SOS::Protocol::SimulationBuffers(in_buffer,out_buffer)
+            {}
             private:
             virtual bool handshake() final {
-                if (!_intrinsic.getAcknowledgeRef().test_and_set()){
+                if (!SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getAcknowledgeRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {_intrinsic.getUpdatedRef().clear();}
+            virtual void handshake_ack() final {SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getUpdatedRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::SimulationBuffers::read_byte();
             }

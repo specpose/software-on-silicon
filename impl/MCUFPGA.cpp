@@ -11,10 +11,14 @@ DMA fpga_to_mcu_buffer;
 
 using namespace SOS::MemoryView;
 
-class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
+class FPGA : private virtual SOS::Protocol::SerialFPGA<SOS::Behavior::SerialProcessingHook, DMA,DMA>,
+public SOS::Behavior::SimulationFPGA<SOS::Behavior::SerialProcessingHook,DMA,DMA> {
     public:
+    using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SerialFPGAController<DMA,DMA>(myBus,mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Behavior::EventController<SOS::Behavior::SerialProcessingHook>(myBus.signal),
+    SOS::Protocol::Serial<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
+    SOS::Behavior::SimulationFPGA<SOS::Behavior::SerialProcessingHook,DMA,DMA>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
@@ -57,10 +61,14 @@ class FPGA : public SOS::Behavior::SerialFPGAController<DMA,DMA> {
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCUThread : public SOS::Behavior::SerialMCUThread<DMA,DMA> {
+class MCUThread : private virtual SOS::Protocol::SerialMCU<SOS::Behavior::SerialProcessingHook, DMA,DMA>,
+public SOS::Behavior::SimulationMCU<SOS::Behavior::SerialProcessingHook,DMA,DMA> {
     public:
+    using bus_type = SOS::MemoryView::BusShaker;
     MCUThread(bus_type& myBus) :
-    SOS::Behavior::SerialMCUThread<DMA,DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+    SOS::Behavior::EventController<SOS::Behavior::SerialProcessingHook>(myBus.signal),
+    SOS::Protocol::Serial<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
+    SOS::Behavior::SimulationMCU<SOS::Behavior::SerialProcessingHook,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
