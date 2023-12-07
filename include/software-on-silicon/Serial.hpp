@@ -323,7 +323,7 @@ namespace SOS {
         };
         template<typename ProcessingHook, typename... Objects> class SerialFPGA : private virtual Serial<ProcessingHook, Objects...> {
             public:
-            //SerialFPGA() : Serial<Objects...>() {}
+            SerialFPGA() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
                 Serial<ProcessingHook, Objects...>::mcu_updated=temp[7];
@@ -361,7 +361,7 @@ namespace SOS {
         };
         template<typename ProcessingHook, typename... Objects> class SerialMCU : private virtual Serial<ProcessingHook, Objects...> {
             public:
-            //SerialMCU() : Serial<Objects...>() {}
+            SerialMCU() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
                 Serial<ProcessingHook, Objects...>::fpga_updated=temp[7];

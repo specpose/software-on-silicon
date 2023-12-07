@@ -17,7 +17,7 @@ public SOS::Behavior::SimulationFPGA<SOS::Behavior::SerialProcessingHook,DMA,DMA
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
     SOS::Behavior::EventController<SOS::Behavior::SerialProcessingHook>(myBus.signal),
-    SOS::Protocol::Serial<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
+    SOS::Protocol::SerialFPGA<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
     SOS::Behavior::SimulationFPGA<SOS::Behavior::SerialProcessingHook,DMA,DMA>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         int writeBlinkCounter = 0;
@@ -67,7 +67,7 @@ public SOS::Behavior::SimulationMCU<SOS::Behavior::SerialProcessingHook,DMA,DMA>
     using bus_type = SOS::MemoryView::BusShaker;
     MCUThread(bus_type& myBus) :
     SOS::Behavior::EventController<SOS::Behavior::SerialProcessingHook>(myBus.signal),
-    SOS::Protocol::Serial<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
+    SOS::Protocol::SerialMCU<SOS::Behavior::SerialProcessingHook, DMA, DMA>(),
     SOS::Behavior::SimulationMCU<SOS::Behavior::SerialProcessingHook,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<1>(objects).fill('-');
         descriptors[1].synced=false;
