@@ -87,13 +87,13 @@ class MCUProcessingSwitch: private CounterTask {
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU received: "<<object_id<<std::endl;
+            std::cout<<"MCU received object id: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"MCU received: "<<object_id<<std::endl;
+            std::cout<<"MCU received object id: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU received: "<<object_id<<std::endl;
+            std::cout<<"MCU received object id: "<<object_id<<std::endl;
             break;
         }
     }
@@ -101,27 +101,51 @@ class MCUProcessingSwitch: private CounterTask {
         auto object_id = _notifier.getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU written: "<<object_id<<std::endl;
+            std::cout<<"MCU written object id: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"MCU written: "<<object_id<<std::endl;
+            std::cout<<"MCU written object id: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU written: "<<object_id<<std::endl;
+            std::cout<<"MCU written object id: "<<object_id<<std::endl;
             break;
         }
     }
     private:
     process_notifier_ct& _notifier;
 };
-template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Behavior::SerialProcessing<ProcessingSwitch> {
+template<typename ProcessingSwitch> class SerialProcessing :
+protected ProcessingSwitch,
+public SOS::Behavior::Loop {
     public:
-    SerialProcessingImpl(typename SOS::Behavior::SerialProcessing<ProcessingSwitch>::bus_type& bus) : SOS::Behavior::SerialProcessing<ProcessingSwitch>(bus) {
+    using bus_type = SOS::MemoryView::SerialProcessNotifier;
+    SerialProcessing(bus_type& bus) :
+    ProcessingSwitch(std::get<0>(bus.const_cables)),
+    SOS::Behavior::Loop() {}
+    virtual void event_loop() = 0;
+};
+template<typename ProcessingSwitch> class SerialProcessingImpl : public SerialProcessing<ProcessingSwitch>,
+protected SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
+    public:
+    SerialProcessingImpl(typename SerialProcessing<ProcessingSwitch>::bus_type& bus) : SerialProcessing<ProcessingSwitch>(bus),
+    SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal) {
         _thread=SOS::Behavior::Loop::start(this);
     }
     ~SerialProcessingImpl(){
-        SOS::Behavior::SerialProcessing<ProcessingSwitch>::stop_token.getUpdatedRef().clear();
+        SerialProcessing<ProcessingSwitch>::stop_token.getUpdatedRef().clear();
         _thread.join();
+    }
+    virtual void event_loop() final {
+        while(SOS::Behavior::Loop::stop_token.getUpdatedRef().test_and_set()){
+            if (!_intrinsic.getAcknowledgeRef().test_and_set()){
+                ProcessingSwitch::write_notify_hook();
+            }
+            if (!_intrinsic.getUpdatedRef().test_and_set()){
+                ProcessingSwitch::read_notify_hook();
+            }
+            std::this_thread::yield();
+        }
+        SOS::Behavior::Loop::stop_token.getAcknowledgeRef().clear();
     }
     private:
     std::thread _thread = std::thread{};

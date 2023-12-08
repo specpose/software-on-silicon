@@ -13,29 +13,6 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename ProcessingSwitch> class SerialProcessing :
-        private ProcessingSwitch,
-        protected SOS::Behavior::DummyController<SOS::MemoryView::HandShake>,
-        public SOS::Behavior::Loop {
-            public:
-            using bus_type = SOS::MemoryView::SerialProcessNotifier;
-            SerialProcessing(bus_type& bus) :
-            ProcessingSwitch(std::get<0>(bus.const_cables)),
-            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal),
-            SOS::Behavior::Loop() {}
-            virtual void event_loop() final {
-                while(stop_token.getUpdatedRef().test_and_set()){
-                    if (!_intrinsic.getAcknowledgeRef().test_and_set()){
-                        ProcessingSwitch::write_notify_hook();
-                    }
-                    if (!_intrinsic.getUpdatedRef().test_and_set()){
-                        ProcessingSwitch::read_notify_hook();
-                    }
-                    std::this_thread::yield();
-                }
-                stop_token.getAcknowledgeRef().clear();
-            }
-        };
     }
     namespace Protocol {
         static std::bitset<8> idleState() {//constexpr
