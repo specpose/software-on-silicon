@@ -40,26 +40,28 @@ struct SymbolRateCounter {
     }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
-class CounterTask {
-    public:
-    CounterTask(){}
-};
 struct ObjectBusImpl : public SOS::MemoryView::ObjectBus<SymbolRateCounter,DMA,DMA>{};
-class FPGAProcessingSwitch : private CounterTask {
+class FPGAProcessingSwitch {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    FPGAProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), CounterTask() {}
+    FPGAProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
+            if (!std::get<0>(_dbus.objects).mcu_owned()){
+                auto n = std::get<0>(_dbus.objects).getNumber();
+                std::get<0>(_dbus.objects).setNumber(++n);
+                std::get<0>(_dbus.objects).set_mcu_owned(true);
+                _dbus.descriptors[0].synced=false;
+            }
             break;
             case 1:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
         }
     }
@@ -67,34 +69,41 @@ class FPGAProcessingSwitch : private CounterTask {
         auto object_id = _notifier.getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
         }
     }
     private:
     process_notifier_ct& _notifier;
+    ObjectBusImpl& _dbus;
 };
-class MCUProcessingSwitch: private CounterTask {
+class MCUProcessingSwitch {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    MCUProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), CounterTask() {}
+    MCUProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
+            if (std::get<0>(_dbus.objects).mcu_owned()){
+                auto n = std::get<0>(_dbus.objects).getNumber();
+                std::get<0>(_dbus.objects).setNumber(++n);
+                std::get<0>(_dbus.objects).set_mcu_owned(false);
+                _dbus.descriptors[0].synced=false;
+            }
             break;
             case 1:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
         }
     }
@@ -102,18 +111,19 @@ class MCUProcessingSwitch: private CounterTask {
         auto object_id = _notifier.getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
         }
     }
     private:
     process_notifier_ct& _notifier;
+    ObjectBusImpl& _dbus;
 };
 template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl> {
     public:
@@ -137,6 +147,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
     SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(),
     SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
+        objectBus.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i=0;i<std::get<1>(objectBus.objects).size();i++){
@@ -164,6 +175,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
         stop_token.getUpdatedRef().clear();
         _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
+        std::cout<<"FPGA counted "<<std::get<0>(objectBus.objects).getNumber()<<std::endl;
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
         dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
@@ -193,6 +205,7 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, O
         stop_token.getUpdatedRef().clear();
         _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
+        std::cout<<"MCU counted "<<std::get<0>(objectBus.objects).getNumber()<<std::endl;
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
         dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
