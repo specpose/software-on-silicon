@@ -13,10 +13,28 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        class SerialProcessingHook : private SOS::Behavior::DummyController<SOS::MemoryView::HandShake>{
+        template<typename ProcessingSwitch> class SerialProcessing :
+        private ProcessingSwitch,
+        protected SOS::Behavior::DummyController<SOS::MemoryView::HandShake>,
+        public SOS::Behavior::Loop {
             public:
             using bus_type = SOS::MemoryView::SerialProcessNotifier;
-            SerialProcessingHook(bus_type& bus) : SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal) {}
+            SerialProcessing(bus_type& bus) :
+            ProcessingSwitch(std::get<0>(bus.const_cables)),
+            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal),
+            SOS::Behavior::Loop() {}
+            virtual void event_loop() final {
+                while(stop_token.getUpdatedRef().test_and_set()){
+                    if (!_intrinsic.getAcknowledgeRef().test_and_set()){
+                        ProcessingSwitch::write_notify_hook();
+                    }
+                    if (!_intrinsic.getUpdatedRef().test_and_set()){
+                        ProcessingSwitch::read_notify_hook();
+                    }
+                    std::this_thread::yield();
+                }
+                stop_token.getAcknowledgeRef().clear();
+            }
         };
     }
     namespace Protocol {
@@ -104,7 +122,6 @@ namespace SOS {
                 while(stop_token.getUpdatedRef().test_and_set()){
                     if (handshake()) {
                         read_hook(read4minus1);
-                        signaling_hook();
                         write_hook(write3plus1);
                     }
                     std::this_thread::yield();
@@ -112,7 +129,7 @@ namespace SOS {
                 stop_token.getAcknowledgeRef().clear();
             }
             protected:
-            virtual void signaling_hook()=0;
+            //virtual void signaling_hook()=0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
