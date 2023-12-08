@@ -13,6 +13,29 @@ namespace SOS {
         };
     }
     namespace Behavior {
+        template<typename ProcessingSwitch, typename DataBus> class SerialProcessing :
+        protected ProcessingSwitch,
+        protected SOS::Behavior::DummyEventController<>,
+        public SOS::Behavior::Loop {
+            public:
+            using bus_type = SOS::MemoryView::SerialProcessNotifier;
+            SerialProcessing(bus_type& bus, DataBus& dbus) :
+            ProcessingSwitch(std::get<0>(bus.const_cables)),
+            SOS::Behavior::DummyEventController<>(bus.signal),
+            SOS::Behavior::Loop() {}
+            void event_loop() {
+                while(stop_token.getUpdatedRef().test_and_set()){
+                    if (!_intrinsic.getAcknowledgeRef().test_and_set()){
+                        ProcessingSwitch::write_notify_hook();
+                    }
+                    if (!_intrinsic.getUpdatedRef().test_and_set()){
+                        ProcessingSwitch::read_notify_hook();
+                    }
+                    std::this_thread::yield();
+                }
+                stop_token.getAcknowledgeRef().clear();
+            }
+        };
     }
     namespace Protocol {
         static std::bitset<8> idleState() {//constexpr
@@ -87,11 +110,22 @@ namespace SOS {
                 dest = dest ^ digit;
             }
         };
-        template<typename ProcessingHook,typename... Objects> class Serial : public SOS::Behavior::Loop,
-        public virtual SOS::Behavior::EventController<ProcessingHook, std::tuple<Objects...>> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+    }
+    namespace MemoryView {
+        template<typename... Objects> struct ObjectBus : public SOS::MemoryView::Bus {
+            ObjectBus() {
+                std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
+            }
+            std::tuple<Objects...> objects{};
+            SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+        };
+    }
+    namespace Protocol {
+        template<typename ProcessingHook, typename DataBus> class Serial : public SOS::Behavior::Loop,
+        public virtual SOS::Behavior::EventController<ProcessingHook, DataBus> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
             Serial() : SOS::Behavior::Loop() {
-                std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
+                //std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
             }
             virtual void event_loop() final {
                 int read4minus1 = 0;
@@ -115,15 +149,16 @@ namespace SOS {
             virtual bool receive_acknowledge() = 0;//4
             virtual unsigned char read_byte()=0;
             virtual void write_byte(unsigned char)=0;
-            std::tuple<Objects...> objects{};
-            DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            DataBus objectBus{};
+            //std::tuple<Objects...> objects{};
+            //DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
-            std::atomic<std::size_t>& readDestination = std::get<0>(SOS::Behavior::EventController<ProcessingHook, std::tuple<Objects...>>::_foreign.const_cables).getReadDestinationRef();
-            std::atomic<std::size_t>& writeOrigin = std::get<0>(SOS::Behavior::EventController<ProcessingHook, std::tuple<Objects...>>::_foreign.const_cables).getWriteOriginRef();
+            std::atomic<std::size_t>& readDestination = std::get<0>(SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
+            std::atomic<std::size_t>& writeOrigin = std::get<0>(SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int& read4minus1){
@@ -136,10 +171,10 @@ namespace SOS {
                         //check for "10111111"==idle==63
                         if (obj_id!=((idleState()<<2)>>2)){
                             auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                            for (std::size_t j=0;j<descriptors.size();j++){
-                                if (descriptors[j].synced==true && descriptors[j].id==id){
+                            for (std::size_t j=0;j<objectBus.descriptors.size();j++){
+                                if (objectBus.descriptors[j].synced==true && objectBus.descriptors[j].id==id){
                                     receive_lock=true;
-                                    descriptors[j].readLock=true;
+                                    objectBus.descriptors[j].readLock=true;
                                     readDestination.store(id);
                                     //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
                                     readDestinationPos = 0;
@@ -158,15 +193,15 @@ namespace SOS {
                         read4minus1++;
                     } else if (read4minus1==3){
                         auto read3bytes = read_flush();
-                        if (readDestinationPos==descriptors[readDestination.load()].obj_size){
-                            descriptors[readDestination.load()].readLock=false;
+                        if (readDestinationPos==objectBus.descriptors[readDestination.load()].obj_size){
+                            objectBus.descriptors[readDestination.load()].readLock=false;
                             receive_lock=false;
-                            SOS::Behavior::EventController<ProcessingHook, std::tuple<Objects...>>::_foreign.signal.getUpdatedRef().clear();
+                            SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.signal.getUpdatedRef().clear();
                             //giving a read confirmation would require bidirectionalcontroller
-                            descriptors[readDestination.load()].rx_counter++;//DEBUG
+                            objectBus.descriptors[readDestination.load()].rx_counter++;//DEBUG
                         } else {
                             for(std::size_t i=0;i<3;i++){
-                                reinterpret_cast<char*>(descriptors[readDestination.load()].obj)[readDestinationPos++]=read3bytes[i];
+                                reinterpret_cast<char*>(objectBus.descriptors[readDestination.load()].obj)[readDestinationPos++]=read3bytes[i];
                             }
                         }
                         read4minus1 = 0;
@@ -177,14 +212,14 @@ namespace SOS {
                 if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
-                        SOS::Behavior::EventController<ProcessingHook, std::tuple<Objects...>>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
-                        descriptors[writeOrigin.load()].tx_counter++;//DEBUG
+                        SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
+                        objectBus.descriptors[writeOrigin.load()].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
-                        for (std::size_t i=0;i<descriptors.size()&& !gotOne;i++){
-                            if (!descriptors[i].readLock && !descriptors[i].synced){
+                        for (std::size_t i=0;i<objectBus.descriptors.size()&& !gotOne;i++){
+                            if (!objectBus.descriptors[i].readLock && !objectBus.descriptors[i].synced){
                                 send_request();
-                                writeOrigin.store(descriptors[i].id);
+                                writeOrigin.store(objectBus.descriptors[i].id);
                                 writeOriginPos=0;
                                 std::bitset<8> id;
                                 write_bits(id);
@@ -211,13 +246,13 @@ namespace SOS {
                 if (send_lock) {
                     if (write3plus1<3){
                         unsigned char data;
-                        data = reinterpret_cast<char*>(descriptors[writeOrigin.load()].obj)[writeOriginPos++];
+                        data = reinterpret_cast<char*>(objectBus.descriptors[writeOrigin.load()].obj)[writeOriginPos++];
                         write(data);
                         handshake_ack();
                         write3plus1++;
                     } else if (write3plus1==3){
-                        if (writeOriginPos==descriptors[writeOrigin.load()].obj_size){
-                            descriptors[writeOrigin.load()].synced=true;
+                        if (writeOriginPos==objectBus.descriptors[writeOrigin.load()].obj_size){
+                            objectBus.descriptors[writeOrigin.load()].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
                             //std::cout<<typeid(*this).name();
@@ -315,80 +350,80 @@ namespace SOS {
                 readAssembly = readAssembly ^ temp;//overlay
             }
         };
-        template<typename ProcessingHook, typename... Objects> class SerialFPGA : private virtual Serial<ProcessingHook, Objects...> {
+        template<typename ProcessingHook, typename DataBus> class SerialFPGA : private virtual Serial<ProcessingHook, DataBus> {
             public:
             SerialFPGA() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
-                Serial<ProcessingHook, Objects...>::mcu_updated=temp[7];
-                Serial<ProcessingHook, Objects...>::fpga_acknowledge=temp[6];
-                Serial<ProcessingHook, Objects...>::mcu_acknowledge=false;
+                Serial<ProcessingHook, DataBus>::mcu_updated=temp[7];
+                Serial<ProcessingHook, DataBus>::fpga_acknowledge=temp[6];
+                Serial<ProcessingHook, DataBus>::mcu_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (Serial<ProcessingHook, Objects...>::fpga_updated)
+                if (Serial<ProcessingHook, DataBus>::fpga_updated)
                     out.set(7,1);
                 else
                     out.set(7,0);
-                if (Serial<ProcessingHook, Objects...>::mcu_acknowledge)
+                if (Serial<ProcessingHook, DataBus>::mcu_acknowledge)
                     out.set(6,1);
                 else
                     out.set(6,0);
             }
             virtual void send_acknowledge() final {
-                if (Serial<ProcessingHook, Objects...>::mcu_updated){
-                    Serial<ProcessingHook, Objects...>::mcu_acknowledge=true;
+                if (Serial<ProcessingHook, DataBus>::mcu_updated){
+                    Serial<ProcessingHook, DataBus>::mcu_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<ProcessingHook, Objects...>::fpga_updated=true;
+                Serial<ProcessingHook, DataBus>::fpga_updated=true;
             }
             virtual bool receive_acknowledge() final {
-                if (Serial<ProcessingHook, Objects...>::fpga_acknowledge){
-                    Serial<ProcessingHook, Objects...>::fpga_updated=false;
+                if (Serial<ProcessingHook, DataBus>::fpga_acknowledge){
+                    Serial<ProcessingHook, DataBus>::fpga_updated=false;
                     return true;
                 }
                 return false;
             }
             virtual bool receive_request() final {
-                return Serial<ProcessingHook, Objects...>::mcu_updated;
+                return Serial<ProcessingHook, DataBus>::mcu_updated;
             }
         };
-        template<typename ProcessingHook, typename... Objects> class SerialMCU : private virtual Serial<ProcessingHook, Objects...> {
+        template<typename ProcessingHook, typename DataBus> class SerialMCU : private virtual Serial<ProcessingHook, DataBus> {
             public:
             SerialMCU() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
-                Serial<ProcessingHook, Objects...>::fpga_updated=temp[7];
-                Serial<ProcessingHook, Objects...>::mcu_acknowledge=temp[6];
-                Serial<ProcessingHook, Objects...>::fpga_acknowledge=false;
+                Serial<ProcessingHook, DataBus>::fpga_updated=temp[7];
+                Serial<ProcessingHook, DataBus>::mcu_acknowledge=temp[6];
+                Serial<ProcessingHook, DataBus>::fpga_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (Serial<ProcessingHook, Objects...>::mcu_updated)
+                if (Serial<ProcessingHook, DataBus>::mcu_updated)
                     out.set(7,1);
                 else
                     out.set(7,0);
-                if (Serial<ProcessingHook, Objects...>::fpga_acknowledge)
+                if (Serial<ProcessingHook, DataBus>::fpga_acknowledge)
                     out.set(6,1);
                 else
                     out.set(6,0);
             }
             virtual void send_acknowledge() final {
-                if (Serial<ProcessingHook, Objects...>::fpga_updated){
-                    Serial<ProcessingHook, Objects...>::fpga_acknowledge=true;
+                if (Serial<ProcessingHook, DataBus>::fpga_updated){
+                    Serial<ProcessingHook, DataBus>::fpga_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<ProcessingHook, Objects...>::mcu_updated=true;
+                Serial<ProcessingHook, DataBus>::mcu_updated=true;
             }
             virtual bool receive_acknowledge() final {
-                if (Serial<ProcessingHook, Objects...>::mcu_acknowledge){
-                    Serial<ProcessingHook, Objects...>::mcu_updated=false;
+                if (Serial<ProcessingHook, DataBus>::mcu_acknowledge){
+                    Serial<ProcessingHook, DataBus>::mcu_updated=false;
                     return true;
                 }
                 return false;
             }
             virtual bool receive_request() final {
-                return Serial<ProcessingHook, Objects...>::fpga_updated;
+                return Serial<ProcessingHook, DataBus>::fpga_updated;
             }
         };
     }
