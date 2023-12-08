@@ -44,10 +44,11 @@ class CounterTask {
     public:
     CounterTask(){}
 };
+struct ObjectBusImpl : public SOS::MemoryView::ObjectBus<SymbolRateCounter,DMA,DMA>{};
 class FPGAProcessingSwitch : private CounterTask {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    FPGAProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
+    FPGAProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), CounterTask() {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
@@ -82,7 +83,7 @@ class FPGAProcessingSwitch : private CounterTask {
 class MCUProcessingSwitch: private CounterTask {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    MCUProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
+    MCUProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), CounterTask() {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
@@ -114,7 +115,6 @@ class MCUProcessingSwitch: private CounterTask {
     private:
     process_notifier_ct& _notifier;
 };
-struct ObjectBusImpl : public SOS::MemoryView::ObjectBus<SymbolRateCounter,DMA,DMA>{};
 template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl> {
     public:
     SerialProcessingImpl(typename SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl>::bus_type& bus, ObjectBusImpl& dbus) :

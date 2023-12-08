@@ -20,7 +20,7 @@ namespace SOS {
             public:
             using bus_type = SOS::MemoryView::SerialProcessNotifier;
             SerialProcessing(bus_type& bus, DataBus& dbus) :
-            ProcessingSwitch(std::get<0>(bus.const_cables)),
+            ProcessingSwitch(std::get<0>(bus.const_cables), dbus),
             SOS::Behavior::DummyEventController<>(bus.signal),
             SOS::Behavior::Loop() {}
             void event_loop() {
