@@ -10,14 +10,44 @@ DMA fpga_to_mcu_buffer;
 #include <limits>
 
 using namespace SOS::MemoryView;
+struct SymbolRateCounter {
+    SymbolRateCounter(){
+        setNumber(0);
+        set_mcu_owned();
+    }
+    bool mcu_owned(){
+        std::bitset<8> first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
+        first_byte = (first_byte >> 7) << 7;
+        bool result = first_byte[7];//bigend => numbering is right to left, Stroustrup 34.2.2
+        return result;
+    }
+    void set_mcu_owned(bool state=true){
+        std::bitset<8> save_first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
+        save_first_byte[7]= state;
+        StatusAndNumber[0]=static_cast<decltype(StatusAndNumber)::value_type>(save_first_byte.to_ulong());
+    }
+    unsigned int getNumber(){
+        std::bitset<24> combined_bits;
+        SOS::Protocol::bytearrayToBitset(combined_bits,StatusAndNumber);
+        auto stripped = ((combined_bits << 1) >> 1);
+        return stripped.to_ulong();
+    }
+    void setNumber(unsigned int number){
+        bool save_ownership = mcu_owned();
+        std::bitset<24> combined_bits{number};
+        combined_bits[23]=save_ownership;//mcu_owned        
+        SOS::Protocol::bitsetToBytearray(StatusAndNumber,combined_bits);
+    }
+    std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
+};
 class CounterTask {
     public:
-    //using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::const_cables_type>::type;
+    CounterTask(){}
 };
-class FPGAProcessingSwitch {
+class FPGAProcessingSwitch : private CounterTask {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    FPGAProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier) {}
+    FPGAProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
@@ -49,10 +79,10 @@ class FPGAProcessingSwitch {
     private:
     process_notifier_ct& _notifier;
 };
-class MCUProcessingSwitch {
+class MCUProcessingSwitch: private CounterTask {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    MCUProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier) {}
+    MCUProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
@@ -96,24 +126,24 @@ template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Beh
     private:
     std::thread _thread = std::thread{};
 };
-class FPGA : private virtual SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, DMA,DMA>,
-public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,DMA,DMA> {
+class FPGA : private virtual SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>,
+public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
     SOS::Behavior::EventController<SerialProcessingImpl<FPGAProcessingSwitch>>(myBus.signal),
-    SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, DMA, DMA>(),
-    SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,DMA,DMA>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>(),
+    SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
-        for (std::size_t i=0;i<std::get<0>(objects).size();i++){
+        for (std::size_t i=0;i<std::get<1>(objects).size();i++){
             DMA::value_type data;
             if (writeBlink)
                 data = 42;//'*'
             else
                 data = 95;//'_'
-            std::get<0>(objects)[i]=data;
+            std::get<1>(objects)[i]=data;
             writeBlinkCounter++;
             if (writeBlink && writeBlinkCounter==333){
                 writeBlink = false;
@@ -123,7 +153,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
                 writeBlinkCounter=0;
             }
         }
-        descriptors[0].synced=false;
+        descriptors[1].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
@@ -143,16 +173,16 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCUThread : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, DMA,DMA>,
-public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>,DMA,DMA> {
+class MCUThread : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA>,
+public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     MCUThread(bus_type& myBus) :
     SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>>(myBus.signal),
-    SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, DMA, DMA>(),
-    SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
-        std::get<1>(objects).fill('-');
-        descriptors[1].synced=false;
+    SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA, DMA>(),
+    SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+        std::get<2>(objects).fill('-');
+        descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
