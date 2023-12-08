@@ -130,6 +130,16 @@ namespace SOS{
             protected:
             LoopSignalType& _intrinsic;
         };
+        template<typename... Others> class DummySimpleController : private DummyController<SOS::MemoryView::Notify> {
+            public:
+            using bus_type = SOS::MemoryView::BusNotifier;
+            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : DummyController<SOS::MemoryView::Notify>(signal) {}
+        };
+        template<typename... Others> class DummyEventController : protected DummyController<SOS::MemoryView::HandShake> {
+            public:
+            using bus_type = SOS::MemoryView::BusShaker;
+            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : DummyController<SOS::MemoryView::HandShake>(signal) {}
+        };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
         template<typename S, typename... Others> class SimpleController : private Controller<SOS::MemoryView::Notify, S> {
             public:
