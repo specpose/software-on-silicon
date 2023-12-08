@@ -116,27 +116,16 @@ class MCUProcessingSwitch: private CounterTask {
 };
 template<typename ProcessingSwitch> class SerialProcessing :
 protected ProcessingSwitch,
+protected SOS::Behavior::DummyEventController<>,
 public SOS::Behavior::Loop {
     public:
     using bus_type = SOS::MemoryView::SerialProcessNotifier;
     SerialProcessing(bus_type& bus) :
     ProcessingSwitch(std::get<0>(bus.const_cables)),
+    SOS::Behavior::DummyEventController<>(bus.signal),
     SOS::Behavior::Loop() {}
-    virtual void event_loop() = 0;
-};
-template<typename ProcessingSwitch> class SerialProcessingImpl : public SerialProcessing<ProcessingSwitch>,
-protected SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
-    public:
-    SerialProcessingImpl(typename SerialProcessing<ProcessingSwitch>::bus_type& bus) : SerialProcessing<ProcessingSwitch>(bus),
-    SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal) {
-        _thread=SOS::Behavior::Loop::start(this);
-    }
-    ~SerialProcessingImpl(){
-        SerialProcessing<ProcessingSwitch>::stop_token.getUpdatedRef().clear();
-        _thread.join();
-    }
-    virtual void event_loop() final {
-        while(SOS::Behavior::Loop::stop_token.getUpdatedRef().test_and_set()){
+    void event_loop() {
+        while(stop_token.getUpdatedRef().test_and_set()){
             if (!_intrinsic.getAcknowledgeRef().test_and_set()){
                 ProcessingSwitch::write_notify_hook();
             }
@@ -145,7 +134,17 @@ protected SOS::Behavior::DummyController<SOS::MemoryView::HandShake> {
             }
             std::this_thread::yield();
         }
-        SOS::Behavior::Loop::stop_token.getAcknowledgeRef().clear();
+        stop_token.getAcknowledgeRef().clear();
+    }
+};
+template<typename ProcessingSwitch> class SerialProcessingImpl : public SerialProcessing<ProcessingSwitch> {
+    public:
+    SerialProcessingImpl(typename SerialProcessing<ProcessingSwitch>::bus_type& bus) : SerialProcessing<ProcessingSwitch>(bus) {
+        _thread=SOS::Behavior::Loop::start(this);
+    }
+    ~SerialProcessingImpl(){
+        SerialProcessing<ProcessingSwitch>::stop_token.getUpdatedRef().clear();
+        _thread.join();
     }
     private:
     std::thread _thread = std::thread{};
