@@ -13,11 +13,6 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        class SerialProcessingHook : private SOS::Behavior::DummyController<SOS::MemoryView::HandShake>{
-            public:
-            using bus_type = SOS::MemoryView::SerialProcessNotifier;
-            SerialProcessingHook(bus_type& bus) : SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(bus.signal) {}
-        };
     }
     namespace Protocol {
         static std::bitset<8> idleState() {//constexpr
@@ -104,7 +99,6 @@ namespace SOS {
                 while(stop_token.getUpdatedRef().test_and_set()){
                     if (handshake()) {
                         read_hook(read4minus1);
-                        signaling_hook();
                         write_hook(write3plus1);
                     }
                     std::this_thread::yield();
@@ -112,7 +106,7 @@ namespace SOS {
                 stop_token.getAcknowledgeRef().clear();
             }
             protected:
-            virtual void signaling_hook()=0;
+            //virtual void signaling_hook()=0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
