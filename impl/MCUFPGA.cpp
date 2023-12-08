@@ -40,25 +40,28 @@ struct SymbolRateCounter {
     }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
-class CounterTask {
-    public:
-    CounterTask(){}
-};
-class FPGAProcessingSwitch : private CounterTask {
+struct ObjectBusImpl : public SOS::MemoryView::ObjectBus<SymbolRateCounter,DMA,DMA>{};
+class FPGAProcessingSwitch {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    FPGAProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
+    FPGAProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
+            if (!std::get<0>(_dbus.objects).mcu_owned()){
+                auto n = std::get<0>(_dbus.objects).getNumber();
+                std::get<0>(_dbus.objects).setNumber(++n);
+                std::get<0>(_dbus.objects).set_mcu_owned(true);
+                _dbus.descriptors[0].synced=false;
+            }
             break;
             case 1:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
         }
     }
@@ -66,34 +69,41 @@ class FPGAProcessingSwitch : private CounterTask {
         auto object_id = _notifier.getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
         }
     }
     private:
     process_notifier_ct& _notifier;
+    ObjectBusImpl& _dbus;
 };
-class MCUProcessingSwitch: private CounterTask {
+class MCUProcessingSwitch {
     public:
     using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
-    MCUProcessingSwitch(process_notifier_ct& notifier) : _notifier(notifier), CounterTask() {}
+    MCUProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
+            if (std::get<0>(_dbus.objects).mcu_owned()){
+                auto n = std::get<0>(_dbus.objects).getNumber();
+                std::get<0>(_dbus.objects).setNumber(++n);
+                std::get<0>(_dbus.objects).set_mcu_owned(false);
+                _dbus.descriptors[0].synced=false;
+            }
             break;
             case 1:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU received object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
         }
     }
@@ -101,72 +111,52 @@ class MCUProcessingSwitch: private CounterTask {
         auto object_id = _notifier.getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
             case 1:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
             case 2:
-            std::cout<<"MCU written object id: "<<object_id<<std::endl;
+            //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
         }
     }
     private:
     process_notifier_ct& _notifier;
+    ObjectBusImpl& _dbus;
 };
-template<typename ProcessingSwitch> class SerialProcessing :
-protected ProcessingSwitch,
-protected SOS::Behavior::DummyEventController<>,
-public SOS::Behavior::Loop {
+template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl> {
     public:
-    using bus_type = SOS::MemoryView::SerialProcessNotifier;
-    SerialProcessing(bus_type& bus) :
-    ProcessingSwitch(std::get<0>(bus.const_cables)),
-    SOS::Behavior::DummyEventController<>(bus.signal),
-    SOS::Behavior::Loop() {}
-    void event_loop() {
-        while(stop_token.getUpdatedRef().test_and_set()){
-            if (!_intrinsic.getAcknowledgeRef().test_and_set()){
-                ProcessingSwitch::write_notify_hook();
-            }
-            if (!_intrinsic.getUpdatedRef().test_and_set()){
-                ProcessingSwitch::read_notify_hook();
-            }
-            std::this_thread::yield();
-        }
-        stop_token.getAcknowledgeRef().clear();
-    }
-};
-template<typename ProcessingSwitch> class SerialProcessingImpl : public SerialProcessing<ProcessingSwitch> {
-    public:
-    SerialProcessingImpl(typename SerialProcessing<ProcessingSwitch>::bus_type& bus) : SerialProcessing<ProcessingSwitch>(bus) {
+    SerialProcessingImpl(typename SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl>::bus_type& bus, ObjectBusImpl& dbus) :
+    SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl>(bus, dbus) {
         _thread=SOS::Behavior::Loop::start(this);
     }
     ~SerialProcessingImpl(){
-        SerialProcessing<ProcessingSwitch>::stop_token.getUpdatedRef().clear();
+        SOS::Behavior::SerialProcessing<ProcessingSwitch, ObjectBusImpl>::stop_token.getUpdatedRef().clear();
         _thread.join();
     }
     private:
     std::thread _thread = std::thread{};
 };
-class FPGA : private virtual SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>,
-public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA> {
+class FPGA : private virtual SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>,
+public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::EventController<SerialProcessingImpl<FPGAProcessingSwitch>>(myBus.signal),
-    SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>(),
-    SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, SymbolRateCounter,DMA,DMA>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Behavior::EventController<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(myBus.signal,objectBus),
+    SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(),
+    SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
+        objectBus.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
         bool writeBlink = true;
-        for (std::size_t i=0;i<std::get<1>(objects).size();i++){
+        for (std::size_t i=0;i<std::get<1>(objectBus.objects).size();i++){
             DMA::value_type data;
             if (writeBlink)
                 data = 42;//'*'
             else
                 data = 95;//'_'
-            std::get<1>(objects)[i]=data;
+            std::get<1>(objectBus.objects)[i]=data;
             writeBlinkCounter++;
             if (writeBlink && writeBlinkCounter==333){
                 writeBlink = false;
@@ -176,7 +166,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
                 writeBlinkCounter=0;
             }
         }
-        descriptors[1].synced=false;
+        objectBus.descriptors[1].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
@@ -185,8 +175,9 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
         stop_token.getUpdatedRef().clear();
         _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
+        std::cout<<"FPGA counted "<<std::get<0>(objectBus.objects).getNumber()<<std::endl;
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
-        dump_objects(objects,descriptors,boot_time,kill_time);
+        dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
     private:
     bool stateOfObjectOne = false;
@@ -196,16 +187,16 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCUThread : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA>,
-public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA> {
+class MCUThread : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>,
+public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     MCUThread(bus_type& myBus) :
-    SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>>(myBus.signal),
-    SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA, DMA>(),
-    SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, SymbolRateCounter,DMA,DMA>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
-        std::get<2>(objects).fill('-');
-        descriptors[2].synced=false;
+    SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(myBus.signal,objectBus),
+    SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(),
+    SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+        std::get<2>(objectBus.objects).fill('-');
+        objectBus.descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
@@ -214,8 +205,9 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, S
         stop_token.getUpdatedRef().clear();
         _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
+        std::cout<<"MCU counted "<<std::get<0>(objectBus.objects).getNumber()<<std::endl;
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
-        dump_objects(objects,descriptors,boot_time,kill_time);
+        dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
     private:
     bool stateOfObjectZero = false;
