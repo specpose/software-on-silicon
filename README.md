@@ -18,9 +18,9 @@ Is a digital twin for an electronic circuit. It is trying to establish building 
 ## [EventLoop](impl/EventLoop.cpp)
 This example shows the use of listening for and clearing a notification signal. The signal is passed to a controller through a bundled constructor object. It also shows where the thread has to be instantiated.
 ## [Controller](impl/Controller.cpp)
-This example shows the principal design pattern. The templating of the threads is recursive:
+This example shows the principal design pattern. It is based on *perfect forwarding* of types:
 ```
-Controller1\<SubController2\<SubController3\>\>
+Controller1<SubController2<SubController3>>
 ```
 This mostly follows the signaling pathway. Threads are not forced to be instantiated in this manner and other signaling pathways may be implemented. The memory is always kept at the base of the *template hierarchy* and passed to the subcontroller by reference.
 ## [MemoryController](impl/MemoryController.cpp)
