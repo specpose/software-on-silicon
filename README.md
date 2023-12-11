@@ -22,15 +22,15 @@ This example shows the principal design pattern. It is based on *perfect forward
 ```
 Controller1<SubController2<SubController3>>
 ```
-This mostly follows the signaling pathway. Threads are not forced to be instantiated in this manner and other signaling pathways may be implemented. The memory is always kept at the base of the *template hierarchy* and passed to the subcontroller by reference.
+This mostly follows the signaling pathway. Threads are not forced to be instantiated in this manner and other signaling pathways may be implemented. The memory is always kept at the upper level of the *template hierarchy* and passed to the subcontroller by reference.
 ## [MemoryController](impl/MemoryController.cpp)
 This is an implementation of a FIFO read with a blocking write. The separation of tasks comes from the intent to not only localise memory and separate the signal pathway, but also to try to keep arithmetic units within the same processing unit (thread).
 ## [RingBuffer](impl/RingBuffer.cpp)
 This is an implementation of a cached write with a random-access read. Templating is not only applied to the signaling hierarchy, but also to structured datatypes. The *class hierarchy* makes it easier to separate interfaces from implementation.
 ## [RingBuffer to MemoryController](impl/RingToMemory.cpp)
-This is a combination of the ringbuffer and the memorycontroller. It has also been tested with memory allocations, but needs extensive modifications. Do a diff to the ARAFallback branch to get an idea of how many modifications are necessary.
+This is a combination of the RingBuffer and the MemoryController. It has also been tested with memory allocations, but needs extensive modifications. Do a diff to the ARAFallback branch to get an idea of how many modifications are necessary.
 ## [MCUController to FPGAController](impl/MCUFPGA.cpp)
-This is an implementation of a serial protocol using only 6 datawires and 2 internally used handshake-like wires to attach an FPGA. It maintains compatibility with a standard 8 datawire serial interface. The two internally used wires are used to rapidly transfer synchronisation states of DMA memory objects which are mirrored on both the MCU and FPGA top-(templating)-level controllers.
+This is an implementation of a serial protocol using only 6 datawires and 2 internally used handshake-like wires to attach an FPGA. It maintains compatibility with a standard 8 datawire serial interface. The two internally used wires are used to rapidly transfer synchronisation states of DMA memory objects which are mirrored on both the MCU and FPGA top-template controllers.
 ### Installation
 ```sh
 mkdir build
