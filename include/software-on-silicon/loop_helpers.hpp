@@ -9,10 +9,10 @@ template<typename DurationType,
         typename PeriodType = typename std::enable_if<
             true, typename DurationType::duration
             >::type
-        > class Timer : private SOS::Behavior::DummyController<SOS::MemoryView::BusShaker::signal_type>, public SOS::Behavior::Loop {//no bus here
+        > class Timer : private SOS::Behavior::DummyEventController<>, public SOS::Behavior::Loop {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
-    SOS::Behavior::DummyController<SOS::MemoryView::BusShaker::signal_type>(bussignal),
+    SOS::Behavior::DummyEventController<>(bussignal),
     SOS::Behavior::Loop() {
         _thread = start(this);
     }
