@@ -2,10 +2,11 @@
 #define _ITERATOR_DEBUG_LEVEL 0//DISABLE
 
 #include "software-on-silicon/error.hpp"
-#include <iostream>
-#include "software-on-silicon/loop_helpers.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
+#include <iostream>
+#include "software-on-silicon/loop_helpers.hpp"
 
 using namespace SOS;
 
