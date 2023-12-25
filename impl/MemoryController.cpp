@@ -88,7 +88,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : private SOS::Behavior::PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
+class WritePriorityImpl : private SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
@@ -96,7 +96,7 @@ class WritePriorityImpl : private SOS::Behavior::PassthruAsync<ReaderImpl, SOS::
         const std::size_t& vst_numInputs
         ) :
         WriteTaskImpl(vst_numInputs),
-        PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
+        PassthruAsyncController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
         {
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
             //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
