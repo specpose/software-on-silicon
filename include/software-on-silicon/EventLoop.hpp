@@ -98,7 +98,7 @@ namespace SOS{
         };*/
         //Use Implementations (SimpleController<EventController>), not directly (SubController<SubController>) in cascading definitions 
         //A Blink doesnt need a Bus
-        template<typename LoopSignalType> class SubController : public subcontroller_tag {
+        template<typename LoopSignalType> class SubController {//: public subcontroller_tag {
             public:
             SubController(LoopSignalType& signal) : _intrinsic(signal) {}
             protected:
@@ -115,7 +115,7 @@ namespace SOS{
             DummyEventController(typename bus_type::signal_type& signal, Others&... args) : SubController<SOS::MemoryView::HandShake>(signal) {}
         };
         template<typename T, typename S = typename std::enable_if<
-                std::is_base_of< SOS::Behavior::subcontroller_tag,T >::value,T
+                std::is_base_of< typename SOS::Behavior::SubController<typename T::bus_type::signal_type>,T >::value,T
                 >::type > class _Async {
             public:
             using subcontroller_type = S;
