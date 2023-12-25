@@ -1,4 +1,5 @@
 #include "software-on-silicon/error.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 
@@ -43,9 +44,9 @@ class SubControllerImpl : public SOS::Behavior::DummyController<SOS::MemoryView:
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : private Thread<SubControllerImpl>, public SOS::Behavior::Loop {
+class ControllerImpl : private SOS::Behavior::Async<SubControllerImpl>, public SOS::Behavior::Loop {
     public:
-    ControllerImpl() : Thread<SubControllerImpl>(), Loop() {
+    ControllerImpl() : Async<SubControllerImpl>(), Loop() {
         _thread=start(this);
     }
     ~ControllerImpl() {

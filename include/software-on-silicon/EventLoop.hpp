@@ -95,6 +95,14 @@ namespace SOS{
             protected:
             LoopSignalType& _intrinsic;
         };
+        //Loops always have at least one signal for termination acknowledge if used for single run
+        template<typename T, typename S = typename std::enable_if<
+                std::is_base_of< SOS::Behavior::subcontroller_tag,T >::value,T
+                >::type > class _Async {
+            public:
+            using subcontroller_type = S;
+            _Async() {}
+        };
         //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
         //A Blink doesnt need a Bus
         template<typename LoopSignalType, typename T, typename S = typename std::enable_if<
@@ -116,11 +124,19 @@ namespace SOS{
             using bus_type = SOS::MemoryView::BusShaker;
             DummyEventController(typename bus_type::signal_type& signal, Others&... args) : DummyController<SOS::MemoryView::HandShake>(signal) {}
         };
+        template<typename S> class Async : private _Async<S> {
+            public:
+            Async() :
+            _Async<S>(),
+            _child(typename _Async<S>::subcontroller_type{_foreign}) {}
+            protected:
+            typename _Async<S>::subcontroller_type::bus_type _foreign = typename _Async<S>::subcontroller_type::bus_type{};
+            typename _Async<S>::subcontroller_type _child;
+        };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
         template<typename S, typename... Others> class SimpleController : private Controller<SOS::MemoryView::Notify, S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            //using subcontroller_type = typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type;
             SimpleController(typename bus_type::signal_type& signal, Others&... args) :
             Controller<SOS::MemoryView::Notify, S>(signal),
             _child(typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type{_foreign, args...})
@@ -129,18 +145,9 @@ namespace SOS{
             typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type::bus_type _foreign = typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type::bus_type{};
             typename Controller<SOS::MemoryView::Notify, S>::subcontroller_type _child;
         };
-        /*template<> class SimpleController<DummyController> : protected Controller<SOS::MemoryView::Notify, DummyController> {
-            public:
-            using bus_type = SOS::MemoryView::BusNotifier;
-            using subcontroller_type = DummyController;
-            SimpleController(typename bus_type::signal_type& signal) :
-            Controller<SOS::MemoryView::Notify, DummyController>(signal)
-            {}
-        };*/
         template<typename S, typename... Others> class EventController : protected Controller<SOS::MemoryView::HandShake, S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            //using subcontroller_type = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type;
             EventController(typename bus_type::signal_type& signal, Others&... args) :
             Controller<SOS::MemoryView::HandShake, S>(signal),
             _child(typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type{_foreign, args...})
@@ -149,13 +156,5 @@ namespace SOS{
             typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type::bus_type _foreign = typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type::bus_type{};
             typename Controller<SOS::MemoryView::HandShake, S>::subcontroller_type _child;
         };
-        /*template<> class EventController<DummyController> : protected Controller<SOS::MemoryView::HandShake, DummyController> {
-            public:
-            using bus_type = SOS::MemoryView::BusShaker;
-            using subcontroller_type = DummyController;
-            EventController(typename bus_type::signal_type& signal) :
-            Controller<SOS::MemoryView::HandShake, DummyController>(signal)
-            {}
-        };*/
     }
 }
