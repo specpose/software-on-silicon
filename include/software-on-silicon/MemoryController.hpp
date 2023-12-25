@@ -76,8 +76,8 @@ namespace SOS {
     namespace Behavior {
         template<typename S, typename... Others> class PassthruAsyncController : private _Async<S> {
             public:
-            PassthruAsyncController(typename _Async<S>::subcontroller_type::bus_type& blocker, Others&... args) :
-            _Async<S>(), _foreign(blocker), _child(typename _Async<S>::subcontroller_type{_foreign, args...}) {}
+            PassthruAsyncController(typename _Async<S>::subcontroller_type::bus_type& passThru, Others&... args) :
+            _Async<S>(), _foreign(passThru), _child(typename _Async<S>::subcontroller_type{_foreign, args...}) {}
             protected:
             typename _Async<S>::subcontroller_type::bus_type& _foreign;
             typename _Async<S>::subcontroller_type _child;
@@ -127,8 +127,8 @@ namespace SOS {
         template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::DummyEventController<>,
         public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
-            using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
-            Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
+            using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
+            Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::DummyEventController<>(outside.signal),
             SOS::Behavior::Loop()
@@ -168,7 +168,7 @@ namespace SOS {
             virtual void acknowledge() {
                 _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
-            typename bus_type::signal_type& _blocked_signal;
+            typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
             public:
