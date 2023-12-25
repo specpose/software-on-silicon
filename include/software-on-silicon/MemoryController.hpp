@@ -47,9 +47,9 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename S, typename... Others> class PassthruAsync : private _Async<S> {
+        template<typename S, typename... Others> class PassthruAsyncController : private _Async<S> {
             public:
-            PassthruAsync(typename _Async<S>::subcontroller_type::bus_type& blocker, Others&... args) :
+            PassthruAsyncController(typename _Async<S>::subcontroller_type::bus_type& blocker, Others&... args) :
             _Async<S>(), _foreign(blocker), _child(typename _Async<S>::subcontroller_type{_foreign, args...}) {}
             protected:
             typename _Async<S>::subcontroller_type::bus_type& _foreign;

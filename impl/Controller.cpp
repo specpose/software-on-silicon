@@ -44,9 +44,9 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<>, public 
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : private SOS::Behavior::Async<SubControllerImpl>, public SOS::Behavior::Loop {
+class ControllerImpl : private SOS::Behavior::AsyncController<SubControllerImpl>, public SOS::Behavior::Loop {
     public:
-    ControllerImpl() : Async<SubControllerImpl>(), Loop() {
+    ControllerImpl() : AsyncController<SubControllerImpl>(), Loop() {
         _thread=start(this);
     }
     ~ControllerImpl() {

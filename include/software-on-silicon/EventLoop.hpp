@@ -111,15 +111,6 @@ namespace SOS{
             protected:
             LoopSignalType& _intrinsic;
         };
-        template<typename S> class Async : private _Async<S> {
-            public:
-            Async() :
-            _Async<S>(),
-            _child(typename _Async<S>::subcontroller_type{_foreign}) {}
-            protected:
-            typename _Async<S>::subcontroller_type::bus_type _foreign = typename _Async<S>::subcontroller_type::bus_type{};
-            typename _Async<S>::subcontroller_type _child;
-        };
         template<typename... Others> class DummySimpleController : protected _DummyController<SOS::MemoryView::Notify> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
@@ -131,6 +122,15 @@ namespace SOS{
             DummyEventController(typename bus_type::signal_type& signal, Others&... args) : _DummyController<SOS::MemoryView::HandShake>(signal) {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
+        template<typename S> class AsyncController : private _Async<S> {
+            public:
+            AsyncController() :
+            _Async<S>(),
+            _child(typename _Async<S>::subcontroller_type{_foreign}) {}
+            protected:
+            typename _Async<S>::subcontroller_type::bus_type _foreign = typename _Async<S>::subcontroller_type::bus_type{};
+            typename _Async<S>::subcontroller_type _child;
+        };
         template<typename S, typename... Others> class SimpleController : private _Controller<SOS::MemoryView::Notify, S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
