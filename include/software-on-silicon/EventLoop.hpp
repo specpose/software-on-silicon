@@ -90,9 +90,9 @@ namespace SOS{
             }
         };
         struct subcontroller_tag{};
-        template<typename LoopSignalType> class DummyController : public subcontroller_tag {
+        template<typename LoopSignalType> class _DummyController : public subcontroller_tag {
             public:
-            DummyController(LoopSignalType& signal) : _intrinsic(signal) {}
+            _DummyController(LoopSignalType& signal) : _intrinsic(signal) {}
             protected:
             LoopSignalType& _intrinsic;
         };
@@ -120,15 +120,15 @@ namespace SOS{
             typename _Async<S>::subcontroller_type::bus_type _foreign = typename _Async<S>::subcontroller_type::bus_type{};
             typename _Async<S>::subcontroller_type _child;
         };
-        template<typename... Others> class DummySimpleController : private DummyController<SOS::MemoryView::Notify> {
+        template<typename... Others> class DummySimpleController : protected _DummyController<SOS::MemoryView::Notify> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : DummyController<SOS::MemoryView::Notify>(signal) {}
+            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : _DummyController<SOS::MemoryView::Notify>(signal) {}
         };
-        template<typename... Others> class DummyEventController : protected DummyController<SOS::MemoryView::HandShake> {
+        template<typename... Others> class DummyEventController : protected _DummyController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : DummyController<SOS::MemoryView::HandShake>(signal) {}
+            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : _DummyController<SOS::MemoryView::HandShake>(signal) {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
         template<typename S, typename... Others> class SimpleController : private _Controller<SOS::MemoryView::Notify, S> {

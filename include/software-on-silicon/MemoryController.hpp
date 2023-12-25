@@ -94,13 +94,13 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::DummyController<SOS::MemoryView::HandShake>,
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::DummyEventController<>,
         public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::BlockerBus<MemoryControllerType>;
             Reader(bus_type& blockerbus, SOS::MemoryView::ReaderBus<ReadBufferType>& outside) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::DummyController<SOS::MemoryView::HandShake>(outside.signal),
+            SOS::Behavior::DummyEventController<>(outside.signal),
             SOS::Behavior::Loop()
             {}
             ~Reader(){}
