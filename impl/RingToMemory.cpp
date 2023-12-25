@@ -10,10 +10,11 @@
 */
 
 #include "software-on-silicon/error.hpp"
-#include <iostream>
-#include "software-on-silicon/loop_helpers.hpp"
+#include "software-on-silicon/EventLoop.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/MemoryController.hpp"
+#include <iostream>
+#include "software-on-silicon/loop_helpers.hpp"
 
 #define RING_BUFFER std::array<char,334>
 #define MEMORY_CONTROLLER std::array<char,10000>

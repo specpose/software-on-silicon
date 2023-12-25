@@ -47,10 +47,17 @@ namespace SOS {
         };
     }
     namespace Behavior {
+        template<typename S, typename... Others> class PassthruAsync : private _Async<S> {
+            public:
+            PassthruAsync(typename _Async<S>::subcontroller_type::bus_type& blocker, Others&... args) :
+            _Async<S>(), _foreign(blocker), _child(typename _Async<S>::subcontroller_type{_foreign, args...}) {}
+            protected:
+            typename _Async<S>::subcontroller_type::bus_type& _foreign;
+            typename _Async<S>::subcontroller_type _child;
+        };
         template<typename S, typename... Others> class PassthruSimpleController : protected Controller<SOS::MemoryView::Notify,S> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            //using subcontroller_type = typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type;
             PassthruSimpleController(typename bus_type::signal_type& signal, typename Controller<SOS::MemoryView::Notify,S>::subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::Notify,S>(signal),
             _foreign(passThru),
@@ -63,7 +70,6 @@ namespace SOS {
         template<typename S, typename... Others> class PassthruEventController : private Controller<SOS::MemoryView::HandShake,S> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            //using subcontroller_type = typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type;
             PassthruEventController(typename bus_type::signal_type& signal, typename Controller<SOS::MemoryView::HandShake,S>::subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<SOS::MemoryView::HandShake,S>(signal),
             _foreign(passThru),

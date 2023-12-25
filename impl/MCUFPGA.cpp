@@ -187,11 +187,11 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCUThread : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>,
+class MCUAsync : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>,
 public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
-    MCUThread(bus_type& myBus) :
+    MCUAsync(bus_type& myBus) :
     SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(myBus.signal,objectBus),
     SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(),
     SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
@@ -200,8 +200,8 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, O
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
-    ~MCUThread() {
-        //Thread<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+    ~MCUAsync() {
+        //Async<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
         stop_token.getUpdatedRef().clear();
         _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
