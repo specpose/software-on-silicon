@@ -44,8 +44,8 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
 class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
-    ReaderImpl(bus_type& blockerbus,SOS::MemoryView::ReaderBus<READ_BUFFER>& outside):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(blockerbus, outside),
+    ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
+    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
     ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables)),
     SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
     {
@@ -88,7 +88,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : private SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
+class WritePriorityImpl : private SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
@@ -96,7 +96,7 @@ class WritePriorityImpl : private SOS::Behavior::PassthruAsyncController<ReaderI
         const std::size_t& vst_numInputs
         ) :
         WriteTaskImpl(vst_numInputs),
-        PassthruAsyncController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>(_blocker,passThruHostMem)
+        PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)
         {
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
             //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
