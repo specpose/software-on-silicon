@@ -25,8 +25,9 @@ class RingBufferImpl : private SOS::Behavior::DummySimpleController<>, private R
         _thread = start(this);
     }
     ~RingBufferImpl() final{
-        stop_token.getUpdatedRef().clear();
-        _thread.join();
+        //stop_token.getUpdatedRef().clear();
+        //_thread.join();
+        _thread.detach();
     }
     void event_loop(){
         while(stop_token.getUpdatedRef().test_and_set()){
