@@ -122,7 +122,7 @@ namespace SOS {
     }
     namespace Protocol {
         template<typename ProcessingHook, typename DataBus> class Serial : public SOS::Behavior::Loop,
-        public virtual SOS::Behavior::EventController<ProcessingHook, DataBus> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        public virtual SOS::Behavior::PassthruEventController<ProcessingHook, DataBus> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
             Serial() : SOS::Behavior::Loop() {
                 //std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
@@ -157,8 +157,8 @@ namespace SOS {
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
-            std::atomic<std::size_t>& readDestination = std::get<0>(SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
-            std::atomic<std::size_t>& writeOrigin = std::get<0>(SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
+            std::atomic<std::size_t>& readDestination = std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
+            std::atomic<std::size_t>& writeOrigin = std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int& read4minus1){
@@ -196,7 +196,7 @@ namespace SOS {
                         if (readDestinationPos==objectBus.descriptors[readDestination.load()].obj_size){
                             objectBus.descriptors[readDestination.load()].readLock=false;
                             receive_lock=false;
-                            SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.signal.getUpdatedRef().clear();
+                            SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.signal.getUpdatedRef().clear();
                             //giving a read confirmation would require bidirectionalcontroller
                             objectBus.descriptors[readDestination.load()].rx_counter++;//DEBUG
                         } else {
@@ -212,7 +212,7 @@ namespace SOS {
                 if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
-                        SOS::Behavior::EventController<ProcessingHook, DataBus>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
+                        SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         objectBus.descriptors[writeOrigin.load()].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;

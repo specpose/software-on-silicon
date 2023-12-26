@@ -124,25 +124,25 @@ namespace SOS{
             typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
             typename Controller<S>::subcontroller_type _child;
         };
-        template<typename S, typename... Others> class SimpleController : public SOS::Behavior::Controller<S>, private SubController<SOS::MemoryView::Notify> {
+        template<typename S> class SimpleController : public SOS::Behavior::Controller<S>, private SubController<SOS::MemoryView::Notify> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            SimpleController(typename bus_type::signal_type& signal, Others&... args) :
+            SimpleController(typename bus_type::signal_type& signal) :
             Controller<S>(),
             SubController<SOS::MemoryView::Notify>(signal),
-            _child(typename SOS::Behavior::Controller<S>::subcontroller_type{_foreign, args...})
+            _child(typename SOS::Behavior::Controller<S>::subcontroller_type{_foreign})
             {}
             protected:
             typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type _foreign = typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type{};
             typename SOS::Behavior::Controller<S>::subcontroller_type _child;
         };
-        template<typename S, typename... Others> class EventController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::HandShake> {
+        template<typename S> class EventController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            EventController(typename bus_type::signal_type& signal, Others&... args) :
+            EventController(typename bus_type::signal_type& signal) :
             Controller<S>(),
             SubController<SOS::MemoryView::HandShake>(signal),
-            _child(typename Controller<S>::subcontroller_type{_foreign, args...})
+            _child(typename Controller<S>::subcontroller_type{_foreign})
             {}
             protected:
             typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
