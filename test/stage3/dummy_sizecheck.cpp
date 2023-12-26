@@ -1,5 +1,5 @@
 #include <iostream>
-#include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/INTERFACE.hpp"
 #include <limits>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/Serial.hpp"
