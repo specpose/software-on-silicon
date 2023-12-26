@@ -17,7 +17,8 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<>, public 
         _thread=start(this);
     }
     ~SubControllerImpl() final {
-        _thread.join();
+        //_thread.join();
+        _thread.detach();
         std::cout<<"SubController has ended normally."<<std::endl;
     }
     void event_loop(){
@@ -50,8 +51,9 @@ class ControllerImpl : private SOS::Behavior::AsyncController<SubControllerImpl>
         _thread=start(this);
     }
     ~ControllerImpl() {
-        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
-        _thread.join();
+        //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        //_thread.join();
+        _thread.detach();
     }
     void event_loop(){
         auto waiterBus = SOS::MemoryView::BusShaker{};
