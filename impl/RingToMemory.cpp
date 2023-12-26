@@ -67,7 +67,8 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread = start(this);
     }
     ~ReaderImpl(){
-        _thread.join();
+        //_thread.join();
+        _thread.detach();
     }
     private:
     virtual void read() final {ReadTaskImpl::read();};
@@ -159,9 +160,10 @@ class RingBufferImpl : private SOS::Behavior::PassthruSimpleController<ReaderImp
         _thread = start(this);
     }
     ~RingBufferImpl() final{
-        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
-        stop_token.getUpdatedRef().clear();
-        _thread.join();
+        //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        //stop_token.getUpdatedRef().clear();
+        //_thread.join();
+        _thread.detach();
     }
     void resetAndRestart() {
         clear_memorycontroller = true;

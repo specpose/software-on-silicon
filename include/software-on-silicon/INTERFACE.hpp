@@ -96,7 +96,7 @@ namespace SOS{
             Loop() {
                 stop_token.getUpdatedRef().clear();
             }
-            virtual ~Loop(){};//for thread
+            virtual ~Loop(){stop();};//ALWAYS: call this after thread.detach and before thread.join
             virtual void event_loop()=0;
             bool stop(){//dont need thread in here
                 stop_token.getUpdatedRef().clear();
