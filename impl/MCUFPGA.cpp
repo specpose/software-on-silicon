@@ -1,6 +1,7 @@
 #include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/EventLoop.hpp"
+#include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define DMA std::array<unsigned char,999>//1001%3=2
 DMA mcu_to_fpga_buffer;
@@ -143,7 +144,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::EventController<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(myBus.signal,objectBus),
+    SOS::Behavior::PassthruEventController<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(myBus.signal,bus,objectBus),
     SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(),
     SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>, ObjectBusImpl>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
@@ -180,6 +181,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>,
         dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
     private:
+    SOS::MemoryView::SerialProcessNotifier bus = SOS::MemoryView::SerialProcessNotifier{};
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
 
@@ -192,7 +194,7 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, O
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     MCUAsync(bus_type& myBus) :
-    SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(myBus.signal,objectBus),
+    SOS::Behavior::PassthruEventController<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(myBus.signal,bus,objectBus),
     SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(),
     SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, ObjectBusImpl>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(objectBus.objects).fill('-');
@@ -210,6 +212,7 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>, O
         dump_objects(objectBus.objects,objectBus.descriptors,boot_time,kill_time);
     }
     private:
+    SOS::MemoryView::SerialProcessNotifier bus = SOS::MemoryView::SerialProcessNotifier{};
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
 
