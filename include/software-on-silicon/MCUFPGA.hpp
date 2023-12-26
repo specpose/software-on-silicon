@@ -31,16 +31,16 @@ namespace SOS {
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer)
             {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
-                SOS::Behavior::EventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
+                SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             private:
             virtual bool handshake() final {
-                if (!SOS::Behavior::EventController<ProcessingHook, DataBus>::_intrinsic.getUpdatedRef().test_and_set()){
+                if (!SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_intrinsic.getUpdatedRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {SOS::Behavior::EventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().clear();}
+            virtual void handshake_ack() final {SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::SimulationBuffers::read_byte();
             }
@@ -57,12 +57,12 @@ namespace SOS {
             {}
             private:
             virtual bool handshake() final {
-                if (!SOS::Behavior::EventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().test_and_set()){
+                if (!SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_intrinsic.getAcknowledgeRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {SOS::Behavior::EventController<ProcessingHook, DataBus>::_intrinsic.getUpdatedRef().clear();}
+            virtual void handshake_ack() final {SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_intrinsic.getUpdatedRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::SimulationBuffers::read_byte();
             }

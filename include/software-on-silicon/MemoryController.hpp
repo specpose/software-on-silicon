@@ -95,7 +95,7 @@ namespace SOS {
             typename Controller<S>::subcontroller_type::bus_type& _foreign;
             typename Controller<S>::subcontroller_type _child;
         };
-        template<typename S, typename... Others> class PassthruEventController : public SOS::Behavior::Controller<S>, private SubController<SOS::MemoryView::HandShake> {
+        template<typename S, typename... Others> class PassthruEventController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             PassthruEventController(typename bus_type::signal_type& signal, typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type& passThru, Others&... args) :
