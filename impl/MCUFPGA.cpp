@@ -154,8 +154,9 @@ template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Beh
         _thread=SOS::Behavior::Loop::start(this);
     }
     ~SerialProcessingImpl(){
-        SOS::Behavior::SerialProcessing<ProcessingSwitch, SymbolRateCounter, DMA, DMA>::stop_token.getUpdatedRef().clear();
-        _thread.join();
+        //SOS::Behavior::SerialProcessing<ProcessingSwitch, SymbolRateCounter, DMA, DMA>::stop_token.getUpdatedRef().clear();
+        //_thread.join();
+        _thread.detach();
     }
     private:
     std::thread _thread = std::thread{};
@@ -190,9 +191,10 @@ class FPGA : public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProce
         _thread=start(this);
     }
     ~FPGA() {
-        _child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
-        stop_token.getUpdatedRef().clear();
-        _thread.join();
+        //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        //stop_token.getUpdatedRef().clear();
+        //_thread.join();
+        _thread.detach();
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout<<"FPGA counted "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
@@ -216,9 +218,10 @@ class MCUAsync : public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUPro
         _thread=start(this);
     }
     ~MCUAsync() {
-        //Async<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
-        stop_token.getUpdatedRef().clear();
-        _thread.join();
+        ////Async<FPGA>::_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
+        //stop_token.getUpdatedRef().clear();
+        //_thread.join();
+        _thread.detach();
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout<<"MCU counted "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
