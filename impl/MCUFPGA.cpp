@@ -41,10 +41,10 @@ struct SymbolRateCounter {
     }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
-class FPGAProcessingSwitch {
+class FPGAProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
     public:
-    using notifier_bt = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(notifier_bt& bus) : _nBus(bus) {}
+    using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
+    FPGAProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -80,12 +80,12 @@ class FPGAProcessingSwitch {
         }
     }
     private:
-    notifier_bt& _nBus;
+    bus_type& _nBus;
 };
-class MCUProcessingSwitch {
+class MCUProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
     public:
-    using notifier_bt = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(notifier_bt& bus) : _nBus(bus) {}
+    using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
+    MCUProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -121,11 +121,11 @@ class MCUProcessingSwitch {
         }
     }
     private:
-    notifier_bt& _nBus;
+    bus_type& _nBus;
 };
 template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Behavior::SerialProcessing<ProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
-    SerialProcessingImpl(typename SOS::Behavior::SerialProcessing<ProcessingSwitch, SymbolRateCounter, DMA, DMA>::bus_type& bus) :
+    SerialProcessingImpl(typename ProcessingSwitch::bus_type& bus) :
     SOS::Behavior::SerialProcessing<ProcessingSwitch, SymbolRateCounter, DMA, DMA>(bus) {
         _thread=SOS::Behavior::Loop::start(this);
     }

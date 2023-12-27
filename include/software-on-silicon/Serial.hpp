@@ -93,21 +93,18 @@ namespace SOS {
     }
     namespace Behavior {
         template<typename ProcessingSwitch, typename... Objects> class SerialProcessing :
-        protected ProcessingSwitch,
-        protected SOS::Behavior::DummyEventController<>,
+        public ProcessingSwitch,
         public SOS::Behavior::Loop {
             public:
-            using bus_type = typename SOS::MemoryView::SerialProcessNotifier<Objects...>;
-            SerialProcessing(bus_type& bus) :
+            SerialProcessing(typename ProcessingSwitch::bus_type& bus) :
             ProcessingSwitch(bus),
-            SOS::Behavior::DummyEventController<>(bus.signal),
             SOS::Behavior::Loop() {}
             void event_loop() {
                 while(stop_token.getUpdatedRef().test_and_set()){
-                    if (!_intrinsic.getAcknowledgeRef().test_and_set()){
+                    if (!ProcessingSwitch::_intrinsic.getAcknowledgeRef().test_and_set()){
                         ProcessingSwitch::write_notify_hook();
                     }
-                    if (!_intrinsic.getUpdatedRef().test_and_set()){
+                    if (!ProcessingSwitch::_intrinsic.getUpdatedRef().test_and_set()){
                         ProcessingSwitch::read_notify_hook();
                     }
                     std::this_thread::yield();
