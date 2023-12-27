@@ -141,7 +141,7 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::PassthruEventController<SerialProcessingImpl<FPGAProcessingSwitch>>(myBus.signal,_dma),
+    SOS::Behavior::EventController<SerialProcessingImpl<FPGAProcessingSwitch>>(myBus.signal),
     SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>(),
     SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>(mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
@@ -178,7 +178,6 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
     private:
-    typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA> _dma;
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
 
@@ -191,7 +190,7 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     MCUAsync(bus_type& myBus) :
-    SOS::Behavior::PassthruEventController<SerialProcessingImpl<MCUProcessingSwitch>>(myBus.signal,_dma),
+    SOS::Behavior::EventController<SerialProcessingImpl<MCUProcessingSwitch>>(myBus.signal),
     SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>>(),
     SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>>(fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(_foreign.objects).fill('-');
@@ -209,7 +208,6 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>> {
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
     private:
-    typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA> _dma;
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
 
