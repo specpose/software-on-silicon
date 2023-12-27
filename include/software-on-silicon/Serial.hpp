@@ -124,9 +124,7 @@ namespace SOS {
         template<typename ProcessingHook, typename DataBus> class Serial : public SOS::Behavior::Loop,
         public virtual SOS::Behavior::PassthruEventController<ProcessingHook, DataBus> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
-            Serial() : SOS::Behavior::Loop() {
-                //std::apply(descriptors,objects);//ALWAYS: Initialize Descriptors in Constructor
-            }
+            Serial() : SOS::Behavior::Loop() {}
             virtual void event_loop() final {
                 int read4minus1 = 0;
                 int write3plus1 = 0;
@@ -140,7 +138,6 @@ namespace SOS {
                 stop_token.getAcknowledgeRef().clear();
             }
             protected:
-            //virtual void signaling_hook()=0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
@@ -150,15 +147,17 @@ namespace SOS {
             virtual unsigned char read_byte()=0;
             virtual void write_byte(unsigned char)=0;
             DataBus objectBus{};
-            //std::tuple<Objects...> objects{};
-            //DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
-            std::atomic<std::size_t>& readDestination = std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
-            std::atomic<std::size_t>& writeOrigin = std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
+            constexpr auto& readDestination() {
+                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
+            }
+            constexpr auto& writeOrigin() {
+                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
+            }
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int& read4minus1){
@@ -175,8 +174,8 @@ namespace SOS {
                                 if (objectBus.descriptors[j].synced==true && objectBus.descriptors[j].id==id){
                                     receive_lock=true;
                                     objectBus.descriptors[j].readLock=true;
-                                    readDestination.store(id);
-                                    //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination<<std::endl;
+                                    readDestination().store(id);
+                                    //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination()<<std::endl;
                                     readDestinationPos = 0;
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
@@ -193,15 +192,15 @@ namespace SOS {
                         read4minus1++;
                     } else if (read4minus1==3){
                         auto read3bytes = read_flush();
-                        if (readDestinationPos==objectBus.descriptors[readDestination.load()].obj_size){
-                            objectBus.descriptors[readDestination.load()].readLock=false;
+                        if (readDestinationPos==objectBus.descriptors[readDestination().load()].obj_size){
+                            objectBus.descriptors[readDestination().load()].readLock=false;
                             receive_lock=false;
                             SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.signal.getUpdatedRef().clear();
                             //giving a read confirmation would require bidirectionalcontroller
-                            objectBus.descriptors[readDestination.load()].rx_counter++;//DEBUG
+                            objectBus.descriptors[readDestination().load()].rx_counter++;//DEBUG
                         } else {
                             for(std::size_t i=0;i<3;i++){
-                                reinterpret_cast<char*>(objectBus.descriptors[readDestination.load()].obj)[readDestinationPos++]=read3bytes[i];
+                                reinterpret_cast<char*>(objectBus.descriptors[readDestination().load()].obj)[readDestinationPos++]=read3bytes[i];
                             }
                         }
                         read4minus1 = 0;
@@ -213,19 +212,19 @@ namespace SOS {
                     if (receive_acknowledge()){
                         send_lock = true;
                         SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
-                        objectBus.descriptors[writeOrigin.load()].tx_counter++;//DEBUG
+                        objectBus.descriptors[writeOrigin().load()].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<objectBus.descriptors.size()&& !gotOne;i++){
                             if (!objectBus.descriptors[i].readLock && !objectBus.descriptors[i].synced){
                                 send_request();
-                                writeOrigin.store(objectBus.descriptors[i].id);
+                                writeOrigin().store(objectBus.descriptors[i].id);
                                 writeOriginPos=0;
                                 std::bitset<8> id;
                                 write_bits(id);
-                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin.load());//DANGER: overflow check
+                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin().load());//DANGER: overflow check
                                 id = id ^ obj_id;
-                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin<<std::endl;
+                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin()<<std::endl;
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 handshake_ack();
                                 gotOne=true;
@@ -246,13 +245,13 @@ namespace SOS {
                 if (send_lock) {
                     if (write3plus1<3){
                         unsigned char data;
-                        data = reinterpret_cast<char*>(objectBus.descriptors[writeOrigin.load()].obj)[writeOriginPos++];
+                        data = reinterpret_cast<char*>(objectBus.descriptors[writeOrigin().load()].obj)[writeOriginPos++];
                         write(data);
                         handshake_ack();
                         write3plus1++;
                     } else if (write3plus1==3){
-                        if (writeOriginPos==objectBus.descriptors[writeOrigin.load()].obj_size){
-                            objectBus.descriptors[writeOrigin.load()].synced=true;
+                        if (writeOriginPos==objectBus.descriptors[writeOrigin().load()].obj_size){
+                            objectBus.descriptors[writeOrigin().load()].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
                             //std::cout<<typeid(*this).name();
@@ -265,10 +264,8 @@ namespace SOS {
                 }
             }
             unsigned int writeCount = 0;//write3plus1
-            //std::size_t writeOrigin = 0;
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0;//read4minus1
-            //std::size_t readDestination = 0;
             std::size_t readDestinationPos = 0;
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
@@ -322,10 +319,7 @@ namespace SOS {
                 return false;
             }
             std::array<unsigned char,3> read_flush(){
-                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(readAssembly[0]));//wrong bit-order
-                //result[0] = static_cast<unsigned char>((readAssembly >> 16).to_ulong());
-                //result[1] = static_cast<unsigned char>(((readAssembly << 8)>> 16).to_ulong());
-                //result[2] = static_cast<unsigned char>(((readAssembly << 16) >> 16).to_ulong());
+                std::array<unsigned char, 3> result;// = *reinterpret_cast<std::array<unsigned char, 3>*>(&(readAssembly[0]));//wrong endianness
                 bitsetToBytearray(result,readAssembly);
                 readAssembly.reset();
                 return result;
