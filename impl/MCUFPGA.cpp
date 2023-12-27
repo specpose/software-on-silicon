@@ -41,10 +41,11 @@ struct SymbolRateCounter {
     }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
-class FPGAProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
+class FPGAProcessingSwitch : protected SOS::Behavior::DummyEventController<>,
+public SOS::Behavior::Loop {
     public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
+    FPGAProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal), SOS::Behavior::Loop() {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -79,13 +80,25 @@ class FPGAProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
             break;
         }
     }
+    protected:
+    virtual bool isRunning() final {
+        if (stop_token.getUpdatedRef().test_and_set()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    virtual void finished() final {
+        stop_token.getAcknowledgeRef().clear();
+    }
     private:
     bus_type& _nBus;
 };
-class MCUProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
+class MCUProcessingSwitch : protected SOS::Behavior::DummyEventController<>,
+public SOS::Behavior::Loop {
     public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
+    MCUProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal), SOS::Behavior::Loop() {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -120,6 +133,17 @@ class MCUProcessingSwitch : protected SOS::Behavior::DummyEventController<> {
             break;
         }
     }
+    protected:
+    virtual bool isRunning() final {
+        if (stop_token.getUpdatedRef().test_and_set()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    virtual void finished() final {
+        stop_token.getAcknowledgeRef().clear();
+    }
     private:
     bus_type& _nBus;
 };
@@ -136,12 +160,10 @@ template<typename ProcessingSwitch> class SerialProcessingImpl : public SOS::Beh
     private:
     std::thread _thread = std::thread{};
 };
-class FPGA : private virtual SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>,
-public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>> {
+class FPGA : public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Protocol::SerialFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>(),
     SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
@@ -176,10 +198,6 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
-    protected:
-    virtual constexpr typename SerialProcessingImpl<FPGAProcessingSwitch>::bus_type& foreign() final {
-        return _foreign;
-    }
     private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
@@ -188,11 +206,9 @@ public SOS::Behavior::SimulationFPGA<SerialProcessingImpl<FPGAProcessingSwitch>>
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCUAsync : private virtual SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>>,
-public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>> {
+class MCUAsync : public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>> {
     public:
     MCUAsync(bus_type& myBus) :
-    SOS::Protocol::SerialMCU<SerialProcessingImpl<MCUProcessingSwitch>>(),
     SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(_foreign.objects).fill('-');
         _foreign.descriptors[2].synced=false;
@@ -207,10 +223,6 @@ public SOS::Behavior::SimulationMCU<SerialProcessingImpl<MCUProcessingSwitch>> {
         std::cout<<"MCU counted "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
-    }
-    protected:
-    virtual constexpr typename SerialProcessingImpl<MCUProcessingSwitch>::bus_type& foreign() final {
-        return _foreign;
     }
     private:
     bool stateOfObjectZero = false;
