@@ -25,9 +25,12 @@ namespace SOS {
     namespace Behavior{
         template<typename ProcessingHook> class SimulationFPGA :
         public virtual SOS::Protocol::Serial<ProcessingHook>,
+        public SOS::Behavior::EventController<ProcessingHook>,
         private SOS::Protocol::SimulationBuffers {
             public:
-            SimulationFPGA(const DMA& in_buffer, DMA& out_buffer) :
+            using bus_type = SOS::MemoryView::BusShaker;
+            SimulationFPGA(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
+            SOS::Behavior::EventController<ProcessingHook>(myBus.signal),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer)
             {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
@@ -50,9 +53,12 @@ namespace SOS {
         };
         template<typename ProcessingHook> class SimulationMCU :
         public virtual SOS::Protocol::Serial<ProcessingHook>,
+        public SOS::Behavior::EventController<ProcessingHook>,
         private SOS::Protocol::SimulationBuffers {
             public:
-            SimulationMCU(const DMA& in_buffer, DMA& out_buffer) :
+            using bus_type = SOS::MemoryView::BusShaker;
+            SimulationMCU(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
+            SOS::Behavior::EventController<ProcessingHook>(myBus.signal),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer)
             {}
             private:

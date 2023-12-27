@@ -117,8 +117,7 @@ namespace SOS {
         };
     }
     namespace Protocol {
-        template<typename ProcessingHook> class Serial : public SOS::Behavior::Loop,
-        public virtual SOS::Behavior::EventController<ProcessingHook> {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        template<typename ProcessingHook> class Serial : public SOS::Behavior::Loop {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
             Serial() : SOS::Behavior::Loop() {}
             virtual void event_loop() final {
@@ -147,16 +146,14 @@ namespace SOS {
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
+            virtual constexpr typename ProcessingHook::bus_type& foreign() = 0;
             private:
             //ALIAS of Variables
             constexpr auto& readDestination() {
-                return std::get<0>(SOS::Behavior::EventController<ProcessingHook>::_foreign.cables).getReadDestinationRef();
+                return std::get<0>(foreign().cables).getReadDestinationRef();
             }
             constexpr auto& writeOrigin() {
-                return std::get<0>(SOS::Behavior::EventController<ProcessingHook>::_foreign.cables).getWriteOriginRef();
-            }
-            constexpr auto& foreign() {
-                return SOS::Behavior::EventController<ProcessingHook>::_foreign;
+                return std::get<0>(foreign().cables).getWriteOriginRef();
             }
             bool receive_lock = false;
             bool send_lock = false;
@@ -195,7 +192,7 @@ namespace SOS {
                         if (readDestinationPos==foreign().descriptors[readDestination().load()].obj_size){
                             foreign().descriptors[readDestination().load()].readLock=false;
                             receive_lock=false;
-                            SOS::Behavior::EventController<ProcessingHook>::_foreign.signal.getUpdatedRef().clear();
+                            foreign().signal.getUpdatedRef().clear();
                             //giving a read confirmation would require bidirectionalcontroller
                             foreign().descriptors[readDestination().load()].rx_counter++;//DEBUG
                         } else {
@@ -211,7 +208,7 @@ namespace SOS {
                 if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
-                        SOS::Behavior::EventController<ProcessingHook>::_foreign.signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
+                        foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin().load()].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
