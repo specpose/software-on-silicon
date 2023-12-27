@@ -8,8 +8,8 @@ namespace SOS {
             auto& getWriteOriginRef(){return std::get<1>(*this);}
         };
         struct SerialProcessNotifier : public SOS::MemoryView::BusShaker {
-            using const_cables_type = std::tuple< DestinationAndOrigin >;
-            const_cables_type const_cables;
+            using cables_type = std::tuple< DestinationAndOrigin >;
+            cables_type cables;
         };
     }
     namespace Behavior {
@@ -20,7 +20,7 @@ namespace SOS {
             public:
             using bus_type = SOS::MemoryView::SerialProcessNotifier;
             SerialProcessing(bus_type& bus, DataBus& dbus) :
-            ProcessingSwitch(std::get<0>(bus.const_cables), dbus),
+            ProcessingSwitch(std::get<0>(bus.cables), dbus),
             SOS::Behavior::DummyEventController<>(bus.signal),
             SOS::Behavior::Loop() {}
             void event_loop() {
@@ -153,10 +153,10 @@ namespace SOS {
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             private:
             constexpr auto& readDestination() {
-                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getReadDestinationRef();
+                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.cables).getReadDestinationRef();
             }
             constexpr auto& writeOrigin() {
-                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.const_cables).getWriteOriginRef();
+                return std::get<0>(SOS::Behavior::PassthruEventController<ProcessingHook, DataBus>::_foreign.cables).getWriteOriginRef();
             }
             bool receive_lock = false;
             bool send_lock = false;

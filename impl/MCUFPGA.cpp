@@ -44,7 +44,7 @@ struct SymbolRateCounter {
 struct ObjectBusImpl : public SOS::MemoryView::ObjectBus<SymbolRateCounter,DMA,DMA>{};
 class FPGAProcessingSwitch {
     public:
-    using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
+    using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::cables_type>::type;
     FPGAProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
@@ -86,7 +86,7 @@ class FPGAProcessingSwitch {
 };
 class MCUProcessingSwitch {
     public:
-    using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::const_cables_type>::type;
+    using process_notifier_ct = typename std::tuple_element<0,typename SOS::MemoryView::SerialProcessNotifier::cables_type>::type;
     MCUProcessingSwitch(process_notifier_ct& notifier, ObjectBusImpl& dbus) : _notifier(notifier), _dbus(dbus) {}
     void read_notify_hook(){
         auto object_id = _notifier.getReadDestinationRef().load();
