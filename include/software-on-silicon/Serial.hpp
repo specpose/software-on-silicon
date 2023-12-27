@@ -93,14 +93,12 @@ namespace SOS {
     }
     namespace Behavior {
         template<typename ProcessingSwitch, typename... Objects> class SerialProcessing :
-        public ProcessingSwitch,
-        public SOS::Behavior::Loop {
+        public ProcessingSwitch {
             public:
             SerialProcessing(typename ProcessingSwitch::bus_type& bus) :
-            ProcessingSwitch(bus),
-            SOS::Behavior::Loop() {}
+            ProcessingSwitch(bus) {}
             void event_loop() {
-                while(stop_token.getUpdatedRef().test_and_set()){
+                while(ProcessingSwitch::isRunning()){
                     if (!ProcessingSwitch::_intrinsic.getAcknowledgeRef().test_and_set()){
                         ProcessingSwitch::write_notify_hook();
                     }
@@ -109,27 +107,30 @@ namespace SOS {
                     }
                     std::this_thread::yield();
                 }
-                stop_token.getAcknowledgeRef().clear();
+                ProcessingSwitch::finished();
             }
+            protected:
         };
     }
     namespace Protocol {
-        template<typename ProcessingHook> class Serial : public SOS::Behavior::Loop {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        template<typename ProcessingHook> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
-            Serial() : SOS::Behavior::Loop() {}
-            virtual void event_loop() final {
+            Serial() {}
+            virtual void event_loop() {//final
                 int read4minus1 = 0;
                 int write3plus1 = 0;
-                while(stop_token.getUpdatedRef().test_and_set()){
+                while(isRunning()){
                     if (handshake()) {
                         read_hook(read4minus1);
                         write_hook(write3plus1);
                     }
                     std::this_thread::yield();
                 }
-                stop_token.getAcknowledgeRef().clear();
+                finished();
             }
             protected:
+            virtual bool isRunning() = 0;
+            virtual void finished() = 0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
@@ -338,7 +339,7 @@ namespace SOS {
                 readAssembly = readAssembly ^ temp;//overlay
             }
         };
-        template<typename ProcessingHook> class SerialFPGA : private virtual Serial<ProcessingHook> {
+        template<typename ProcessingHook> class SerialFPGA : protected virtual Serial<ProcessingHook> {
             public:
             SerialFPGA() {}
             private:
@@ -376,7 +377,7 @@ namespace SOS {
                 return Serial<ProcessingHook>::mcu_updated;
             }
         };
-        template<typename ProcessingHook> class SerialMCU : private virtual Serial<ProcessingHook> {
+        template<typename ProcessingHook> class SerialMCU : protected virtual Serial<ProcessingHook> {
             public:
             SerialMCU() {}
             private:
