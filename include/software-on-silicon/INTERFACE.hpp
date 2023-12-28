@@ -72,8 +72,15 @@ namespace SOS{
             Loop() {
                 stop_token.getUpdatedRef().clear();
             }
-            virtual ~Loop(){stop();};//ALWAYS: call this after thread.detach and before thread.join
+            virtual ~Loop(){stop();};
             virtual void event_loop()=0;
+            protected:
+            SOS::MemoryView::HandShake stop_token;
+            template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
+                startme->Loop::stop_token.getUpdatedRef().test_and_set();
+                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
+            }
+            private:
             bool stop(){//dont need thread in here
                 stop_token.getUpdatedRef().clear();
                 while(stop_token.getAcknowledgeRef().test_and_set()){
@@ -81,12 +88,6 @@ namespace SOS{
                 }
                 stop_token.getAcknowledgeRef().clear();
                 return true;
-            }
-            protected:
-            SOS::MemoryView::HandShake stop_token;
-            template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
-                startme->Loop::stop_token.getUpdatedRef().test_and_set();
-                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
         };
         //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
