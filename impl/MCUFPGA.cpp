@@ -41,11 +41,10 @@ struct SymbolRateCounter {
     }
     std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
 };
-class FPGAProcessingSwitch : protected SOS::Behavior::DummyEventController<>,
-public SOS::Behavior::Loop {
+class FPGAProcessingSwitch : public SOS::Behavior::DummyEventController<> {
     public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal), SOS::Behavior::Loop() {}
+    FPGAProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -94,11 +93,10 @@ public SOS::Behavior::Loop {
     private:
     bus_type& _nBus;
 };
-class MCUProcessingSwitch : protected SOS::Behavior::DummyEventController<>,
-public SOS::Behavior::Loop {
+class MCUProcessingSwitch : public SOS::Behavior::DummyEventController<> {
     public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal), SOS::Behavior::Loop() {}
+    MCUProcessingSwitch(bus_type& bus) : _nBus(bus), SOS::Behavior::DummyEventController<>(bus.signal) {}
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){

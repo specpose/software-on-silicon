@@ -68,7 +68,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : private SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private WriteTaskImpl, public SOS::Behavior::Loop {
+class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private WriteTaskImpl {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(

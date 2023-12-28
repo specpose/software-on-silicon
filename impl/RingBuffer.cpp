@@ -15,12 +15,11 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     private:
     virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character;}
 };
-class RingBufferImpl : private SOS::Behavior::DummySimpleController<>, private RingBufferTaskImpl, public SOS::Behavior::Loop {
+class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
     SOS::Behavior::DummySimpleController<>(bus.signal),
-    RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables)),
-    SOS::Behavior::Loop()
+    RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);
     }

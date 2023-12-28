@@ -26,16 +26,14 @@ namespace SOS {
         template<typename ProcessingHook> class SimulationFPGA :
         public SOS::Protocol::SerialFPGA<ProcessingHook>,
         private SOS::Protocol::SimulationBuffers,
-        public SOS::Behavior::EventController<ProcessingHook>,
-        public SOS::Behavior::Loop {
+        public SOS::Behavior::EventController<ProcessingHook> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             SimulationFPGA(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
             SOS::Protocol::SerialFPGA<ProcessingHook>(),
             SOS::Protocol::Serial<ProcessingHook>(),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
-            SOS::Behavior::EventController<ProcessingHook>(myBus.signal),
-            SOS::Behavior::Loop()
+            SOS::Behavior::EventController<ProcessingHook>(myBus.signal)
             {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
                 SOS::Behavior::EventController<ProcessingHook>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
@@ -46,14 +44,14 @@ namespace SOS {
             }
             protected:
             virtual bool isRunning() final {
-                if (stop_token.getUpdatedRef().test_and_set()) {
+                if (SOS::Behavior::EventController<ProcessingHook>::stop_token.getUpdatedRef().test_and_set()) {
                     return true;
                 } else {
                     return false;
                 }
             }
             virtual void finished() final {
-                stop_token.getAcknowledgeRef().clear();
+                SOS::Behavior::EventController<ProcessingHook>::stop_token.getAcknowledgeRef().clear();
             }
             virtual constexpr typename ProcessingHook::bus_type& foreign() final {
                 return SOS::Behavior::EventController<ProcessingHook>::_foreign;
@@ -76,16 +74,14 @@ namespace SOS {
         template<typename ProcessingHook> class SimulationMCU :
         public SOS::Protocol::SerialMCU<ProcessingHook>,
         private SOS::Protocol::SimulationBuffers,
-        public SOS::Behavior::EventController<ProcessingHook>,
-        public SOS::Behavior::Loop {
+        public SOS::Behavior::EventController<ProcessingHook> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             SimulationMCU(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
             SOS::Protocol::SerialMCU<ProcessingHook>(),
             SOS::Protocol::Serial<ProcessingHook>(),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
-            SOS::Behavior::EventController<ProcessingHook>(myBus.signal),
-            SOS::Behavior::Loop()
+            SOS::Behavior::EventController<ProcessingHook>(myBus.signal)
             {}
             //using SOS::Protocol::Serial<ProcessingHook>::event_loop;
             virtual void event_loop() final {
@@ -93,14 +89,14 @@ namespace SOS {
             }
             protected:
             virtual bool isRunning() final {
-                if (stop_token.getUpdatedRef().test_and_set()) {
+                if (SOS::Behavior::EventController<ProcessingHook>::stop_token.getUpdatedRef().test_and_set()) {
                     return true;
                 } else {
                     return false;
                 }
             }
             virtual void finished() final {
-                stop_token.getAcknowledgeRef().clear();
+                SOS::Behavior::EventController<ProcessingHook>::stop_token.getAcknowledgeRef().clear();
             }
             virtual constexpr typename ProcessingHook::bus_type& foreign() final {
                 return SOS::Behavior::EventController<ProcessingHook>::_foreign;

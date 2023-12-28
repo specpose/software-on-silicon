@@ -15,11 +15,10 @@ class MyFunctor {
     unsigned int _duration = 333;
 };
 
-class BlinkLoop : private SOS::Behavior::DummySimpleController<>, public SOS::Behavior::Loop {
+class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
     public:
     BlinkLoop(SOS::MemoryView::Notify& bussignal) :
-    SOS::Behavior::DummySimpleController<>(bussignal),
-    SOS::Behavior::Loop() {
+    SOS::Behavior::DummySimpleController<>(bussignal) {
         _thread=start(this);
     }
     ~BlinkLoop() final {
