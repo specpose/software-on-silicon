@@ -2,7 +2,7 @@ namespace SOS {
     namespace Protocol {
         class SimulationBuffers {
             public:
-            SimulationBuffers(const DMA& in_buffer, DMA& out_buffer) : in_buffer(in_buffer), out_buffer(out_buffer) {}
+            SimulationBuffers(const COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) : in_buffer(in_buffer), out_buffer(out_buffer) {}
             protected:
             virtual unsigned char read_byte() {
                 auto byte = in_buffer[readPos++];
@@ -18,8 +18,8 @@ namespace SOS {
             private:
             std::size_t writePos = 0;//REPLACE: out_buffer
             std::size_t readPos = 0;//REPLACE: in_buffer
-            const DMA& in_buffer;
-            DMA& out_buffer;
+            const COM_BUFFER& in_buffer;
+            COM_BUFFER& out_buffer;
         };
     }
     namespace Behavior{
@@ -29,7 +29,7 @@ namespace SOS {
         public SOS::Behavior::EventController<ProcessingHook> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            SimulationFPGA(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
+            SimulationFPGA(bus_type& myBus, const COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
             SOS::Protocol::SerialFPGA<ProcessingHook>(),
             SOS::Protocol::Serial<ProcessingHook>(),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),
@@ -77,7 +77,7 @@ namespace SOS {
         public SOS::Behavior::EventController<ProcessingHook> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            SimulationMCU(bus_type& myBus, const DMA& in_buffer, DMA& out_buffer) :
+            SimulationMCU(bus_type& myBus, const COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
             SOS::Protocol::SerialMCU<ProcessingHook>(),
             SOS::Protocol::Serial<ProcessingHook>(),
             SOS::Protocol::SimulationBuffers(in_buffer,out_buffer),

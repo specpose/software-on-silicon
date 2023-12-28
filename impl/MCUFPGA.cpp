@@ -3,12 +3,13 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/Serial.hpp"
-#define DMA std::array<unsigned char,999>//1001%3=2
-DMA mcu_to_fpga_buffer;
-DMA fpga_to_mcu_buffer;
+#define COM_BUFFER std::array<unsigned char,1>
 #include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include <limits>
+COM_BUFFER mcu_to_fpga_buffer;
+COM_BUFFER fpga_to_mcu_buffer;
+#define DMA std::array<unsigned char,999>//1001%3=2
 
 using namespace SOS::MemoryView;
 struct SymbolRateCounter {
