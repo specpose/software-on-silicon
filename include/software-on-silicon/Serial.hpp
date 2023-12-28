@@ -117,7 +117,7 @@ namespace SOS {
         };
     }
     namespace Protocol {
-        template<typename ProcessingHook> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+        template<typename... Objects> class Serial {//write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
             public:
             Serial() {}
             virtual void event_loop() {//final
@@ -148,7 +148,7 @@ namespace SOS {
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
-            virtual constexpr typename ProcessingHook::bus_type& foreign() = 0;
+            virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() = 0;
             private:
             //ALIAS of Variables
             constexpr auto& readDestination() {
@@ -343,80 +343,80 @@ namespace SOS {
                 readAssembly = readAssembly ^ temp;//overlay
             }
         };
-        template<typename ProcessingHook> class SerialFPGA : protected virtual Serial<ProcessingHook> {
+        template<typename... Objects> class SerialFPGA : protected virtual Serial<Objects...> {
             public:
             SerialFPGA() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
-                Serial<ProcessingHook>::mcu_updated=temp[7];
-                Serial<ProcessingHook>::fpga_acknowledge=temp[6];
-                Serial<ProcessingHook>::mcu_acknowledge=false;
+                Serial<Objects...>::mcu_updated=temp[7];
+                Serial<Objects...>::fpga_acknowledge=temp[6];
+                Serial<Objects...>::mcu_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (Serial<ProcessingHook>::fpga_updated)
+                if (Serial<Objects...>::fpga_updated)
                     out.set(7,1);
                 else
                     out.set(7,0);
-                if (Serial<ProcessingHook>::mcu_acknowledge)
+                if (Serial<Objects...>::mcu_acknowledge)
                     out.set(6,1);
                 else
                     out.set(6,0);
             }
             virtual void send_acknowledge() final {
-                if (Serial<ProcessingHook>::mcu_updated){
-                    Serial<ProcessingHook>::mcu_acknowledge=true;
+                if (Serial<Objects...>::mcu_updated){
+                    Serial<Objects...>::mcu_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<ProcessingHook>::fpga_updated=true;
+                Serial<Objects...>::fpga_updated=true;
             }
             virtual bool receive_acknowledge() final {
-                if (Serial<ProcessingHook>::fpga_acknowledge){
-                    Serial<ProcessingHook>::fpga_updated=false;
+                if (Serial<Objects...>::fpga_acknowledge){
+                    Serial<Objects...>::fpga_updated=false;
                     return true;
                 }
                 return false;
             }
             virtual bool receive_request() final {
-                return Serial<ProcessingHook>::mcu_updated;
+                return Serial<Objects...>::mcu_updated;
             }
         };
-        template<typename ProcessingHook> class SerialMCU : protected virtual Serial<ProcessingHook> {
+        template<typename... Objects> class SerialMCU : protected virtual Serial<Objects...> {
             public:
             SerialMCU() {}
             private:
             virtual void read_bits(std::bitset<8> temp) final {
-                Serial<ProcessingHook>::fpga_updated=temp[7];
-                Serial<ProcessingHook>::mcu_acknowledge=temp[6];
-                Serial<ProcessingHook>::fpga_acknowledge=false;
+                Serial<Objects...>::fpga_updated=temp[7];
+                Serial<Objects...>::mcu_acknowledge=temp[6];
+                Serial<Objects...>::fpga_acknowledge=false;
             }
             virtual void write_bits(std::bitset<8>& out) final {
-                if (Serial<ProcessingHook>::mcu_updated)
+                if (Serial<Objects...>::mcu_updated)
                     out.set(7,1);
                 else
                     out.set(7,0);
-                if (Serial<ProcessingHook>::fpga_acknowledge)
+                if (Serial<Objects...>::fpga_acknowledge)
                     out.set(6,1);
                 else
                     out.set(6,0);
             }
             virtual void send_acknowledge() final {
-                if (Serial<ProcessingHook>::fpga_updated){
-                    Serial<ProcessingHook>::fpga_acknowledge=true;
+                if (Serial<Objects...>::fpga_updated){
+                    Serial<Objects...>::fpga_acknowledge=true;
                 }
             }
             virtual void send_request() final {
-                Serial<ProcessingHook>::mcu_updated=true;
+                Serial<Objects...>::mcu_updated=true;
             }
             virtual bool receive_acknowledge() final {
-                if (Serial<ProcessingHook>::mcu_acknowledge){
-                    Serial<ProcessingHook>::mcu_updated=false;
+                if (Serial<Objects...>::mcu_acknowledge){
+                    Serial<Objects...>::mcu_updated=false;
                     return true;
                 }
                 return false;
             }
             virtual bool receive_request() final {
-                return Serial<ProcessingHook>::fpga_updated;
+                return Serial<Objects...>::fpga_updated;
             }
         };
     }

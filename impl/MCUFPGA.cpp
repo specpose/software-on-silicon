@@ -3,12 +3,13 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/Serial.hpp"
-#define DMA std::array<unsigned char,999>//1001%3=2
-DMA mcu_to_fpga_buffer;
-DMA fpga_to_mcu_buffer;
+#define COM_BUFFER std::array<unsigned char,1>
 #include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include <limits>
+COM_BUFFER mcu_to_fpga_buffer;
+COM_BUFFER fpga_to_mcu_buffer;
+#define DMA std::array<unsigned char,999>//1001%3=2
 
 using namespace SOS::MemoryView;
 struct SymbolRateCounter {
@@ -175,11 +176,11 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     bus_type& _nBus;
     std::thread _thread = std::thread{};
 };
-class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch> {
+class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
@@ -222,10 +223,10 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch> {
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch> {
+class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
     MCU(bus_type& myBus) :
-    SOS::Behavior::SimulationMCU<MCUProcessingSwitch>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+    SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(_foreign.objects).fill('-');
         _foreign.descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
