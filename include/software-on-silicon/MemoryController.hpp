@@ -80,6 +80,7 @@ namespace SOS {
             Controller<S>(), _foreign(passThru), _child(typename Controller<S>::subcontroller_type{_foreign, args...}) {}
             protected:
             typename Controller<S>::subcontroller_type::bus_type& _foreign;
+            private:
             typename Controller<S>::subcontroller_type _child;
         };
         template<typename S, typename... Others> class PassthruSimpleController : public SOS::Behavior::Controller<S> {
@@ -94,6 +95,7 @@ namespace SOS {
             protected:
             bus_type::signal_type& _intrinsic;
             typename Controller<S>::subcontroller_type::bus_type& _foreign;
+            private:
             typename Controller<S>::subcontroller_type _child;
         };
         template<typename S, typename... Others> class PassthruEventController : public SOS::Behavior::Controller<S> {
@@ -108,6 +110,7 @@ namespace SOS {
             protected:
             bus_type::signal_type& _intrinsic;
             typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type& _foreign;
+            private:
             typename SOS::Behavior::Controller<S>::subcontroller_type _child;
         };
         template<typename ReadBufferType, typename MemoryControllerType> class ReadTask {

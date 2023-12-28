@@ -2,14 +2,11 @@
 
 int main () {
     std::cout<<"Controller loop running for 5s..."<<std::endl;
-    ControllerImpl* myController = new ControllerImpl();
+    ControllerImpl::bus_type bus{};
+    ControllerImpl* myController = new ControllerImpl(bus);
     const auto start = high_resolution_clock::now();
-    while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<10){//REMOVE: Needs signaling
-        while(duration_cast<seconds>(high_resolution_clock::now()-start).count()<5){//REMOVE: Needs signaling
-            std::this_thread::yield();
-        }
-        myController->stop();
-        std::this_thread::yield();
-    }
+    std::this_thread::sleep_for(seconds{5});
+    bus.signal.getNotifyRef().clear();
+    std::this_thread::sleep_for(seconds{5});
     delete myController;
 }

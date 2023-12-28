@@ -39,7 +39,6 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
-        std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
         stop_token.getAcknowledgeRef().clear();
     }
     void operator()(){

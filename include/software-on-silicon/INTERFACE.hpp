@@ -121,12 +121,12 @@ namespace SOS{
             protected:
             LoopSignalType& _intrinsic;
         };
-        template<typename... Others> class DummySimpleController : protected SubController<SOS::MemoryView::Notify>, public Loop {
+        template<typename... Others> class DummySimpleController : public Loop, protected SubController<SOS::MemoryView::Notify> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::Notify>(signal) {}
         };
-        template<typename... Others> class DummyEventController : protected SubController<SOS::MemoryView::HandShake>, public Loop {
+        template<typename... Others> class DummyEventController : public Loop, protected SubController<SOS::MemoryView::HandShake> {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::HandShake>(signal) {}
@@ -146,9 +146,10 @@ namespace SOS{
             _child(typename Controller<S>::subcontroller_type{_foreign}) {}
             protected:
             typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
+            private:
             typename Controller<S>::subcontroller_type _child;
         };
-        template<typename S> class SimpleController : public SOS::Behavior::Controller<S>, private SubController<SOS::MemoryView::Notify> {
+        template<typename S> class SimpleController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::Notify> {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
             SimpleController(typename bus_type::signal_type& signal) :
@@ -158,6 +159,7 @@ namespace SOS{
             {}
             protected:
             typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type _foreign = typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type{};
+            private:
             typename SOS::Behavior::Controller<S>::subcontroller_type _child;
         };
         template<typename S> class EventController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::HandShake> {
@@ -170,6 +172,7 @@ namespace SOS{
             {}
             protected:
             typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
+            private:
             typename Controller<S>::subcontroller_type _child;
         };
     }
