@@ -92,24 +92,28 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename ProcessingSwitch, typename... Objects> class SerialProcessing :
-        public ProcessingSwitch {
+        class SerialProcessing {
             public:
-            SerialProcessing(typename ProcessingSwitch::bus_type& bus) :
-            ProcessingSwitch(bus) {}
+            SerialProcessing() {}
             void event_loop() {
-                while(ProcessingSwitch::isRunning()){
-                    if (!ProcessingSwitch::_intrinsic.getAcknowledgeRef().test_and_set()){
-                        ProcessingSwitch::write_notify_hook();
+                while(isRunning()){
+                    if (transfered()){
+                        write_notify_hook();
                     }
-                    if (!ProcessingSwitch::_intrinsic.getUpdatedRef().test_and_set()){
-                        ProcessingSwitch::read_notify_hook();
+                    if (received()){
+                        read_notify_hook();
                     }
                     std::this_thread::yield();
                 }
-                ProcessingSwitch::finished();
+                finished();
             }
             protected:
+            virtual bool isRunning()=0;
+            virtual void finished()=0;
+            virtual bool received()=0;
+            virtual bool transfered()=0;
+            virtual void write_notify_hook()=0;
+            virtual void read_notify_hook()=0;
         };
     }
     namespace Protocol {
