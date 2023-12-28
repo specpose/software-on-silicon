@@ -18,7 +18,6 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
     ~SubControllerImpl() final {
         //_thread.join();
         _thread.detach();
-        std::cout<<"SubController has ended normally."<<std::endl;
     }
     void event_loop(){
         while(stop_token.getUpdatedRef().test_and_set()){
@@ -33,6 +32,7 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
             std::this_thread::sleep_for(milliseconds{666});
         }
         stop_token.getAcknowledgeRef().clear();
+        std::cout<<"SubController has ended normally."<<std::endl;
     };
     void operator()(){
         std::this_thread::sleep_for(milliseconds{_duration});
@@ -44,9 +44,9 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public SOS::Behavior::AsyncController<SubControllerImpl> {//ALWAYS destroy Loop where Controller is
+class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl> {
     public:
-    ControllerImpl() : AsyncController<SubControllerImpl>() {
+    ControllerImpl(bus_type& bus) : SimpleController<SubControllerImpl>(bus.signal) {
         _thread=start(this);
     }
     ~ControllerImpl() {
@@ -58,22 +58,26 @@ class ControllerImpl : public SOS::Behavior::AsyncController<SubControllerImpl> 
         auto waiterBus = SOS::MemoryView::BusShaker{};
         auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
-        while(stop_token.getUpdatedRef().test_and_set()){
+        bool stopme = false;
+        while(stop_token.getUpdatedRef().test_and_set() && !stopme){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
-                operator()();
+                if (!_intrinsic.getNotifyRef().test_and_set())
+                    stopme = true;
+                else
+                    operator()();
             }
             std::this_thread::yield();
         }
-        std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
         stop_token.getAcknowledgeRef().clear();
+        std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
     }
     void operator()(){
         if (!_foreign.signal.getNotifyRef().test_and_set()) {
             _foreign.signal.getNotifyRef().clear();
-            printf("*");
+            std::cout<<"*";
         } else {
-            printf("_");
+            std::cout<<"_";
         }
     }
     private:
