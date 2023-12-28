@@ -74,7 +74,7 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename S, typename... Others> class PassthruAsyncController : private Controller<S> {
+        template<typename S, typename... Others> class PassthruAsyncController : public Controller<S> {
             public:
             PassthruAsyncController(typename Controller<S>::subcontroller_type::bus_type& passThru, Others&... args) :
             Controller<S>(), _foreign(passThru), _child(typename Controller<S>::subcontroller_type{_foreign, args...}) {}
@@ -126,14 +126,13 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : private SOS::Behavior::DummyEventController<>,
-        public SOS::Behavior::Loop, public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
+        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
+        public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::DummyEventController<>(outside.signal),
-            SOS::Behavior::Loop()
+            SOS::Behavior::DummyEventController<>(outside.signal)
             {}
             ~Reader(){}
             void event_loop() final {

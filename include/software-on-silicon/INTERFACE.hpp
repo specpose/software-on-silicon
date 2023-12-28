@@ -121,25 +121,25 @@ namespace SOS{
             protected:
             LoopSignalType& _intrinsic;
         };
-        template<typename... Others> class DummySimpleController : protected SubController<SOS::MemoryView::Notify> {
+        template<typename... Others> class DummySimpleController : protected SubController<SOS::MemoryView::Notify>, public Loop {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : SubController<SOS::MemoryView::Notify>(signal) {}
+            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::Notify>(signal) {}
         };
-        template<typename... Others> class DummyEventController : protected SubController<SOS::MemoryView::HandShake> {
+        template<typename... Others> class DummyEventController : protected SubController<SOS::MemoryView::HandShake>, public Loop {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : SubController<SOS::MemoryView::HandShake>(signal) {}
+            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::HandShake>(signal) {}
         };
         template<typename T, typename S = typename std::enable_if<
                 std::is_base_of< typename SOS::Behavior::SubController<typename T::bus_type::signal_type>,T >::value,T
-                >::type > class Controller {
+                >::type > class Controller : public Loop {
             public:
             using subcontroller_type = S;
-            Controller() {}
+            Controller() : Loop() {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
-        template<typename S> class AsyncController : private Controller<S> {
+        template<typename S> class AsyncController : public Controller<S> {
             public:
             AsyncController() :
             Controller<S>(),
