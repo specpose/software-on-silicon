@@ -176,11 +176,11 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     bus_type& _nBus;
     std::thread _thread = std::thread{};
 };
-class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch> {
+class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
     using bus_type = SOS::MemoryView::BusShaker;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
     {
         _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
@@ -223,10 +223,10 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch> {
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread = std::thread{};
 };
-class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch> {
+class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
     MCU(bus_type& myBus) :
-    SOS::Behavior::SimulationMCU<MCUProcessingSwitch>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+    SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(_foreign.objects).fill('-');
         _foreign.descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
