@@ -58,7 +58,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
             case 0:
-            //std::cout<<"FPGA received: "<<object_id<<std::endl;
+            //std::cout<<"FPGA received: "<<object_id<<std::endl;//fresh out of read_lock, safe before unsynced
             if (!std::get<0>(_nBus.objects).mcu_owned()){
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 std::get<0>(_nBus.objects).setNumber(++n);
@@ -78,7 +78,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
         auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
         switch(object_id){
             case 0:
-            //std::cout<<"FPGA written: "<<object_id<<std::endl;
+            //std::cout<<"FPGA written: "<<object_id<<std::endl;//just been synced, can now process further
             break;
             case 1:
             //std::cout<<"FPGA written: "<<object_id<<std::endl;
@@ -178,9 +178,9 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
 };
 class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
-    using bus_type = SOS::MemoryView::BusShaker;
+    using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus, mcu_to_fpga_buffer,fpga_to_mcu_buffer)
+    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer, mcu_to_fpga_buffer)
     {
         _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
@@ -225,6 +225,7 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
 };
 class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA> {
     public:
+    using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     MCU(bus_type& myBus) :
     SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
         std::get<2>(_foreign.objects).fill('-');
