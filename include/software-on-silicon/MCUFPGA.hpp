@@ -53,34 +53,34 @@ namespace SOS {
             virtual unsigned char read_byte() {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(),
                 SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load()>bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef()>bufferLength)
                     throw SFA::util::runtime_error("Attempted read after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next);
                 next++;
                 //auto byte = out_buffer[SimulationBuffers<ComBufferType>::writePos++];
                 //if (SimulationBuffers<ComBufferType>::writePos==out_buffer.size())
                 if (next>=bufferLength)
                     //SimulationBuffers<ComBufferType>::writePos=0;
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = next;
                 return byte;
             }
             virtual void write_byte(unsigned char byte) {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load()>bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef()>bufferLength)
                     throw SFA::util::runtime_error("Attempted write after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next) = byte;
                 next++;
                 //in_buffer[SimulationBuffers<ComBufferType>::readPos++]=byte;
                 //if (SimulationBuffers<ComBufferType>::readPos==in_buffer.size())
                 if (next>=bufferLength)
                     //SimulationBuffers<ComBufferType>::readPos=0;
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = next;
             }
             private:
             COM_BUFFER& in_buffer;
@@ -93,34 +93,34 @@ namespace SOS {
             protected:
             virtual unsigned char read_byte() {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load()>bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef()>bufferLength)
                     throw SFA::util::runtime_error("Attempted read after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next);
                 next++;
                 //auto byte = in_buffer[SimulationBuffers<ComBufferType>::readPos++];
                 //if (SimulationBuffers<ComBufferType>::readPos==in_buffer.size())
                 if (next>=bufferLength)
                     //SimulationBuffers<ComBufferType>::readPos=0;
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = next;
                 return byte;
             }
             virtual void write_byte(unsigned char byte) {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load()>bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef()>bufferLength)
                     throw SFA::util::runtime_error("Attempted write after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next) = byte;
                 next++;
                 //out_buffer[SimulationBuffers<ComBufferType>::writePos++]=byte;
                 //if (SimulationBuffers<ComBufferType>::writePos==out_buffer.size())
                 if (next>=bufferLength)
                     //SimulationBuffers<ComBufferType>::writePos=0;
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = next;
             }
             private:
             const COM_BUFFER& in_buffer;
