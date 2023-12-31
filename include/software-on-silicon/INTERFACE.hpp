@@ -80,6 +80,16 @@ namespace SOS{
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
+            bool isRunning() {
+                if (stop_token.getUpdatedRef().test_and_set()) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            void finished() {
+                stop_token.getAcknowledgeRef().clear();
+            }
             private:
             bool stop(){//dont need thread in here
                 stop_token.getUpdatedRef().clear();

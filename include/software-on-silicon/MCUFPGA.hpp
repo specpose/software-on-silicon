@@ -40,8 +40,6 @@ namespace SOS {
             protected:
             virtual unsigned char read_byte() = 0;
             virtual void write_byte(unsigned char byte) = 0;
-            std::size_t writePos = 0;//REPLACE: out_buffer
-            std::size_t readPos = 0;//REPLACE: in_buffer
             buffers_ct& comcable;
             iterators_ct& itercable;
         };
@@ -58,10 +56,7 @@ namespace SOS {
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next);
                 next++;
-                //auto byte = out_buffer[SimulationBuffers<ComBufferType>::writePos++];
-                //if (SimulationBuffers<ComBufferType>::writePos==out_buffer.size())
                 if (next>=bufferLength)
-                    //SimulationBuffers<ComBufferType>::writePos=0;
                     SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
                 else
                     SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
@@ -74,10 +69,7 @@ namespace SOS {
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next) = byte;
                 next++;
-                //in_buffer[SimulationBuffers<ComBufferType>::readPos++]=byte;
-                //if (SimulationBuffers<ComBufferType>::readPos==in_buffer.size())
                 if (next>=bufferLength)
-                    //SimulationBuffers<ComBufferType>::readPos=0;
                     SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
                 else
                     SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
@@ -98,10 +90,7 @@ namespace SOS {
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next);
                 next++;
-                //auto byte = in_buffer[SimulationBuffers<ComBufferType>::readPos++];
-                //if (SimulationBuffers<ComBufferType>::readPos==in_buffer.size())
                 if (next>=bufferLength)
-                    //SimulationBuffers<ComBufferType>::readPos=0;
                     SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
                 else
                     SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
@@ -114,10 +103,7 @@ namespace SOS {
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next) = byte;
                 next++;
-                //out_buffer[SimulationBuffers<ComBufferType>::writePos++]=byte;
-                //if (SimulationBuffers<ComBufferType>::writePos==out_buffer.size())
                 if (next>=bufferLength)
-                    //SimulationBuffers<ComBufferType>::writePos=0;
                     SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
                 else
                     SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
@@ -143,21 +129,10 @@ namespace SOS {
                 write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
                 SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
-            //using SOS::Protocol::SerialFPGA<Objects...>::event_loop;
-            virtual void event_loop() final {
-                SOS::Protocol::Serial<Objects...>::event_loop();
-            }
+            virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
             protected:
-            virtual bool isRunning() final {
-                if (SOS::Behavior::EventController<ControllerType>::stop_token.getUpdatedRef().test_and_set()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-            virtual void finished() final {
-                SOS::Behavior::EventController<ControllerType>::stop_token.getAcknowledgeRef().clear();
-            }
+            virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+            virtual void finished() final { SOS::Behavior::Loop::finished(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() final {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
             }
@@ -188,21 +163,10 @@ namespace SOS {
             SOS::Protocol::MCUSimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables),std::get<0>(myBus.cables),in_buffer,out_buffer),
             SOS::Behavior::EventController<ControllerType>(myBus.signal)
             {}
-            //using SOS::Protocol::Serial<Objects...>::event_loop;
-            virtual void event_loop() final {
-                SOS::Protocol::Serial<Objects...>::event_loop();
-            }
+            virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
             protected:
-            virtual bool isRunning() final {
-                if (SOS::Behavior::EventController<ControllerType>::stop_token.getUpdatedRef().test_and_set()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-            virtual void finished() final {
-                SOS::Behavior::EventController<ControllerType>::stop_token.getAcknowledgeRef().clear();
-            }
+            virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+            virtual void finished() final { SOS::Behavior::Loop::finished(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() final {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
             }

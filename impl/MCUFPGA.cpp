@@ -51,9 +51,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     ~FPGAProcessingSwitch(){
         _thread.detach();
     }
-    void event_loop(){
-        SOS::Behavior::SerialProcessing::event_loop();
-    }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -95,16 +93,8 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final {
-        if (stop_token.getUpdatedRef().test_and_set()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    virtual void finished() final {
-        stop_token.getAcknowledgeRef().clear();
-    }
+    virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+    virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
     std::thread _thread = std::thread{};
@@ -118,9 +108,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     ~MCUProcessingSwitch(){
         _thread.detach();
     }
-    void event_loop(){
-        SOS::Behavior::SerialProcessing::event_loop();
-    }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
@@ -162,16 +150,8 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final {
-        if (stop_token.getUpdatedRef().test_and_set()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    virtual void finished() final {
-        stop_token.getAcknowledgeRef().clear();
-    }
+    virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+    virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
     std::thread _thread = std::thread{};

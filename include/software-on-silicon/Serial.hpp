@@ -143,7 +143,6 @@ namespace SOS {
             virtual bool receive_acknowledge() = 0;//4
             virtual unsigned char read_byte()=0;
             virtual void write_byte(unsigned char)=0;
-            //DataBus objectBus{};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
