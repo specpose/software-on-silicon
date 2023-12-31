@@ -7,8 +7,6 @@
 #include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include <limits>
-COM_BUFFER mcu_to_fpga_buffer;
-COM_BUFFER fpga_to_mcu_buffer;
 #define DMA std::array<unsigned char,999>//1001%3=2
 
 using namespace SOS::MemoryView;
@@ -160,7 +158,7 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
     public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     FPGA(bus_type& myBus) :
-    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer, mcu_to_fpga_buffer)
+    SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
         _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
         int writeBlinkCounter = 0;
@@ -207,7 +205,7 @@ class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateC
     public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     MCU(bus_type& myBus) :
-    SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus,fpga_to_mcu_buffer,mcu_to_fpga_buffer) {
+    SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus) {
         std::get<2>(_foreign.objects).fill('-');
         _foreign.descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();

@@ -45,43 +45,8 @@ namespace SOS {
         };
         template<typename ComBufferType> class FPGASimulationBuffers : SimulationBuffers<ComBufferType> {
             public:
-            FPGASimulationBuffers(typename SimulationBuffers<ComBufferType>::buffers_ct& com, typename SimulationBuffers<ComBufferType>::iterators_ct& it, COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
-            in_buffer(in_buffer), out_buffer(out_buffer), SimulationBuffers<ComBufferType>(com,it) {}
-            protected:
-            virtual unsigned char read_byte() {
-                const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(),
-                SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load()>bufferLength)
-                    throw SFA::util::runtime_error("Attempted read after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
-                auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next);
-                next++;
-                if (next>=bufferLength)
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
-                else
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
-                return byte;
-            }
-            virtual void write_byte(unsigned char byte) {
-                const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load()>bufferLength)
-                    throw SFA::util::runtime_error("Attempted write after end of buffer.",__FILE__,__func__);
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
-                *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next) = byte;
-                next++;
-                if (next>=bufferLength)
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
-                else
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
-            }
-            private:
-            COM_BUFFER& in_buffer;
-            const COM_BUFFER& out_buffer;
-        };
-        template<typename ComBufferType> class MCUSimulationBuffers : SimulationBuffers<ComBufferType> {
-            public:
-            MCUSimulationBuffers(typename SimulationBuffers<ComBufferType>::buffers_ct& com, typename SimulationBuffers<ComBufferType>::iterators_ct& it, COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
-            in_buffer(in_buffer), out_buffer(out_buffer), SimulationBuffers<COM_BUFFER>(com,it) {}
+            FPGASimulationBuffers(typename SimulationBuffers<ComBufferType>::buffers_ct& com, typename SimulationBuffers<ComBufferType>::iterators_ct& it) :
+            SimulationBuffers<ComBufferType>(com,it) {}
             protected:
             virtual unsigned char read_byte() {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
@@ -108,9 +73,37 @@ namespace SOS {
                 else
                     SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
             }
-            private:
-            const COM_BUFFER& in_buffer;
-            COM_BUFFER& out_buffer;
+        };
+        template<typename ComBufferType> class MCUSimulationBuffers : SimulationBuffers<ComBufferType> {
+            public:
+            MCUSimulationBuffers(typename SimulationBuffers<ComBufferType>::buffers_ct& com, typename SimulationBuffers<ComBufferType>::iterators_ct& it) :
+            SimulationBuffers<COM_BUFFER>(com,it) {}
+            protected:
+            virtual unsigned char read_byte() {
+                const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
+                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load()>bufferLength)
+                    throw SFA::util::runtime_error("Attempted read after end of buffer.",__FILE__,__func__);
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
+                auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef()+next);
+                next++;
+                if (next>=bufferLength)
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
+                else
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
+                return byte;
+            }
+            virtual void write_byte(unsigned char byte) {
+                const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(),SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
+                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load()>bufferLength)
+                    throw SFA::util::runtime_error("Attempted write after end of buffer.",__FILE__,__func__);
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
+                *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef()+next) = byte;
+                next++;
+                if (next>=bufferLength)
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
+                else
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
+            }
         };
     }
     namespace Behavior{
@@ -120,14 +113,14 @@ namespace SOS {
         public SOS::Behavior::EventController<ControllerType> {
             public:
             using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-            SimulationFPGA(bus_type& myBus, COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
+            SimulationFPGA(bus_type& myBus) :
             SOS::Protocol::SerialFPGA<Objects...>(),
             SOS::Protocol::Serial<Objects...>(),
-            SOS::Protocol::FPGASimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables),std::get<0>(myBus.cables),in_buffer,out_buffer),
+            SOS::Protocol::FPGASimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables),std::get<0>(myBus.cables)),
             SOS::Behavior::EventController<ControllerType>(myBus.signal)
             {
-                write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
-                SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
+                //write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
+                //SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
             protected:
@@ -157,10 +150,10 @@ namespace SOS {
         public SOS::Behavior::EventController<ControllerType> {
             public:
             using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-            SimulationMCU(bus_type& myBus, COM_BUFFER& in_buffer, COM_BUFFER& out_buffer) :
+            SimulationMCU(bus_type& myBus) :
             SOS::Protocol::SerialMCU<Objects...>(),
             SOS::Protocol::Serial<Objects...>(),
-            SOS::Protocol::MCUSimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables),std::get<0>(myBus.cables),in_buffer,out_buffer),
+            SOS::Protocol::MCUSimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables),std::get<0>(myBus.cables)),
             SOS::Behavior::EventController<ControllerType>(myBus.signal)
             {}
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
@@ -172,12 +165,12 @@ namespace SOS {
             }
             private:
             virtual bool handshake() final {
-                if (!SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().test_and_set()){
+                if (!SOS::Behavior::EventController<ControllerType>::_intrinsic.getUpdatedRef().test_and_set()){
                     return true;
                 }
                 return false;
             }
-            virtual void handshake_ack() final {SOS::Behavior::EventController<ControllerType>::_intrinsic.getUpdatedRef().clear();}
+            virtual void handshake_ack() final {SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();}
             virtual unsigned char read_byte() final {
                 return SOS::Protocol::MCUSimulationBuffers<COM_BUFFER>::read_byte();
             }
