@@ -9,7 +9,7 @@ std::chrono::time_point<std::chrono::high_resolution_clock> kill_time) {
         <<"; RX: "<<descriptors[i].rx_counter<<" => "<<descriptors[i].rx_counter/(t/std::nano::den)<<" Symbols/s"
         <<"; TX: "<<descriptors[i].tx_counter<<" => "<<descriptors[i].tx_counter/(t/std::nano::den)<<" Symbols/s"<<std::endl;
         for (std::size_t j=0;j<descriptors[i].obj_size;j++){
-            printf("%X",reinterpret_cast<char*>(descriptors[i].obj)[j]);
+            printf("%X", reinterpret_cast<unsigned char*>(descriptors[i].obj)[j] );
         }
         std::cout<<std::endl;
     }
