@@ -275,21 +275,16 @@ namespace SOS {
                         write_bits(out);
                         writeCount++;
                     break;
-                    case 1:
-                        out = write_assemble(writeAssembly, writeCount, w);
-                        write_bits(out);
-                        out = write_recover(writeAssembly, writeCount, out);//recover last 1 2bit
-                        writeCount++;
-                    break;
-                    case 2://call 3
+                    case 1://recover last 1 2bit
+                    case 2://recover last 2 2bit; call 3
                         out = write_assemble(writeAssembly, writeCount,w);
                         write_bits(out);
-                        out = write_recover(writeAssembly, writeCount, out);//recover last 2 2bit
+                        out = write_recover(writeAssembly, writeCount, out);
                         writeCount++;
                     break;
-                    case 3:
+                    case 3://recover 3 2bit from call 3 only
                         write_bits(out);
-                        out = write_recover(writeAssembly, writeCount, out);;//recover 3 2bit from call 3 only
+                        out = write_recover(writeAssembly, writeCount, out);;
                         writeCount=0;
                     break;
                 }
@@ -297,21 +292,14 @@ namespace SOS {
             }
             bool read(unsigned char r){
                 std::bitset<24> temp{ static_cast<unsigned long>(r)};
+                read_shift(readAssembly, readCount, temp);
                 switch (readCount) {
                     case 0:
-                    read_shift(readAssembly, readCount, temp);
-                    readCount++;
-                    return true;
                     case 1:
-                    read_shift(readAssembly, readCount, temp);
-                    readCount++;
-                    return true;
                     case 2:
-                    read_shift(readAssembly, readCount, temp);
                     readCount++;
                     return true;
                     case 3:
-                    read_shift(readAssembly, readCount, temp);
                     readCount=0;
                 }
                 return false;
