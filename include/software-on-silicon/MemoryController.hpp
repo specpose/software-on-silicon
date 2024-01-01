@@ -39,7 +39,7 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        template<typename MemoryControllerType> struct BlockerBus : public SOS::MemoryView::BusShaker{
+        template<typename MemoryControllerType> struct BlockerBus : public SOS::MemoryView::BusShaker {
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
@@ -123,8 +123,8 @@ namespace SOS {
             protected:
             virtual void read()=0;
             virtual bool wait()=0;
-            virtual bool exit_loop()=0;
-            virtual void acknowledge()=0;
+            virtual void wait_acknowledge()=0;
+            //virtual bool exit_loop()=0;
             reader_length_ct& _size;
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
@@ -160,18 +160,17 @@ namespace SOS {
                     return false;
                 }
             }
-            virtual bool exit_loop() {
+            virtual void wait_acknowledge() {
+                _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
+            }
+            /*virtual bool exit_loop() {
                 if (!Loop::is_running()) {
                     Loop::request_stop();
                     return true;
                 } else {
                     return false;
                 }
-            }
-            protected:
-            virtual void acknowledge() {
-                _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
-            }
+            }*/
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
