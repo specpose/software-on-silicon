@@ -24,7 +24,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
-        while (current!=end && !exit_loop()){
+        while (current!=end){
             if (!wait()) {
                 if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
                     < (std::distance(start, end) + readOffset))
@@ -34,7 +34,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
                 *current = (**readerPos)[channel];
                 readOffset++;
                 ++current;
-                acknowledge();
+                wait_acknowledge();
             }
             std::this_thread::yield();
         }
@@ -58,8 +58,13 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread.detach();
     }
     private:
-    virtual void read() final {ReadTaskImpl::read();};
-    virtual void acknowledge() final {SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::acknowledge();};
+    virtual void read() final {
+        if (is_running()) {
+            ReadTaskImpl::read();
+        } else {
+            request_stop();
+        }
+    };
     std::thread _thread;
 };
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
