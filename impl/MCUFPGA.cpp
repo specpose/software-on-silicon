@@ -91,7 +91,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+    virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
     virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
@@ -148,7 +148,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final { return SOS::Behavior::Loop::isRunning(); }
+    virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
     virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
@@ -193,6 +193,9 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
+    void requestStop(){
+        request_stop();
+    };
     private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
