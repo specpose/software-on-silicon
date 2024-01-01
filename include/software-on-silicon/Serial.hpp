@@ -215,7 +215,9 @@ namespace SOS {
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<foreign().descriptors.size()&& !gotOne;i++){
-                            if (!foreign().descriptors[i].readLock && !foreign().descriptors[i].synced){
+                            if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                                throw SFA::util::logic_error("DMAObject has entered an illegal sync state.",__FILE__,__func__);
+                            if (!foreign().descriptors[i].synced){
                                 send_request();
                                 writeOrigin().store(foreign().descriptors[i].id);
                                 writeOriginPos=0;
