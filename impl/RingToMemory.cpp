@@ -42,6 +42,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
             if (!wait()) {
                 *current = *(readerPos++);
                 ++current;
+                wait_acknowledge();
             }
             std::this_thread::yield();
         }
@@ -82,9 +83,9 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
-        _blocker.signal.getNotifyRef().clear();
+        _blocker.signal.getUpdatedRef().clear();
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
-        _blocker.signal.getNotifyRef().test_and_set();
+        _blocker.signal.getUpdatedRef().test_and_set();
     }
 };
 //multiple inheritance: destruction order
