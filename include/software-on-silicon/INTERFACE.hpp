@@ -75,28 +75,21 @@ namespace SOS{
             virtual ~Loop(){stop();};
             virtual void event_loop()=0;
             protected:
-            SOS::MemoryView::HandShake stop_token;
             template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
-            bool isRunning() {
-                if (stop_token.getUpdatedRef().test_and_set()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-            void finished() {
-                stop_token.getAcknowledgeRef().clear();
-            }
+            bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
+            void finished() { stop_token.getAcknowledgeRef().clear(); }
+            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
             private:
+            SOS::MemoryView::HandShake stop_token;
             bool stop(){//dont need thread in here
-                stop_token.getUpdatedRef().clear();
+                request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){
                     std::this_thread::yield();//caller thread, not LoopImpl
                 }
-                stop_token.getAcknowledgeRef().clear();
+                finished();
                 return true;
             }
         };

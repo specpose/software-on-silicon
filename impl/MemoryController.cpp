@@ -91,7 +91,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     void event_loop(){
         int counter = 0;
         bool blink = true;
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
         const auto start = high_resolution_clock::now();
         MEMORY_CONTROLLER::value_type data;
         if (blink)
@@ -109,7 +109,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
         }
         std::this_thread::sleep_until(start + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
     }
     private:
     std::thread _thread;

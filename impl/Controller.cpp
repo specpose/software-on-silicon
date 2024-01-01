@@ -20,7 +20,7 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
         _thread.detach();
     }
     void event_loop(){
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -31,7 +31,7 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
         std::cout<<"SubController has ended normally."<<std::endl;
     };
     void operator()(){
@@ -59,7 +59,7 @@ class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl>
         auto waiter = Timer<milliseconds,100>(waiterBus.signal);
 
         bool stopme = false;
-        while(stop_token.getUpdatedRef().test_and_set() && !stopme){
+        while(is_running() && !stopme){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 if (!_intrinsic.getNotifyRef().test_and_set())
@@ -69,7 +69,7 @@ class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl>
             }
             std::this_thread::yield();
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
     }
     void operator()(){

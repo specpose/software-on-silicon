@@ -29,13 +29,13 @@ class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private Ri
         _thread.detach();
     }
     void event_loop(){
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
             std::this_thread::yield();
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
     }
     private:
     //ALWAYS has to be private
