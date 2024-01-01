@@ -127,6 +127,7 @@ namespace SOS {
                     if (handshake()) {
                         read_hook(read4minus1);
                         write_hook(write3plus1);
+                        handshake_ack();
                     }
                     std::this_thread::yield();
                 }
@@ -214,7 +215,9 @@ namespace SOS {
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<foreign().descriptors.size()&& !gotOne;i++){
-                            if (!foreign().descriptors[i].readLock && !foreign().descriptors[i].synced){
+                            if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                                throw SFA::util::logic_error("DMAObject has entered an illegal sync state.",__FILE__,__func__);
+                            if (!foreign().descriptors[i].synced){
                                 send_request();
                                 writeOrigin().store(foreign().descriptors[i].id);
                                 writeOriginPos=0;
@@ -224,7 +227,6 @@ namespace SOS {
                                 id = id ^ obj_id;
                                 //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin()<<std::endl;
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                handshake_ack();
                                 gotOne=true;
                             }
                         }
@@ -236,7 +238,6 @@ namespace SOS {
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"!";
                             write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            handshake_ack();
                         }
                     }
                 }
@@ -245,9 +246,8 @@ namespace SOS {
                         unsigned char data;
                         data = reinterpret_cast<char*>(foreign().descriptors[writeOrigin().load()].obj)[writeOriginPos++];
                         write(data);
-                        handshake_ack();
                         write3plus1++;
-                    } else if (write3plus1==3){
+                    } else {//write3plus1==3
                         if (writeOriginPos==foreign().descriptors[writeOrigin().load()].obj_size){
                             foreign().descriptors[writeOrigin().load()].synced=true;
                             send_lock=false;
@@ -256,7 +256,6 @@ namespace SOS {
                             //std::cout<<"$";
                         }
                         write(63);//'?' empty write
-                        handshake_ack();
                         write3plus1=0;
                     }
                 }

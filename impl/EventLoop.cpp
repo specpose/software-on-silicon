@@ -28,7 +28,7 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
     }
     void event_loop(){
         const auto start = high_resolution_clock::now();
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -39,7 +39,7 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
             //pause
             std::this_thread::sleep_for(milliseconds{666});
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
     }
     void operator()(){
         predicate();

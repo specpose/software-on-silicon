@@ -16,7 +16,7 @@ template<typename DurationType,
         _thread = start(this);
     }
     ~Timer(){
-        stop_token.getUpdatedRef().clear();
+        request_stop();
         _thread.join();
         std::cout<<"Timer spent "<<duration_cast<DurationType>(t_counter -
         duration_cast<high_resolution_clock::duration>(DurationType{(runCount * Period)})
@@ -29,7 +29,7 @@ template<typename DurationType,
         <<"ns more on average per "<<Period<<" duration units."<<std::endl;
     }
     void event_loop(){
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
         if (!_intrinsic.getUpdatedRef().test_and_set()){
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
@@ -40,7 +40,7 @@ template<typename DurationType,
             _intrinsic.getAcknowledgeRef().clear();
         }
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
     }
     void constexpr operator()(){
         std::this_thread::sleep_for(DurationType{Period});;

@@ -170,7 +170,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     }
     //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
-        while(stop_token.getUpdatedRef().test_and_set()){
+        while(is_running()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 RingBufferTask::read_loop();
             }
@@ -187,7 +187,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
             }
             std::this_thread::yield();
         }
-        stop_token.getAcknowledgeRef().clear();
+        finished();
     }
     protected:
     bool clear_memorycontroller = false;

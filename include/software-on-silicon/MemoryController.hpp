@@ -139,7 +139,7 @@ namespace SOS {
             {}
             ~Reader(){}
             void event_loop() final {
-                while(Loop::stop_token.getUpdatedRef().test_and_set()){
+                while(Loop::is_running()){
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
         //                        std::cout << "S";
                     read();//FIFO whole buffer with intermittent waits when write
@@ -147,7 +147,7 @@ namespace SOS {
                     _intrinsic.getAcknowledgeRef().clear();
                     }
                 }
-                Loop::stop_token.getAcknowledgeRef().clear();
+                Loop::finished();
             }
             private:
             virtual void read()=0;
@@ -161,8 +161,8 @@ namespace SOS {
                 }
             }
             virtual bool exit_loop() {
-                if (!Loop::stop_token.getUpdatedRef().test_and_set()) {
-                    Loop::stop_token.getUpdatedRef().clear();
+                if (!Loop::is_running()) {
+                    Loop::request_stop();
                     return true;
                 } else {
                     return false;
