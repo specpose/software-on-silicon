@@ -24,7 +24,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
         <(std::distance(current,end)+readOffset))
             throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
         auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
-        while (current!=end && !exit_loop()){
+        while (current!=end){
             if (!wait()) {
                 *current = *(readerPos++);
                 ++current;
@@ -50,7 +50,13 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
         _thread.detach();
     }
     private:
-    virtual void read() final {ReadTaskImpl::read();};
+    virtual void read() final {
+        if (is_running()) {
+            ReadTaskImpl::read();
+        } else {
+            request_stop();
+        }
+    };
     std::thread _thread;
 };
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {

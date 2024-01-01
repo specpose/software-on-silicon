@@ -96,7 +96,7 @@ namespace SOS {
             protected:
             virtual void read()=0;
             virtual bool wait()=0;
-            virtual bool exit_loop()=0;
+            //virtual bool exit_loop()=0;
             reader_length_ct& _size;
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
@@ -131,14 +131,14 @@ namespace SOS {
                     return false;
                 }
             }
-            virtual bool exit_loop() {
+            /*virtual bool exit_loop() {
                 if (!Loop::is_running()) {
                     Loop::request_stop();
                     return true;
                 } else {
                     return false;
                 }
-            }
+            }*/
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename BufferType> class MemoryControllerWrite {
