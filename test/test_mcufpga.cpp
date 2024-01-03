@@ -13,11 +13,18 @@ int main () {
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
     const auto start = std::chrono::high_resolution_clock::now();
     bool stop = false;
+    bool client_stop_request = false;
     while (!stop) {//CUTS THE LINE => no last sync possible
-        if (!std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1){
+        if (!client_stop_request && !std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1){
             client->requestStop();
-            stop = true;
+            client_stop_request = true;
+            stop = true;//SIMULATION OR BUG?
         }
+        //if (host->isStopped())
+        //    stop = true;
+        //else
+        //    throw SFA::util::logic_error("Host failed to receive client stop request",__FILE__,__func__);
+
         //if (termios.read(Ctx,&mcu_in_buffer,1)){//SIMULATION: Enable 2
         //    mcubus.signal.getUpdatedRef().clear();//SIMULATION: Enable 2
         //    while (mcubus.signal.getAcknowledgeRef().test_and_set())
@@ -30,6 +37,7 @@ int main () {
             fpgabus.signal.getUpdatedRef().clear();//SIMULATION: Disable 2
         }
         //}
+
         //if (termios.read(Ctx,&fpga_in_buffer,1)){//SIMULATION: Enable 1
         //    fpgabus.signal.getUpdatedRef().clear();//SIMULATION: Enable 1
         //    while (fpgabus.signal.getAcknowledgeRef().test_and_set())
@@ -42,6 +50,7 @@ int main () {
             mcubus.signal.getUpdatedRef().clear();//SIMULATION: Disable 1
         }
         //}
+
         std::this_thread::yield();
     }
     delete client;
