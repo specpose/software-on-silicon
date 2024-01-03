@@ -12,15 +12,29 @@ namespace SOS {
             }
             return id;//-> "10111111"
         }
+        static std::bitset<8> shutdownState() {//constexpr
+            std::bitset<8> id;
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false
+            id.set(0,0);
+            //set 6bit data to "111110"
+            for(std::size_t i = 1; i <= id.size()-1-2; i++){
+                id.set(i,1);
+            }
+            return id;//-> "10111110"
+        }
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
             DMADescriptor(unsigned char id, void* obj, std::size_t obj_size) : id(id),obj(obj),obj_size(obj_size){
                 if (obj_size%3!=0)
                     throw SFA::util::logic_error("Invalid DMAObject size",__FILE__,__func__);
                 //check for "10111111" => >62
-                auto maxId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
-                if (id==maxId)
+                const auto idleId = static_cast<unsigned long>(((idleState()<<2)>>2).to_ulong());
+                if (id==idleId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the serial line idle state",__FILE__,__func__);
+                const auto shutdownId = static_cast<unsigned long>(((shutdownState()<<2)>>2).to_ulong());
+                if (id==shutdownId)
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the com_shutdown request on idle",__FILE__,__func__);
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -89,6 +103,7 @@ namespace SOS {
             cables_type cables;
             std::tuple<Objects...> objects{};
             SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
+            bool com_shutdown = false;
         };
     }
     namespace Behavior {
@@ -96,7 +111,7 @@ namespace SOS {
             public:
             SerialProcessing() {}
             void event_loop() {
-                while(isRunning()){
+                while(is_running()){
                     if (transfered()){
                         write_notify_hook();
                     }
@@ -108,7 +123,7 @@ namespace SOS {
                 finished();
             }
             protected:
-            virtual bool isRunning()=0;
+            virtual bool is_running()=0;
             virtual void finished()=0;
             virtual bool received()=0;
             virtual bool transfered()=0;
@@ -123,7 +138,7 @@ namespace SOS {
             virtual void event_loop() {//final
                 int read4minus1 = 0;
                 int write3plus1 = 0;
-                while(isRunning()){
+                while(is_running()){
                     if (handshake()) {
                         read_hook(read4minus1);
                         write_hook(write3plus1);
@@ -131,11 +146,23 @@ namespace SOS {
                     }
                     std::this_thread::yield();
                 }
+                loop_shutdown = true;
+                while ((!sent_com_shutdown && received_com_shutdown) ||
+                        (sent_com_shutdown && !received_com_shutdown) ) {
+                    if (handshake()){
+                        read_hook(read4minus1);
+                        write_hook(write3plus1);
+                        handshake_ack();
+                    }
+                    std::this_thread::yield();
+                }
                 finished();
+                //std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
             protected:
-            virtual bool isRunning() = 0;
+            virtual bool is_running() = 0;
             virtual void finished() = 0;
+            virtual void request_stop() = 0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;//3
@@ -150,6 +177,9 @@ namespace SOS {
             bool mcu_acknowledge = false;//mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() = 0;
             private:
+            bool loop_shutdown = false;
+            bool received_com_shutdown = false;
+            bool sent_com_shutdown = false;
             //ALIAS of Variables
             constexpr auto& readDestination() {
                 return std::get<0>(foreign().cables).getReadDestinationRef();
@@ -166,8 +196,14 @@ namespace SOS {
                     if (receive_request()){
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
-                        //check for "10111111"==idle==63
-                        if (obj_id!=((idleState()<<2)>>2)){
+                        if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
+                        } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
+                            foreign().com_shutdown = true;//incoming
+                            received_com_shutdown = true;
+                            //std::cout<<typeid(*this).name();
+                            //std::cout<<"O";
+                            request_stop();
+                        } else {
                             auto id = static_cast<unsigned char>(obj_id.to_ulong());
                             for (std::size_t j=0;j<foreign().descriptors.size();j++){
                                 if (foreign().descriptors[j].synced==true && foreign().descriptors[j].id==id){
@@ -232,12 +268,22 @@ namespace SOS {
                         }
                         //read in handshake -> set wire to valid state
                         if (!gotOne){
-                            auto id = idleState();//10111111
-                            write_bits(id);
-                            id.set(7,1);//override write_bits
-                            //std::cout<<typeid(*this).name();
-                            //std::cout<<"!";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            if (loop_shutdown) {//Case of unsynced objects can be ignored from above
+                                auto id = shutdownState();//10111110
+                                write_bits(id);
+                                id.set(7,1);//override write_bits
+                                std::cout<<typeid(*this).name();
+                                std::cout<<"X";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                                sent_com_shutdown = true;
+                            } else {
+                                auto id = idleState();//10111111
+                                write_bits(id);
+                                id.set(7,1);//override write_bits
+                                //std::cout<<typeid(*this).name();
+                                //std::cout<<"!";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            }
                         }
                     }
                 }

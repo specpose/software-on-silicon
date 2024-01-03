@@ -85,8 +85,9 @@ namespace SOS {
             }
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
             protected:
-            virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
+            virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
             virtual void finished() final { SOS::Behavior::Loop::finished(); }
+            virtual void request_stop() final { SOS::Behavior::Loop::request_stop(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() final {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
             }
@@ -121,8 +122,9 @@ namespace SOS {
             {}
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
             protected:
-            virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
+            virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
             virtual void finished() final { SOS::Behavior::Loop::finished(); }
+            virtual void request_stop() final { SOS::Behavior::Loop::request_stop(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() final {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
             }

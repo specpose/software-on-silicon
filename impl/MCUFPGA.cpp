@@ -51,6 +51,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
+        if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
             case 0:
@@ -69,8 +70,10 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
             //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
         }
+        }
     }
     void write_notify_hook(){
+        if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
         switch(object_id){
             case 0:
@@ -83,6 +86,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
             //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
         }
+        }
     }
     protected:
     virtual bool received() final {
@@ -91,7 +95,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
+    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
     virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
@@ -108,6 +112,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
+        if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
             case 0:
@@ -126,8 +131,10 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
             //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
         }
+        }
     }
     void write_notify_hook(){
+        if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
         switch(object_id){
             case 0:
@@ -140,6 +147,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
             //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
         }
+        }
     }
     protected:
     virtual bool received() final {
@@ -148,7 +156,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     virtual bool transfered() final {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool isRunning() final { return SOS::Behavior::Loop::is_running(); }
+    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
     virtual void finished() final { SOS::Behavior::Loop::finished(); }
     private:
     bus_type& _nBus;
@@ -196,6 +204,13 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
     void requestStop(){
         request_stop();
     };
+    bool isStopped(){
+        if (is_finished()){
+            finished();
+            return true;
+        }
+        return false;
+    }
     private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
@@ -224,6 +239,13 @@ class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateC
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
+    bool isStopped(){
+        if (is_finished()){
+            finished();
+            return true;
+        }
+        return false;
+    };
     private:
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
