@@ -55,7 +55,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
         switch(object_id){
             case 0:
             //std::cout<<"FPGA received: "<<object_id<<std::endl;//fresh out of read_lock, safe before unsynced
-            if (!std::get<0>(_nBus.objects).mcu_owned()){
+            if (!std::get<0>(_nBus.objects).mcu_owned()){//WRITE-LOCK encapsulated <= Not all implementations need a write-lock
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 std::get<0>(_nBus.objects).setNumber(++n);
                 std::get<0>(_nBus.objects).set_mcu_owned(true);
@@ -112,7 +112,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
         switch(object_id){
             case 0:
             //std::cout<<"MCU received: "<<object_id<<std::endl;
-            if (std::get<0>(_nBus.objects).mcu_owned()){
+            if (std::get<0>(_nBus.objects).mcu_owned()){//WRITE-LOCK encapsulated <= Not all implementations need a write-lock
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 std::get<0>(_nBus.objects).setNumber(++n);
                 std::get<0>(_nBus.objects).set_mcu_owned(false);
