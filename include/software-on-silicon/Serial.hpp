@@ -199,10 +199,8 @@ namespace SOS {
                         if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
                         } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
                             foreign().com_shutdown = true;//incoming
-                            received_com_shutdown = true;
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"O";
-                            request_stop();
                         } else {
                             auto id = static_cast<unsigned char>(obj_id.to_ulong());
                             for (std::size_t j=0;j<foreign().descriptors.size();j++){
@@ -283,6 +281,10 @@ namespace SOS {
                                 //std::cout<<typeid(*this).name();
                                 //std::cout<<"!";
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
+                                if (foreign().com_shutdown){
+                                    received_com_shutdown = true;
+                                    request_stop();
+                                }
                             }
                         }
                     }
