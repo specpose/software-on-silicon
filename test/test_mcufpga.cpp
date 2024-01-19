@@ -34,7 +34,7 @@ int main () {
         //}
 
         //SIMULATION CLIENT PART
-        if (!client_stop_request && !std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1){
+        if (!client_stop_request && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             client->requestStop();
             client_stop_request = true;
             stop = true;//CUTS THE LINE => no last sync possible//SIMULATION Disable 1
