@@ -120,65 +120,71 @@ namespace SOS{
         };
         //Use Implementations (SimpleController<EventController>), not directly (Controller<SubController>) in cascading definitions 
         //A Blink doesnt need a Bus
-        template<typename LoopSignalType> class SubController {
+        class SubController {
             public:
-            SubController(LoopSignalType& signal) : _intrinsic(signal) {}
-            protected:
-            LoopSignalType& _intrinsic;
+            SubController() {}
         };
-        template<typename... Others> class DummySimpleController : public Loop, protected SubController<SOS::MemoryView::Notify> {
+        template<typename... Others> class DummySimpleController : public Loop, protected SubController {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::Notify>(signal) {}
+            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController(), _intrinsic(signal) {}
+            protected:
+            bus_type::signal_type& _intrinsic;
         };
-        template<typename... Others> class DummyEventController : public Loop, protected SubController<SOS::MemoryView::HandShake> {
+        template<typename... Others> class DummyEventController : public Loop, protected SubController {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController<SOS::MemoryView::HandShake>(signal) {}
+            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController(), _intrinsic(signal) {}
+            protected:
+            bus_type::signal_type& _intrinsic;
         };
-        template<typename T, typename S = typename std::enable_if<
-                std::is_base_of< typename SOS::Behavior::SubController<typename T::bus_type::signal_type>,T >::value,T
-                >::type > class Controller : public Loop {
+        class Controller : public Loop {
             public:
-            using subcontroller_type = S;
             Controller() : Loop() {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
-        template<typename S> class AsyncController : public Controller<S> {
+        template<typename S> class AsyncController : public Controller {
             public:
+            using subcontroller_type = S;
             AsyncController() :
-            Controller<S>(),
-            _child(typename Controller<S>::subcontroller_type{_foreign}) {}
+            Controller(),
+            _child(S{_foreign}) {}
             protected:
-            typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
+            typename S::bus_type _foreign = typename S::bus_type{};
             private:
-            typename Controller<S>::subcontroller_type _child;
+            S _child;
         };
-        template<typename S> class SimpleController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::Notify> {
+        template<typename S> class SimpleController : public SOS::Behavior::Controller, protected SubController {
             public:
+            using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusNotifier;
             SimpleController(typename bus_type::signal_type& signal) :
-            Controller<S>(),
-            SubController<SOS::MemoryView::Notify>(signal),
-            _child(typename SOS::Behavior::Controller<S>::subcontroller_type{_foreign})
+            Controller(),
+            SubController(),
+            _intrinsic(signal),
+            _child(S{_foreign})
             {}
             protected:
-            typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type _foreign = typename SOS::Behavior::Controller<S>::subcontroller_type::bus_type{};
+            bus_type::signal_type& _intrinsic;
+            typename S::bus_type _foreign = typename S::bus_type{};
             private:
-            typename SOS::Behavior::Controller<S>::subcontroller_type _child;
+            S _child;
         };
-        template<typename S> class EventController : public SOS::Behavior::Controller<S>, protected SubController<SOS::MemoryView::HandShake> {
+        template<typename S> class EventController : public SOS::Behavior::Controller, protected SubController {
             public:
+            using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusShaker;
             EventController(typename bus_type::signal_type& signal) :
-            Controller<S>(),
-            SubController<SOS::MemoryView::HandShake>(signal),
-            _child(typename Controller<S>::subcontroller_type{_foreign})
+            Controller(),
+            SubController(),
+            _intrinsic(signal),
+            _child(S{_foreign})
             {}
             protected:
-            typename Controller<S>::subcontroller_type::bus_type _foreign = typename Controller<S>::subcontroller_type::bus_type{};
+            bus_type::signal_type& _intrinsic;
+            typename S::bus_type _foreign = typename S::bus_type{};
             private:
-            typename Controller<S>::subcontroller_type _child;
+            S _child;
         };
     }
 }
