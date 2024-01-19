@@ -7,13 +7,18 @@ namespace SOS{
     namespace MemoryView {
         class Notify : private std::array<std::atomic_flag,1> {
             public:
-            constexpr Notify() : std::array<std::atomic_flag,1>{true} {}
+            Notify() : std::array<std::atomic_flag,1>{} {//constexpr
+                std::get<0>(*this).test_and_set();
+            }
             auto& getNotifyRef(){return std::get<0>(*this);}
         };
         //1+1=0
         class HandShake : private std::array<std::atomic_flag,2> {
             public:
-            constexpr HandShake() : std::array<std::atomic_flag,2>{true,true} {}
+            HandShake() : std::array<std::atomic_flag,2>{} {//constexpr
+                std::get<0>(*this).test_and_set();
+                std::get<1>(*this).test_and_set();
+            }
             auto& getUpdatedRef(){return std::get<0>(*this);}
             auto& getAcknowledgeRef(){return std::get<1>(*this);}
         };
