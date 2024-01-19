@@ -47,22 +47,23 @@ namespace SOS {
         };
     }
     namespace Behavior {
-        template<typename S, typename... Others> class PassthruAsyncController : public Controller {
+        template<typename S, typename... Others> class PassthruAsyncController : public Controller, public Loop {
             public:
             using subcontroller_type = S;
             PassthruAsyncController(typename S::bus_type& passThru, Others&... args) :
-            Controller(), _foreign(passThru), _child(S{_foreign, args...}) {}
+            Controller(), Loop(), _foreign(passThru), _child(S{_foreign, args...}) {}
             protected:
             typename S::bus_type& _foreign;
             private:
             S _child;
         };
-        template<typename S, typename... Others> class PassthruSimpleController : public SOS::Behavior::Controller {
+        template<typename S, typename... Others> class PassthruSimpleController : public SOS::Behavior::Controller, public Loop {
             public:
             using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusNotifier;
             PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args) :
             Controller(),
+            Loop(),
             _intrinsic(signal),
             _foreign(passThru),
             _child(S{_foreign, args...})
@@ -73,12 +74,13 @@ namespace SOS {
             private:
             S _child;
         };
-        template<typename S, typename... Others> class PassthruEventController : public SOS::Behavior::Controller {
+        template<typename S, typename... Others> class PassthruEventController : public SOS::Behavior::Controller, public Loop {
             public:
             using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusShaker;
             PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args) :
             Controller(),
+            Loop(),
             _intrinsic(signal),
             _foreign(passThru),
             _child(S{_foreign, args...})
