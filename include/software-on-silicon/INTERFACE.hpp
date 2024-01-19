@@ -7,13 +7,13 @@ namespace SOS{
     namespace MemoryView {
         class Notify : private std::array<std::atomic_flag,1> {
             public:
-            Notify() : std::array<std::atomic_flag,1>{true} {}
+            constexpr Notify() : std::array<std::atomic_flag,1>{true} {}
             auto& getNotifyRef(){return std::get<0>(*this);}
         };
         //1+1=0
         class HandShake : private std::array<std::atomic_flag,2> {
             public:
-            HandShake() : std::array<std::atomic_flag,2>{true,true} {}
+            constexpr HandShake() : std::array<std::atomic_flag,2>{true,true} {}
             auto& getUpdatedRef(){return std::get<0>(*this);}
             auto& getAcknowledgeRef(){return std::get<1>(*this);}
         };
@@ -124,19 +124,27 @@ namespace SOS{
             public:
             constexpr SubController() {}
         };
-        template<typename... Others> class DummySimpleController : public Loop, protected SubController {
+        class SimpleSubController : public SubController {
             public:
             using bus_type = SOS::MemoryView::BusNotifier;
-            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController(), _intrinsic(signal) {}
+            constexpr SimpleSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
             protected:
             bus_type::signal_type& _intrinsic;
         };
-        template<typename... Others> class DummyEventController : public Loop, protected SubController {
+        class EventSubController : public SubController {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
-            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SubController(), _intrinsic(signal) {}
+            constexpr EventSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
             protected:
             bus_type::signal_type& _intrinsic;
+        };
+        template<typename... Others> class DummySimpleController : public Loop, protected SimpleSubController {
+            public:
+            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SimpleSubController(signal) {}
+        };
+        template<typename... Others> class DummyEventController : public Loop, protected EventSubController {
+            public:
+            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), EventSubController(signal) {}
         };
         template<typename T, typename S = typename std::enable_if<
                 std::is_base_of< typename SOS::Behavior::SubController,T >::value,T
@@ -158,34 +166,28 @@ namespace SOS{
             private:
             S _child;
         };
-        template<typename S> class SimpleController : public Controller<S>, public Loop, protected SubController {
+        template<typename S> class SimpleController : public Controller<S>, public Loop, protected SimpleSubController {
             public:
-            using bus_type = SOS::MemoryView::BusNotifier;
             SimpleController(typename bus_type::signal_type& signal) :
             Controller<S>(),
             Loop(),
-            SubController(),
-            _intrinsic(signal),
+            SimpleSubController(signal),
             _child(S{_foreign})
             {}
             protected:
-            bus_type::signal_type& _intrinsic;
             typename S::bus_type _foreign = typename S::bus_type{};
             private:
             S _child;
         };
-        template<typename S> class EventController : public Controller<S>, public Loop, protected SubController {
+        template<typename S> class EventController : public Controller<S>, public Loop, protected EventSubController {
             public:
-            using bus_type = SOS::MemoryView::BusShaker;
             EventController(typename bus_type::signal_type& signal) :
             Controller<S>(),
             Loop(),
-            SubController(),
-            _intrinsic(signal),
+            EventSubController(signal),
             _child(S{_foreign})
             {}
             protected:
-            bus_type::signal_type& _intrinsic;
             typename S::bus_type _foreign = typename S::bus_type{};
             private:
             S _child;

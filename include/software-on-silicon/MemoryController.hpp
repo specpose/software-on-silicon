@@ -83,34 +83,31 @@ namespace SOS {
             private:
             S _child;
         };
-        template<typename S, typename... Others> class PassthruSimpleController : public Controller<S>, public Loop {
+        template<typename S, typename... Others> class PassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
             public:
-            using bus_type = SOS::MemoryView::BusNotifier;
             PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args) :
             Controller<S>(),
             Loop(),
-            _intrinsic(signal),
+            SimpleSubController(signal),
             _foreign(passThru),
             _child(S{_foreign, args...})
             {}
             protected:
-            bus_type::signal_type& _intrinsic;
             typename S::bus_type& _foreign;
             private:
             S _child;
         };
-        template<typename S, typename... Others> class PassthruEventController : public Controller<S>, public Loop {
+        template<typename S, typename... Others> class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
             public:
             using bus_type = SOS::MemoryView::BusShaker;
             PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args) :
             Controller<S>(),
             Loop(),
-            _intrinsic(signal),
+            EventSubController(signal),
             _foreign(passThru),
             _child(S{_foreign, args...})
             {}
             protected:
-            bus_type::signal_type& _intrinsic;
             typename S::bus_type& _foreign;
             private:
             S _child;
