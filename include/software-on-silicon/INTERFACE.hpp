@@ -138,28 +138,30 @@ namespace SOS{
             protected:
             bus_type::signal_type& _intrinsic;
         };
-        class Controller : public Loop {
+        class Controller {
             public:
-            Controller() : Loop() {}
+            Controller() {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
-        template<typename S> class AsyncController : public Controller {
+        template<typename S> class AsyncController : public Controller, public Loop {
             public:
             using subcontroller_type = S;
             AsyncController() :
             Controller(),
+            Loop(),
             _child(S{_foreign}) {}
             protected:
             typename S::bus_type _foreign = typename S::bus_type{};
             private:
             S _child;
         };
-        template<typename S> class SimpleController : public SOS::Behavior::Controller, protected SubController {
+        template<typename S> class SimpleController : public SOS::Behavior::Controller, public Loop, protected SubController {
             public:
             using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusNotifier;
             SimpleController(typename bus_type::signal_type& signal) :
             Controller(),
+            Loop(),
             SubController(),
             _intrinsic(signal),
             _child(S{_foreign})
@@ -170,12 +172,13 @@ namespace SOS{
             private:
             S _child;
         };
-        template<typename S> class EventController : public SOS::Behavior::Controller, protected SubController {
+        template<typename S> class EventController : public SOS::Behavior::Controller, public Loop, protected SubController {
             public:
             using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusShaker;
             EventController(typename bus_type::signal_type& signal) :
             Controller(),
+            Loop(),
             SubController(),
             _intrinsic(signal),
             _child(S{_foreign})
