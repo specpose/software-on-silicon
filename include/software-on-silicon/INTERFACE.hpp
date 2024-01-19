@@ -98,7 +98,7 @@ namespace SOS{
         //A Blink doesnt need a Bus
         class SubController {
             public:
-            SubController() {}
+            constexpr SubController() {}
         };
         template<typename... Others> class DummySimpleController : public Loop, protected SubController {
             public:
@@ -114,16 +114,19 @@ namespace SOS{
             protected:
             bus_type::signal_type& _intrinsic;
         };
-        class Controller {
+        template<typename T, typename S = typename std::enable_if<
+                std::is_base_of< typename SOS::Behavior::SubController,T >::value,T
+                //false,T
+                >::type > class Controller {
             public:
-            Controller() {}
+            //using subcontroller_type = S;
+            constexpr Controller() {}
         };
         //bus_type is ALWAYS locally constructed in upstream Controller<SimpleController> or MUST be undefined
-        template<typename S> class AsyncController : public Controller, public Loop {
+        template<typename S> class AsyncController : public Controller<S>, public Loop {
             public:
-            using subcontroller_type = S;
             AsyncController() :
-            Controller(),
+            Controller<S>(),
             Loop(),
             _child(S{_foreign}) {}
             protected:
@@ -131,12 +134,11 @@ namespace SOS{
             private:
             S _child;
         };
-        template<typename S> class SimpleController : public SOS::Behavior::Controller, public Loop, protected SubController {
+        template<typename S> class SimpleController : public Controller<S>, public Loop, protected SubController {
             public:
-            using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusNotifier;
             SimpleController(typename bus_type::signal_type& signal) :
-            Controller(),
+            Controller<S>(),
             Loop(),
             SubController(),
             _intrinsic(signal),
@@ -148,12 +150,11 @@ namespace SOS{
             private:
             S _child;
         };
-        template<typename S> class EventController : public SOS::Behavior::Controller, public Loop, protected SubController {
+        template<typename S> class EventController : public Controller<S>, public Loop, protected SubController {
             public:
-            using subcontroller_type = S;
             using bus_type = SOS::MemoryView::BusShaker;
             EventController(typename bus_type::signal_type& signal) :
-            Controller(),
+            Controller<S>(),
             Loop(),
             SubController(),
             _intrinsic(signal),
