@@ -3,7 +3,8 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include <iostream>
 
-#define RING_BUFFER std::array<char,33>
+typedef char SAMPLE_SIZE;
+#define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,33>
 
 using namespace SOS::MemoryView;
 
@@ -13,7 +14,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     private:
-    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character;}
+    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character.at(0);}
 };
 class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private RingBufferTaskImpl {
     public:

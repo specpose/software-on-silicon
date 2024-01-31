@@ -17,18 +17,22 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
             const auto beginning = high_resolution_clock::now();
-            switch(count++){
+            RING_BUFFER::value_type blink{};
+            switch(count){
                 case 0:
-                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'*', 333);//lock free write
+                    std::fill(std::begin(blink),std::end(blink),'*');
+                    count++;
                     break;
                 case 1:
-                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'_', 333);
+                    std::fill(std::begin(blink),std::end(blink),'_');
+                    count++;
                     break;
                 case 2:
-                    PieceWriter<decltype(hostmemory)>(ringbufferbus,'_', 333);
+                    std::fill(std::begin(blink),std::end(blink),'_');
                     count=0;
                     break;
             }
+            PieceWriter<decltype(hostmemory)>(ringbufferbus,blink,333);
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -69,7 +73,7 @@ class Functor2 {
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
-                std::cout << *print++;
+                std::cout << (*print++).at(0);
             std::cout << std::endl;
         }
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));

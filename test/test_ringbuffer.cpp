@@ -5,7 +5,9 @@ class Functor {
     public:
     Functor() {}
     void operator()(){
-        PieceWriter<decltype(hostmemory)>(bus,'+',32);
+        RING_BUFFER::value_type piece{};
+        std::fill(std::begin(piece),std::end(piece),'+');
+        PieceWriter<decltype(hostmemory)>(bus,piece,32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};

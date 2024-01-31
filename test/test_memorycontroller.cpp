@@ -14,7 +14,7 @@ class Functor {
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
-                std::cout << *print++;
+                std::cout << (*print++).at(0);
             std::cout << std::endl;
         }
     }

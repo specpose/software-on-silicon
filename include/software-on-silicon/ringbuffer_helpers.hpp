@@ -1,7 +1,7 @@
-template<typename Piece> void PieceWriter_write(typename Piece::value_type character, typename Piece::iterator current){
+template<typename Piece> void PieceWriter_write(typename Piece::iterator current, const typename Piece::value_type character){
     *current=character;
 }
-template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, typename Piece::value_type character, typename Piece::difference_type length){
+template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, const typename Piece::value_type character, typename Piece::difference_type length){
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
@@ -12,7 +12,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";
             //write directly to HOSTmemory
-            PieceWriter_write<Piece>(character,current);
+            PieceWriter_write<Piece>(current,character);
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
                 current = std::get<0>(myBus.const_cables).getWriterStartRef();

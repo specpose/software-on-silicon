@@ -5,8 +5,9 @@
 #include "software-on-silicon/loop_helpers.hpp"
 #include <chrono>
 
-#define MEMORY_CONTROLLER std::array<char,10000>
-#define READ_BUFFER std::array<char,1000>
+typedef char SAMPLE_SIZE;
+#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,10000>
+#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,1000>
 
 using namespace SOS::MemoryView;
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
@@ -63,7 +64,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill('-');
+        this->memorycontroller.fill(std::array<SAMPLE_SIZE,1>{'-'});
     }
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
@@ -102,9 +103,9 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
         const auto start = high_resolution_clock::now();
         MEMORY_CONTROLLER::value_type data;
         if (blink)
-            data = '*';
+            data = std::array<SAMPLE_SIZE,1>{'*'};
         else
-            data = '_';
+            data = std::array<SAMPLE_SIZE,1>{'_'};
         write(data);
         counter++;
         if (blink && counter==333){

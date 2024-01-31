@@ -16,9 +16,10 @@
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 
-#define RING_BUFFER std::array<char,334>
-#define MEMORY_CONTROLLER std::array<char,10000>
-#define READ_BUFFER std::array<char,1000>
+typedef char SAMPLE_SIZE;
+#define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,334>
+#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,10000>
+#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,1000>
 
 using namespace SOS;
 //main branch: Copy Start from MemoryController.cpp
@@ -79,7 +80,7 @@ class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill('-');
+        this->memorycontroller.fill(RING_BUFFER::value_type{'-'});
     }
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
