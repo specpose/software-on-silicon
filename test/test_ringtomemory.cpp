@@ -47,25 +47,25 @@ class Functor1 {
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
             const auto beginning = high_resolution_clock::now();
-            SOSFloat::SAMPLE_SIZE blink[333]={};//vst AudioEffect: avoid heap allocation and locks
+            SOSFloat::SAMPLE_SIZE blink[numSamples]={};//vst AudioEffect: avoid heap allocation and locks
             switch(count){
                 case 0:
-                    std::fill(&(blink[0]),&(blink[332]),1.0);
+                    std::fill(std::begin(blink),std::end(blink),1.0);
                     count++;
                     break;
                 case 1:
-                    std::fill(&(blink[0]),&(blink[332]),0.0);
+                    std::fill(std::begin(blink),std::end(blink),0.0);
                     count++;
                     break;
                 case 2:
-                    std::fill(&(blink[0]),&(blink[332]),0.0);
+                    std::fill(std::begin(blink),std::end(blink),0.0);
                     count=0;
                     break;
             }
             const SOSFloat::SAMPLE_SIZE* channel_ptrs[5] = {blink,blink,blink,blink,blink};
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
             operator()(channelBuffers32,numSamples,actualSamplePosition);//lock free write
-            actualSamplePosition += 333;//vst actualSamplePosition
+            actualSamplePosition += numSamples;//vst actualSamplePosition
             //deallocating source not needed: Owned by vst
             //error: free(): invalid pointer
             //for (size_t i=0;i<vst_numInputs;i++)
