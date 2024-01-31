@@ -1,7 +1,6 @@
 #include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
-#include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char,1>
 #include "software-on-silicon/MCUFPGA.hpp"
