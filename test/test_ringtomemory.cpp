@@ -32,7 +32,7 @@ class Functor1 {
         for (std::size_t channel=0;channel<_vst_numInputs;channel++)
             if (!channel_ptrs[channel])
                 throw SFA::util::logic_error("Supplied VST buffer channels not initialised",__FILE__,__func__);
-        PieceWriterRtM<decltype(hostmemory)>(ringbufferbus,channel_ptrs,_vst_numInputs, vst_numSamples, actualSamplePosition);
+        PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,_vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void startTestLoop(){
         _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
