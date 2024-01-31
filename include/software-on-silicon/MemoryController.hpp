@@ -1,3 +1,5 @@
+#include <stddef.h>
+#include <array>
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct ReadSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
@@ -72,6 +74,8 @@ namespace SOS {
             T* p = nullptr;
             const std::size_t size;
         };
+        template<typename DG> struct reader_traits : public SFA::DeductionGuide<DG> {
+        };
     }
     namespace Behavior {
         template<typename S, typename... Others> class PassthruAsyncController : public Controller<S>, public Loop {
@@ -112,10 +116,10 @@ namespace SOS {
             private:
             S _child;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class ReadTask {
+        template<typename MemoryControllerType> class ReadTask {
             public:
-            using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
-            using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<ReadBufferType>::cables_type>::type;
+            using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>::cables_type>::type;
+            using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
@@ -128,10 +132,10 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename ReadBufferType, typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
-        public virtual SOS::Behavior::ReadTask<ReadBufferType, MemoryControllerType> {
+        template<typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
+        public virtual SOS::Behavior::ReadTask<MemoryControllerType> {
             public:
-            using bus_type = typename SOS::MemoryView::ReaderBus<ReadBufferType>;
+            using bus_type = typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::DummyEventController<>(outside.signal)
@@ -172,13 +176,13 @@ namespace SOS {
             }*/
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
-        template<typename BufferType> class MemoryControllerWrite {
+        template<typename MemoryControllerType> class MemoryControllerWrite {
             public:
             MemoryControllerWrite() {}
             virtual ~MemoryControllerWrite(){};
             protected:
-            virtual void write(const typename BufferType::value_type WORD)=0;
-            BufferType memorycontroller = BufferType{};
+            virtual void write(const typename MemoryControllerType::value_type WORD)=0;
+            MemoryControllerType memorycontroller = MemoryControllerType{};
         };
         template<typename MemoryControllerType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<MemoryControllerType> {
             public:

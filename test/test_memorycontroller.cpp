@@ -11,7 +11,7 @@ class Functor {
     public:
     Functor(const std::size_t& vst_numInputs) : readerBus(vst_numInputs), controller(readerBus,vst_numInputs) {}
     ~Functor(){}
-    void setReadBuffer(READ_BUFFER* buffer){
+    void setReadBuffer(SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);
     }
@@ -28,8 +28,8 @@ class Functor {
         }
     }
     private:
-    READ_BUFFER* randomread;
-    ReaderBus<READ_BUFFER> readerBus;
+    typename SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type* randomread;
+    ReaderBus<typename SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type> readerBus;
     WritePriorityImpl controller;
 };
 }
@@ -50,7 +50,7 @@ int main(){
         }
     }
     const std::size_t ara_offset=7991;
-    auto randomread = SOSFloat::READ_BUFFER{};
+    SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type randomread{};
     for (int i=0;i<_ara_channelCount;i++){
         randomread.push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
     }

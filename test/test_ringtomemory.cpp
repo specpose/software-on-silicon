@@ -5,7 +5,7 @@ namespace SOSFloat {
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, const std::size_t& numInputs, const std::size_t maxSamplesPerProcess, bool start=false) :
+    Functor1(MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& readerBus, const std::size_t& numInputs, const std::size_t maxSamplesPerProcess, bool start=false) :
     _vst_numInputs(numInputs), vst_maxSamplesPerProcess(maxSamplesPerProcess),
     _readerBus(readerBus), buffer(new RingBufferImpl{ringbufferbus,_readerBus,numInputs}) {
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
@@ -88,7 +88,7 @@ class Functor1 {
             return 0;
     }
     private:
-    MemoryView::ReaderBus<READ_BUFFER>& _readerBus;
+    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& _readerBus;
 
     RING_BUFFER hostmemory = RING_BUFFER{};
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
@@ -123,7 +123,7 @@ class Functor2 {
         for (std::size_t channel=0;channel<vst_numChannels;channel++)
             if (!buffers[channel])
                 throw SFA::util::logic_error("Supplied ARA buffer channels not initialised",__FILE__,__func__);
-        randomread = new SOSFloat::READ_BUFFER{};
+        randomread = new SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type{};
         for (int i=0;i<vst_numChannels;i++){
             randomread->push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
         }
@@ -151,7 +151,10 @@ class Functor2 {
             return false;
         }
     }
-    MemoryView::ReaderBus<READ_BUFFER> readerBus;
+    private:
+    SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type* randomread = nullptr;
+    public:
+    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type> readerBus;
     const std::size_t vst_numChannels;
     private:
     void wipeBufferProxy(){
@@ -159,7 +162,6 @@ class Functor2 {
             delete randomread;
         randomread=nullptr;
     }
-    READ_BUFFER* randomread = nullptr;
     std::size_t _ara_samplesPerChannel = 0;
     bool trigger = false;
 };
