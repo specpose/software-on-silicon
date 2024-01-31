@@ -4,7 +4,7 @@
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<READ_BUFFER>& readerBus, bool start=false) : _readerBus(readerBus){
+    Functor1(MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& readerBus, bool start=false) : _readerBus(readerBus){
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -40,7 +40,7 @@ class Functor1 {
         //}
     }
     private:
-    MemoryView::ReaderBus<READ_BUFFER>& _readerBus;
+    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& _readerBus;
 
     RING_BUFFER hostmemory = RING_BUFFER{};
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
@@ -79,9 +79,11 @@ class Functor2 {
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
         }
     }
-    MemoryView::ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
     private:
-    READ_BUFFER randomread = READ_BUFFER{};
+    SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
+    public:
+    MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
+    private:
     int _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};

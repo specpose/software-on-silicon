@@ -19,8 +19,8 @@ class Functor {
         }
     }
     private:
-    READ_BUFFER randomread = READ_BUFFER{};
-    ReaderBus<READ_BUFFER> readerBus{randomread.begin(),randomread.end()};
+    typename SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
+    ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     WritePriorityImpl controller{readerBus};
 };
 

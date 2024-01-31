@@ -1,16 +1,24 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
+#include "software-on-silicon/memorycontroller_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 #include <chrono>
 
 typedef char SAMPLE_SIZE;
-#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,10000>
-#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,1000>
+#define STORAGE_SIZE 10000
+#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,STORAGE_SIZE>
+#define READ_SIZE 1000
+//#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,READ_SIZE>
+namespace SOS {
+    namespace MemoryView {
+        template<> struct reader_traits<MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::array<MEMORY_CONTROLLER::value_type,READ_SIZE>> {};
+    }
+}
 
 using namespace SOS::MemoryView;
-class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
     {}
@@ -35,16 +43,16 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
         }
     }
 };
-class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::Reader<MEMORY_CONTROLLER>(outside, blockerbus),
     ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    SOS::Behavior::ReadTask<MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
-        //_thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER>::start(this);
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -80,7 +88,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
-        SOS::MemoryView::ReaderBus<READ_BUFFER>& passThruHostMem
+        SOS::MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& passThruHostMem
         ) :
         WriteTaskImpl{},
         PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)

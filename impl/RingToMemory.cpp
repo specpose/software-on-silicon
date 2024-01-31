@@ -12,21 +12,29 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
+#include "software-on-silicon/memorycontroller_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
 #include "software-on-silicon/loop_helpers.hpp"
 
 typedef char SAMPLE_SIZE;
 #define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,334>
-#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,10000>
-#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,1000>
+#define STORAGE_SIZE 10000
+#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,STORAGE_SIZE>
+#define READ_SIZE 1000
+//#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,READ_SIZE>
 
-using namespace SOS;
 //main branch: Copy Start from MemoryController.cpp
-class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER> {
+namespace SOS {
+    namespace MemoryView {
+        template<> struct reader_traits<MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::array<MEMORY_CONTROLLER::value_type,READ_SIZE>> {};
+    }
+}
+using namespace SOS;
+class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
-    //: SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(Length, Offset, blockercable)
+    //: SOS::Behavior::ReadTask<MEMORY_CONTROLLER,READ_SIZE>(Length, Offset, blockercable)
     {}
     protected:
     void read(){
@@ -51,16 +59,16 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_
 };
 //main branch: Copy End from MemoryController.cpp
 
-class ReaderImpl : public SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>,
+class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::Reader<MEMORY_CONTROLLER>(outside, blockerbus),
     ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)),
-    SOS::Behavior::ReadTask<READ_BUFFER,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    SOS::Behavior::ReadTask<MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
-        //_thread = SOS::Behavior::Reader<READ_BUFFER,MEMORY_CONTROLLER>::start(this);
+        //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER,READ_SIZE>::start(this);
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -106,7 +114,7 @@ class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBu
 class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public TransferRingToMemory {
     public:
     //multiple inheritance: construction order
-    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<READ_BUFFER>& rd) :
+    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& rd) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
