@@ -103,7 +103,7 @@ namespace SOS {
             cables_type cables;
             std::tuple<Objects...> objects{};
             SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
-            bool com_shutdown = false;
+            //bool com_shutdown = false;
         };
     }
     namespace Behavior {
@@ -178,6 +178,7 @@ namespace SOS {
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() = 0;
             private:
             bool loop_shutdown = false;
+            bool com_shutdown = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
             //ALIAS of Variables
@@ -198,7 +199,8 @@ namespace SOS {
                         obj_id = (obj_id << 2) >> 2;
                         if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
                         } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
-                            foreign().com_shutdown = true;//incoming
+                            com_shutdown = true;//incoming
+                            //request_child_stop();
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"O";
                         } else {
@@ -281,7 +283,7 @@ namespace SOS {
                                 //std::cout<<typeid(*this).name();
                                 //std::cout<<"!";
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                if (foreign().com_shutdown){
+                                if (com_shutdown){
                                     received_com_shutdown = true;
                                     request_stop();
                                 }
