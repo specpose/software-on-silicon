@@ -50,7 +50,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
-        if (!_nBus.com_shutdown) {
+        //if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
             case 0:
@@ -69,10 +69,10 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
             //std::cout<<"FPGA received: "<<object_id<<std::endl;
             break;
         }
-        }
+        //}
     }
     void write_notify_hook(){
-        if (!_nBus.com_shutdown) {
+        //if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
         switch(object_id){
             case 0:
@@ -85,7 +85,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
             //std::cout<<"FPGA written: "<<object_id<<std::endl;
             break;
         }
-        }
+        //}
     }
     protected:
     virtual bool received() final {
@@ -111,7 +111,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     void read_notify_hook(){
-        if (!_nBus.com_shutdown) {
+        //if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
         switch(object_id){
             case 0:
@@ -130,10 +130,10 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
             //std::cout<<"MCU received: "<<object_id<<std::endl;
             break;
         }
-        }
+        //}
     }
     void write_notify_hook(){
-        if (!_nBus.com_shutdown) {
+        //if (!_nBus.com_shutdown) {
         auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
         switch(object_id){
             case 0:
@@ -146,7 +146,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
             //std::cout<<"MCU written: "<<object_id<<std::endl;
             break;
         }
-        }
+        //}
     }
     protected:
     virtual bool received() final {
