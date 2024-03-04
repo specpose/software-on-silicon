@@ -1,44 +1,16 @@
 #include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
+#include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char,1>
 #include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
-#include <limits>
-#define DMA std::array<unsigned char,999>//1001%3=2
+//#include <limits>
+#include "MCUFPGA/DMA.cpp"
 
-using namespace SOS::MemoryView;
-struct SymbolRateCounter {
-    SymbolRateCounter(){
-        setNumber(0);
-        set_mcu_owned();
-    }
-    bool mcu_owned(){
-        std::bitset<8> first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
-        first_byte = (first_byte >> 7) << 7;
-        bool result = first_byte[7];//bigend => numbering is right to left, Stroustrup 34.2.2
-        return result;
-    }
-    void set_mcu_owned(bool state=true){
-        std::bitset<8> save_first_byte{static_cast<unsigned int>(StatusAndNumber[0])};
-        save_first_byte[7]= state;
-        StatusAndNumber[0]=static_cast<decltype(StatusAndNumber)::value_type>(save_first_byte.to_ulong());
-    }
-    unsigned int getNumber(){
-        std::bitset<24> combined_bits;
-        SOS::Protocol::bytearrayToBitset(combined_bits,StatusAndNumber);
-        auto stripped = ((combined_bits << 1) >> 1);
-        return stripped.to_ulong();
-    }
-    void setNumber(unsigned int number){
-        bool save_ownership = mcu_owned();
-        std::bitset<24> combined_bits{number};
-        combined_bits[23]=save_ownership;//mcu_owned        
-        SOS::Protocol::bitsetToBytearray(StatusAndNumber,combined_bits);
-    }
-    std::array<unsigned char,3> StatusAndNumber;//23 bits number: unsigned maxInt 8388607
-};
+//using namespace SOS::MemoryView;
+#include "MCUFPGA/SymbolRateCounter.cpp"
 class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<> {
     public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
