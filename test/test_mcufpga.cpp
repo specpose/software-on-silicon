@@ -12,6 +12,7 @@ int main () {
     fpgabus.signal.getAcknowledgeRef().clear();//INIT: start one-way handshake
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
     const auto start = std::chrono::high_resolution_clock::now();
+    bool client_request_stop = false;
     bool stop = false;
     while (!stop) {
         //SIMULATION HOST PART
@@ -23,8 +24,9 @@ int main () {
         }
 
         //SIMULATION CLIENT PART
-        if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
+        if (!client_request_stop && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             client->requestStop();
+            client_request_stop = true;
             stop = true;//CUTS THE LINE => no last sync possible?
         }
         if (!fpgabus.signal.getAcknowledgeRef().test_and_set()){
