@@ -25,16 +25,21 @@ int main () {
         }
 
         //SIMULATION ONLY
-	if (host_stop){//host is not syncing its own modifications if graceful shutdown comes from client 
+	if (host->isStopped()){
 	    stop = true;//CUTS THE LINE
 	}
 
-        if (!client_request_stop && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
-            client->requestStop();
-            client_request_stop = true;
-        } else {//client sync finished?
-	    if (client->isStopped())
-                host_stop = true;//SIMULATION ERROR: host is not processing last TX from client
+        if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
+            if (!client_request_stop){
+	        client->requestStop();
+                client_request_stop = true;
+	    }
+	    if (client->isStopped()){//client sync finished
+                if (!host_stop){
+	            host->requestStop();//SIMULATION ERROR: host is not processing last TX from client
+		    host_stop = true;
+                }
+            }
 	}
 
         //CLIENT THREAD

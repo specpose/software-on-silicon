@@ -252,7 +252,6 @@ namespace SOS {
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 if (com_shutdown){
                                     received_com_shutdown = true;
-                                    request_stop();
                                 }
                             }
                         }
