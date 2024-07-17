@@ -13,9 +13,10 @@ int main () {
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
     const auto start = std::chrono::high_resolution_clock::now();
     bool client_request_stop = false;
+    bool host_stop = false;
     bool stop = false;
     while (!stop) {
-        //SIMULATION HOST PART
+        //HOST THREAD
         if (!mcubus.signal.getAcknowledgeRef().test_and_set()){
             //transfer mcu_out_buffer to fpga_in_buffer
             for (std::size_t n=0;n<fpga_in_buffer.size();n++)
@@ -23,12 +24,20 @@ int main () {
             fpgabus.signal.getUpdatedRef().clear();
         }
 
-        //SIMULATION CLIENT PART
+        //SIMULATION ONLY
+	if (host_stop){//host is not syncing its own modifications if graceful shutdown comes from client 
+	    stop = true;//CUTS THE LINE
+	}
+
         if (!client_request_stop && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             client->requestStop();
             client_request_stop = true;
-            stop = true;//CUTS THE LINE => no last sync possible?
-        }
+        } else {//client sync finished?
+	    if (client->isStopped())
+                host_stop = true;//SIMULATION ERROR: host is not processing last TX from client
+	}
+
+        //CLIENT THREAD
         if (!fpgabus.signal.getAcknowledgeRef().test_and_set()){
             //transfer fpga_out_buffer to mcu_in_buffer
             for (std::size_t n=0;n<mcu_in_buffer.size();n++)
