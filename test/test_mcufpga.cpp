@@ -25,7 +25,7 @@ int main () {
         }
 
         //SIMULATION ONLY
-	if (host->isStopped()){
+	if (host_stop){
 	    stop = true;//CUTS THE LINE
 	}
 
@@ -33,13 +33,10 @@ int main () {
             if (!client_request_stop){
 	        client->requestStop();
                 client_request_stop = true;
-	    }
+	    } else {
 	    if (client->isStopped()){//client sync finished
-                if (!host_stop){
-	            host->requestStop();//SIMULATION ERROR: host is not processing last TX from client
 		    host_stop = true;
-                }
-            }
+        }}
 	}
 
         //CLIENT THREAD

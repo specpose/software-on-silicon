@@ -114,6 +114,7 @@ namespace SOS {
                     std::this_thread::yield();
                 }
                 loop_shutdown = true;
+                if (!com_shutdown){
                 while ((!sent_com_shutdown && received_com_shutdown) ||
                         (sent_com_shutdown && !received_com_shutdown) ) {
                     if (handshake()){
@@ -122,6 +123,7 @@ namespace SOS {
                         handshake_ack();
                     }
                     std::this_thread::yield();
+                }
                 }
                 finished();
                 //std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
@@ -138,6 +140,9 @@ namespace SOS {
             virtual bool receive_acknowledge() = 0;//4
             virtual unsigned char read_byte()=0;
             virtual void write_byte(unsigned char)=0;
+            virtual void com_power_action()=0;
+            virtual void com_shutdown_action()=0;
+            void full_sync(){com_shutdown=false;};
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
@@ -165,6 +170,8 @@ namespace SOS {
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
                         if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
+                            if (com_shutdown)
+                                com_power_action();
                         } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
                             com_shutdown = true;//incoming
                             //request_child_stop();
@@ -252,6 +259,7 @@ namespace SOS {
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 if (com_shutdown){
                                     received_com_shutdown = true;
+                                    com_shutdown_action();
                                 }
                             }
                         }
