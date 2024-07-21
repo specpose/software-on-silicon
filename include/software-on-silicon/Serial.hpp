@@ -156,10 +156,27 @@ namespace SOS {
             virtual void com_power_action()=0;
             virtual void com_shutdown_action()=0;
             void full_sync(){
+                if (receive_lock || readDestinationPos!=0 || readCount!=0)
+                    throw SFA::util::runtime_error("Poweron after unexpected shutdown.",__FILE__,__func__);
+                receive_lock = false;
+                readDestinationPos = 0;
+                readCount = 0;
                 com_shutdown = false;
+                for (std::size_t j=0;j<foreign().descriptors.size();j++){
+                    if (foreign().descriptors[j].readLock){
+                        throw SFA::util::runtime_error("SerialDMA host needs to be reinitialized.",__FILE__,__func__);
+                    }
+                    foreign().descriptors[j].synced = false;
+                }
+                send_lock=false;
+                writeOriginPos=0;
             };
             void clear_sync(){
+                if (receive_lock || readDestinationPos!=0 || readCount!=0)
+                    throw SFA::util::runtime_error("All pending reads should have been satisfied when receiving com_shutdown.",__FILE__,__func__);
                 for (std::size_t j=0;j<foreign().descriptors.size();j++){
+                    if (foreign().descriptors[j].readLock)
+                        throw SFA::util::runtime_error("Object integrity has been corrupted.",__FILE__,__func__);
                     foreign().descriptors[j].synced = true;
                 }
                 send_lock=false;
