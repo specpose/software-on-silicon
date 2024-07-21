@@ -127,17 +127,17 @@ namespace SOS {
                     std::this_thread::yield();
                 }
                 loop_shutdown = true;
-                if (!com_shutdown){
+                //if (!com_shutdown){
                 while ((!sent_com_shutdown && received_com_shutdown) ||
                         (sent_com_shutdown && !received_com_shutdown) ) {
-                    if (handshake()){
+		     if (handshake()){
                         read_hook(read4minus1);
                         write_hook(write3plus1);
                         handshake_ack();
                     }
                     std::this_thread::yield();
                 }
-                }
+                //}
                 finished();
                 //std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
@@ -156,23 +156,19 @@ namespace SOS {
             virtual void com_power_action()=0;
             virtual void com_shutdown_action()=0;
             void full_sync(){
-                if (receive_lock || readDestinationPos!=0 || readCount!=0)
+                if (receive_lock || readCount!=0)
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.",__FILE__,__func__);
-                receive_lock = false;
-                readDestinationPos = 0;
-                readCount = 0;
                 com_shutdown = false;
                 for (std::size_t j=0;j<foreign().descriptors.size();j++){
                     if (foreign().descriptors[j].readLock){
-                        throw SFA::util::runtime_error("SerialDMA host needs to be reinitialized.",__FILE__,__func__);
+                        throw SFA::util::runtime_error("DMAObjects needs to be reinitialized.",__FILE__,__func__);
                     }
                     foreign().descriptors[j].synced = false;
                 }
                 send_lock=false;
-                writeOriginPos=0;
             };
             void clear_sync(){
-                if (receive_lock || readDestinationPos!=0 || readCount!=0)
+		if (receive_lock || readCount!=0)
                     throw SFA::util::runtime_error("All pending reads should have been satisfied when receiving com_shutdown.",__FILE__,__func__);
                 for (std::size_t j=0;j<foreign().descriptors.size();j++){
                     if (foreign().descriptors[j].readLock)
@@ -180,7 +176,6 @@ namespace SOS {
                     foreign().descriptors[j].synced = true;
                 }
                 send_lock=false;
-                writeOriginPos=0;
             };
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
@@ -208,12 +203,12 @@ namespace SOS {
                     if (receive_request()){
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
-                        if (obj_id==((poweronState()<<2)>>2)){//check for "10111100"==idle==63
+                        if (obj_id==((poweronState()<<2)>>2)){//check for "10111100"==poweron==61
                             com_power_action();
                         } else if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
                             if (com_shutdown)
                                 com_power_action();
-                        } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
+                        } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==62
                             com_shutdown = true;//incoming
                             //request_child_stop();
                             //std::cout<<typeid(*this).name();
