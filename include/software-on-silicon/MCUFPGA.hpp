@@ -154,6 +154,7 @@ namespace SOS {
                 SOS::Protocol::Serial<Objects...>::full_sync();
             }
             virtual void com_shutdown_action() final {
+                SOS::Protocol::Serial<Objects...>::clear_sync();
                 request_stop();
             }
         };

@@ -43,6 +43,9 @@ namespace SOS {
                 const auto shutdownId = static_cast<unsigned long>(((shutdownState()<<2)>>2).to_ulong());
                 if (id==shutdownId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the com_shutdown request on idle",__FILE__,__func__);
+                const auto poweronId = static_cast<unsigned long>(((poweronState()<<2)>>2).to_ulong());
+                if (id==poweronId)
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification",__FILE__,__func__);
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -152,7 +155,16 @@ namespace SOS {
             virtual void write_byte(unsigned char)=0;
             virtual void com_power_action()=0;
             virtual void com_shutdown_action()=0;
-            void full_sync(){com_shutdown=false;};
+            void full_sync(){
+                com_shutdown = false;
+            };
+            void clear_sync(){
+                for (std::size_t j=0;j<foreign().descriptors.size();j++){
+                    foreign().descriptors[j].synced = true;
+                }
+                send_lock=false;
+                writeOriginPos=0;
+            };
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
