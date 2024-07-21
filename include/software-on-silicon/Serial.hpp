@@ -2,24 +2,34 @@ namespace SOS {
     namespace Protocol {
         static std::bitset<8> idleState() {//constexpr
             std::bitset<8> id;
-            id.set(7,1);//updated==true
-            id.set(6,0);//acknowledge==false
-            //set 6bit data to "111111"
-            for(std::size_t i = 0; i <= id.size()-1-2; i++){
+            for(std::size_t i = 0; i < id.size(); i++){
                 id.set(i,1);
             }
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false            
             return id;//-> "10111111"
         }
         static std::bitset<8> shutdownState() {//constexpr
             std::bitset<8> id;
+            for(std::size_t i = 0; i < id.size(); i++){
+                id.set(i,1);
+            }
             id.set(7,1);//updated==true
             id.set(6,0);//acknowledge==false
             id.set(0,0);
-            //set 6bit data to "111110"
-            for(std::size_t i = 1; i <= id.size()-1-2; i++){
+            return id;//-> "10111110"
+        }
+        //long sync times and instant poweroff
+        static std::bitset<8> poweronState() {//constexpr
+            std::bitset<8> id;
+            for(std::size_t i = 0; i < id.size(); i++){
                 id.set(i,1);
             }
-            return id;//-> "10111110"
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false
+            id.set(1,0);
+            id.set(0,0);
+            return id;//-> "10111100"
         }
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
@@ -33,6 +43,9 @@ namespace SOS {
                 const auto shutdownId = static_cast<unsigned long>(((shutdownState()<<2)>>2).to_ulong());
                 if (id==shutdownId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the com_shutdown request on idle",__FILE__,__func__);
+                const auto poweronId = static_cast<unsigned long>(((poweronState()<<2)>>2).to_ulong());
+                if (id==poweronId)
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification",__FILE__,__func__);
             }
             unsigned char id = 0xFF;
             void* obj = nullptr;
@@ -114,6 +127,7 @@ namespace SOS {
                     std::this_thread::yield();
                 }
                 loop_shutdown = true;
+                if (!com_shutdown){
                 while ((!sent_com_shutdown && received_com_shutdown) ||
                         (sent_com_shutdown && !received_com_shutdown) ) {
                     if (handshake()){
@@ -122,6 +136,7 @@ namespace SOS {
                         handshake_ack();
                     }
                     std::this_thread::yield();
+                }
                 }
                 finished();
                 //std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
@@ -138,6 +153,18 @@ namespace SOS {
             virtual bool receive_acknowledge() = 0;//4
             virtual unsigned char read_byte()=0;
             virtual void write_byte(unsigned char)=0;
+            virtual void com_power_action()=0;
+            virtual void com_shutdown_action()=0;
+            void full_sync(){
+                com_shutdown = false;
+            };
+            void clear_sync(){
+                for (std::size_t j=0;j<foreign().descriptors.size();j++){
+                    foreign().descriptors[j].synced = true;
+                }
+                send_lock=false;
+                writeOriginPos=0;
+            };
             bool mcu_updated = false;//mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false;//mcu_write,fpga_read bit 6
             bool fpga_updated = false;//mcu_read,fpga_write bit 7
@@ -164,7 +191,11 @@ namespace SOS {
                     if (receive_request()){
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
-                        if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
+                        if (obj_id==((poweronState()<<2)>>2)){//check for "10111100"==idle==63
+                            com_power_action();
+                        } else if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
+                            if (com_shutdown)
+                                com_power_action();
                         } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
                             com_shutdown = true;//incoming
                             //request_child_stop();
@@ -252,7 +283,7 @@ namespace SOS {
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 if (com_shutdown){
                                     received_com_shutdown = true;
-                                    request_stop();
+                                    com_shutdown_action();
                                 }
                             }
                         }

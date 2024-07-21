@@ -107,6 +107,12 @@ namespace SOS {
             virtual void write_byte(unsigned char byte) final {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
+            virtual void com_power_action() final {
+
+            }
+            virtual void com_shutdown_action() final {
+
+            }
         };
         template<typename ControllerType, typename... Objects> class SimulationMCU :
         public SOS::Protocol::SerialMCU<Objects...>,
@@ -143,6 +149,13 @@ namespace SOS {
             }
             virtual void write_byte(unsigned char byte) final {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
+            }
+            virtual void com_power_action() final {
+                SOS::Protocol::Serial<Objects...>::full_sync();
+            }
+            virtual void com_shutdown_action() final {
+                SOS::Protocol::Serial<Objects...>::clear_sync();
+                request_stop();
             }
         };
     }

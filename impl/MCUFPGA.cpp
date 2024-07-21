@@ -168,7 +168,7 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
         //_thread.join();
         _thread.detach();
         kill_time = std::chrono::high_resolution_clock::now();
-        std::cout<<"FPGA counted "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
+        std::cout<<"FPGA read notify count "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
         std::cout<<"Dumping FPGA DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
     }
@@ -206,9 +206,12 @@ class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateC
         //_thread.join();
         _thread.detach();
         kill_time = std::chrono::high_resolution_clock::now();
-        std::cout<<"MCU counted "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
+        std::cout<<"MCU read notify count "<<std::get<0>(_foreign.objects).getNumber()<<std::endl;
         std::cout<<"Dumping MCU DMA Objects"<<std::endl;
         dump_objects(_foreign.objects,_foreign.descriptors,boot_time,kill_time);
+    }
+    void requestStop(){
+        request_stop();
     }
     bool isStopped(){
         if (is_finished()){
