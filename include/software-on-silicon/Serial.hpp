@@ -2,24 +2,34 @@ namespace SOS {
     namespace Protocol {
         static std::bitset<8> idleState() {//constexpr
             std::bitset<8> id;
-            id.set(7,1);//updated==true
-            id.set(6,0);//acknowledge==false
-            //set 6bit data to "111111"
-            for(std::size_t i = 0; i <= id.size()-1-2; i++){
+            for(std::size_t i = 0; i < id.size(); i++){
                 id.set(i,1);
             }
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false            
             return id;//-> "10111111"
         }
         static std::bitset<8> shutdownState() {//constexpr
             std::bitset<8> id;
+            for(std::size_t i = 0; i < id.size(); i++){
+                id.set(i,1);
+            }
             id.set(7,1);//updated==true
             id.set(6,0);//acknowledge==false
             id.set(0,0);
-            //set 6bit data to "111110"
-            for(std::size_t i = 1; i <= id.size()-1-2; i++){
+            return id;//-> "10111110"
+        }
+        //long sync times and instant poweroff
+        static std::bitset<8> poweronState() {//constexpr
+            std::bitset<8> id;
+            for(std::size_t i = 0; i < id.size(); i++){
                 id.set(i,1);
             }
-            return id;//-> "10111110"
+            id.set(7,1);//updated==true
+            id.set(6,0);//acknowledge==false
+            id.set(1,0);
+            id.set(0,0);
+            return id;//-> "10111100"
         }
         struct DMADescriptor {
             DMADescriptor(){}//DANGER
@@ -169,7 +179,9 @@ namespace SOS {
                     if (receive_request()){
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
-                        if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
+                        if (obj_id==((poweronState()<<2)>>2)){//check for "10111100"==idle==63
+                            com_power_action();
+                        } else if (obj_id==((idleState()<<2)>>2)){//check for "10111111"==idle==63
                             if (com_shutdown)
                                 com_power_action();
                         } else if (obj_id==((shutdownState()<<2)>>2)) {//check for "10111110"==shutdown==63
