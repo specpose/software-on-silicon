@@ -159,6 +159,8 @@ namespace SOS {
                 if (receive_lock || readCount!=0)
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.",__FILE__,__func__);
                 com_shutdown = false;
+		received_com_shutdown = false;
+                sent_com_shutdown = false;
                 for (std::size_t j=0;j<foreign().descriptors.size();j++){
                     if (foreign().descriptors[j].readLock){
                         throw SFA::util::runtime_error("DMAObjects needs to be reinitialized.",__FILE__,__func__);
@@ -257,7 +259,6 @@ namespace SOS {
                     if (receive_acknowledge()){
                         send_lock = true;
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
-                        foreign().descriptors[writeOrigin().load()].tx_counter++;//DEBUG
                     } else {
                         bool gotOne = false;
                         for (std::size_t i=0;i<foreign().descriptors.size()&& !gotOne;i++){
@@ -312,6 +313,7 @@ namespace SOS {
                             foreign().descriptors[writeOrigin().load()].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
+                            foreign().descriptors[writeOrigin().load()].tx_counter++;//DEBUG
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"$";
                         }
