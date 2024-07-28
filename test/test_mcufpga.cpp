@@ -31,6 +31,8 @@ int main () {
     bool host_request_stop = false;
     fpga_out_buffer[0]=SOS::Protocol::poweronState().to_ulong();//INIT: FPGA initiates communication with an idle byte
     SOS::MemoryView::ComBus<COM_BUFFER> fpgabus{std::begin(fpga_in_buffer),std::end(fpga_in_buffer),std::begin(fpga_out_buffer),std::end(fpga_out_buffer)};
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(300ms);//SIMULATION: no way to check if thread is running without interfering with handshake
     fpgabus.signal.getAcknowledgeRef().clear();//INIT: start one-way handshake
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
     bool client_request_stop = false;
@@ -41,7 +43,7 @@ int main () {
             stop = true;
 
         //HOST THREAD
-        if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
+        if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 2)){
             if (!host_request_stop){
                 host->requestStop();
                 host_request_stop = true;
