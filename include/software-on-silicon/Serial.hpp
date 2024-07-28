@@ -84,6 +84,8 @@ namespace SOS {
             std::tuple<Objects...> objects{};
             SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
             //bool com_shutdown = false;
+            auto& readDestination(){return std::get<0>(cables).getReadDestinationRef();}
+            auto& writeOrigin(){return std::get<0>(cables).getWriteOriginRef();}
         };
     }
     namespace Behavior {
@@ -189,13 +191,6 @@ namespace SOS {
             bool com_shutdown = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            //ALIAS of Variables
-            constexpr auto& readDestination() {
-                return std::get<0>(foreign().cables).getReadDestinationRef();
-            }
-            constexpr auto& writeOrigin() {
-                return std::get<0>(foreign().cables).getWriteOriginRef();
-            }
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int& read4minus1){
@@ -221,8 +216,8 @@ namespace SOS {
                                 if (foreign().descriptors[j].synced==true && foreign().descriptors[j].id==id){
                                     receive_lock=true;
                                     foreign().descriptors[j].readLock=true;
-                                    readDestination().store(id);
-                                    //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<readDestination()<<std::endl;
+                                    foreign().readDestination().store(id);
+                                    //std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
                                     readDestinationPos = 0;
                                     send_acknowledge();//DANGER: change writted state has to be after read_bits
                                 }
@@ -239,15 +234,15 @@ namespace SOS {
                         read4minus1++;
                     } else if (read4minus1==3){
                         auto read3bytes = read_flush();
-                        if (readDestinationPos==foreign().descriptors[readDestination().load()].obj_size){
-                            foreign().descriptors[readDestination().load()].readLock=false;
+                        if (readDestinationPos==foreign().descriptors[foreign().readDestination().load()].obj_size){
+                            foreign().descriptors[foreign().readDestination().load()].readLock=false;
                             receive_lock=false;
                             foreign().signal.getUpdatedRef().clear();
                             //giving a read confirmation would require bidirectionalcontroller
-                            foreign().descriptors[readDestination().load()].rx_counter++;//DEBUG
+                            foreign().descriptors[foreign().readDestination().load()].rx_counter++;//DEBUG
                         } else {
                             for(std::size_t i=0;i<3;i++){
-                                reinterpret_cast<char*>(foreign().descriptors[readDestination().load()].obj)[readDestinationPos++]=read3bytes[i];
+                                reinterpret_cast<char*>(foreign().descriptors[foreign().readDestination().load()].obj)[readDestinationPos++]=read3bytes[i];
                             }
                         }
                         read4minus1 = 0;
@@ -266,13 +261,13 @@ namespace SOS {
                                 throw SFA::util::logic_error("DMAObject has entered an illegal sync state.",__FILE__,__func__);
                             if (!foreign().descriptors[i].synced){
                                 send_request();
-                                writeOrigin().store(foreign().descriptors[i].id);
+                                foreign().writeOrigin().store(foreign().descriptors[i].id);
                                 writeOriginPos=0;
                                 std::bitset<8> id;
                                 write_bits(id);
-                                std::bitset<8> obj_id = static_cast<unsigned long>(writeOrigin().load());//DANGER: overflow check
+                                std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load());//DANGER: overflow check
                                 id = id ^ obj_id;
-                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<writeOrigin()<<std::endl;
+                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
                                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                                 gotOne=true;
                             }
@@ -305,15 +300,15 @@ namespace SOS {
                 if (send_lock) {
                     if (write3plus1<3){
                         unsigned char data;
-                        data = reinterpret_cast<char*>(foreign().descriptors[writeOrigin().load()].obj)[writeOriginPos++];
+                        data = reinterpret_cast<char*>(foreign().descriptors[foreign().writeOrigin().load()].obj)[writeOriginPos++];
                         write(data);
                         write3plus1++;
                     } else {//write3plus1==3
-                        if (writeOriginPos==foreign().descriptors[writeOrigin().load()].obj_size){
-                            foreign().descriptors[writeOrigin().load()].synced=true;
+                        if (writeOriginPos==foreign().descriptors[foreign().writeOrigin().load()].obj_size){
+                            foreign().descriptors[foreign().writeOrigin().load()].synced=true;
                             send_lock=false;
                             writeOriginPos=0;
-                            foreign().descriptors[writeOrigin().load()].tx_counter++;//DEBUG
+                            foreign().descriptors[foreign().writeOrigin().load()].tx_counter++;//DEBUG
                             //std::cout<<typeid(*this).name();
                             //std::cout<<"$";
                         }
