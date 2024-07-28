@@ -139,26 +139,6 @@ class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRa
     FPGA(bus_type& myBus) :
     SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
-        _foreign.descriptors[0].synced=false;//COUNTER MCU owns it, so FPGA has to trigger a transfer
-        int writeBlinkCounter = 0;
-        bool writeBlink = true;
-        for (std::size_t i=0;i<std::get<1>(_foreign.objects).size();i++){
-            DMA::value_type data;
-            if (writeBlink)
-                data = 42;//'*'
-            else
-                data = 95;//'_'
-            std::get<1>(_foreign.objects)[i]=data;
-            writeBlinkCounter++;
-            if (writeBlink && writeBlinkCounter==333){
-                writeBlink = false;
-                writeBlinkCounter=0;
-            } else if (!writeBlink && writeBlinkCounter==666) {
-                writeBlink = true;
-                writeBlinkCounter=0;
-            }
-        }
-        _foreign.descriptors[1].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
@@ -195,8 +175,27 @@ class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateC
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     MCU(bus_type& myBus) :
     SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus) {
+        std::get<0>(_foreign.objects).setNumber(0);
+        std::get<0>(_foreign.objects).set_mcu_owned(false);
+        int writeBlinkCounter = 0;
+        bool writeBlink = true;
+        for (std::size_t i=0;i<std::get<1>(_foreign.objects).size();i++){
+            DMA::value_type data;
+            if (writeBlink)
+                data = 42;//'*'
+            else
+                data = 95;//'_'
+            std::get<1>(_foreign.objects)[i]=data;
+            writeBlinkCounter++;
+            if (writeBlink && writeBlinkCounter==333){
+                writeBlink = false;
+                writeBlinkCounter=0;
+            } else if (!writeBlink && writeBlinkCounter==666) {
+                writeBlink = true;
+                writeBlinkCounter=0;
+            }
+        }
         std::get<2>(_foreign.objects).fill('-');
-        _foreign.descriptors[2].synced=false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread=start(this);
     }
