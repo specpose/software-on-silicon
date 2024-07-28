@@ -122,8 +122,14 @@ namespace SOS {
                 int write3plus1 = 0;
                 while(is_running()){
                     if (handshake()) {
-                        read_hook(read4minus1);
-                        write_hook(write3plus1);
+                        if (!receive_lock)
+                            read_hook(read4minus1);
+                        else
+                            read_object(read4minus1);
+                        if (!send_lock)
+                            write_hook(write3plus1);
+                        if (send_lock)
+                            write_object(write3plus1);
                         handshake_ack();
                     }
                     std::this_thread::yield();
@@ -132,9 +138,15 @@ namespace SOS {
                 //if (!com_shutdown){
                 while ((!sent_com_shutdown && received_com_shutdown) ||
                         (sent_com_shutdown && !received_com_shutdown) ) {
-		     if (handshake()){
-                        read_hook(read4minus1);
-                        write_hook(write3plus1);
+		            if (handshake()){
+                        if (!receive_lock)
+                            read_hook(read4minus1);
+                        else
+                            read_object(read4minus1);
+                        if (!send_lock)
+                            sync_hook(write3plus1);
+                        if (send_lock)
+                            write_object(write3plus1);
                         handshake_ack();
                     }
                     std::this_thread::yield();
@@ -194,9 +206,8 @@ namespace SOS {
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int& read4minus1){
-                unsigned char data = read_byte();
-                read_bits(static_cast<unsigned long>(data));
-                if (!receive_lock){
+                    unsigned char data = read_byte();
+                    read_bits(static_cast<unsigned long>(data));
                     if (receive_request()){
                         std::bitset<8> obj_id = static_cast<unsigned long>(data);
                         obj_id = (obj_id << 2) >> 2;
@@ -228,61 +239,14 @@ namespace SOS {
                             //std::cout<<".";
                         //}
                     }
-                } else {
-                    read(data);
-                    if (read4minus1<3){
-                        read4minus1++;
-                    } else if (read4minus1==3){
-                        auto read3bytes = read_flush();
-                        if (readDestinationPos==foreign().descriptors[foreign().readDestination().load()].obj_size){
-                            foreign().descriptors[foreign().readDestination().load()].readLock=false;
-                            receive_lock=false;
-                            foreign().signal.getUpdatedRef().clear();
-                            //giving a read confirmation would require bidirectionalcontroller
-                            foreign().descriptors[foreign().readDestination().load()].rx_counter++;//DEBUG
-                        } else {
-                            for(std::size_t i=0;i<3;i++){
-                                reinterpret_cast<char*>(foreign().descriptors[foreign().readDestination().load()].obj)[readDestinationPos++]=read3bytes[i];
-                            }
-                        }
-                        read4minus1 = 0;
-                    }
-                }
             }
             void write_hook(int& write3plus1){
-                if (!send_lock){
                     if (receive_acknowledge()){
                         send_lock = true;
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                     } else {
-                        bool gotOne = false;
-                        for (std::size_t i=0;i<foreign().descriptors.size()&& !gotOne;i++){
-                            if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
-                                throw SFA::util::logic_error("DMAObject has entered an illegal sync state.",__FILE__,__func__);
-                            if (!foreign().descriptors[i].synced){
-                                send_request();
-                                foreign().writeOrigin().store(foreign().descriptors[i].id);
-                                writeOriginPos=0;
-                                std::bitset<8> id;
-                                write_bits(id);
-                                std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load());//DANGER: overflow check
-                                id = id ^ obj_id;
-                                //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                gotOne=true;
-                            }
-                        }
                         //read in handshake -> set wire to valid state
-                        if (!gotOne){
-                            if (loop_shutdown) {//Case of unsynced objects can be ignored from above
-                                auto id = shutdownState();//10111110
-                                write_bits(id);
-                                id.set(7,1);//override write_bits
-                                std::cout<<typeid(*this).name();
-                                std::cout<<"X";
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                sent_com_shutdown = true;
-                            } else {
+                        if (!getFirstSyncObject()){
                                 auto id = idleState();//10111111
                                 write_bits(id);
                                 id.set(7,1);//override write_bits
@@ -293,34 +257,91 @@ namespace SOS {
                                     received_com_shutdown = true;
                                     com_shutdown_action();
                                 }
-                            }
                         }
                     }
-                }
-                if (send_lock) {
-                    if (write3plus1<3){
-                        unsigned char data;
-                        data = reinterpret_cast<char*>(foreign().descriptors[foreign().writeOrigin().load()].obj)[writeOriginPos++];
-                        write(data);
-                        write3plus1++;
-                    } else {//write3plus1==3
-                        if (writeOriginPos==foreign().descriptors[foreign().writeOrigin().load()].obj_size){
-                            foreign().descriptors[foreign().writeOrigin().load()].synced=true;
-                            send_lock=false;
-                            writeOriginPos=0;
-                            foreign().descriptors[foreign().writeOrigin().load()].tx_counter++;//DEBUG
-                            //std::cout<<typeid(*this).name();
-                            //std::cout<<"$";
+            }
+            void sync_hook(int& write3plus1){
+                    if (receive_acknowledge()){
+                        send_lock = true;
+                        foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
+                    } else {
+                        //read in handshake -> set wire to valid state
+                        if (!getFirstSyncObject()){
+                                auto id = shutdownState();//10111110
+                                write_bits(id);
+                                id.set(7,1);//override write_bits
+                                std::cout<<typeid(*this).name();
+                                std::cout<<"X";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                                sent_com_shutdown = true;
                         }
-                        write(63);//'?' empty write
-                        write3plus1=0;
                     }
-                }
             }
             unsigned int writeCount = 0;//write3plus1
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0;//read4minus1
             std::size_t readDestinationPos = 0;
+            bool getFirstSyncObject(){
+                bool gotOne = false;
+                for (std::size_t i=0;i<foreign().descriptors.size()&& !gotOne;i++){
+                    if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                        throw SFA::util::logic_error("DMAObject has entered an illegal sync state.",__FILE__,__func__);
+                    if (!foreign().descriptors[i].synced){
+                        send_request();
+                        foreign().writeOrigin().store(foreign().descriptors[i].id);
+                        writeOriginPos=0;
+                        std::bitset<8> id;
+                        write_bits(id);
+                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load());//DANGER: overflow check
+                        id = id ^ obj_id;
+                        //std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
+                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        gotOne=true;
+                    }
+                }
+                return gotOne;
+            }
+            void write_object(int& write3plus1){
+                if (write3plus1<3){
+                    unsigned char data;
+                    data = reinterpret_cast<char*>(foreign().descriptors[foreign().writeOrigin().load()].obj)[writeOriginPos++];
+                    write(data);
+                    write3plus1++;
+                } else {//write3plus1==3
+                    if (writeOriginPos==foreign().descriptors[foreign().writeOrigin().load()].obj_size){
+                        foreign().descriptors[foreign().writeOrigin().load()].synced=true;
+                        send_lock=false;
+                        writeOriginPos=0;
+                        foreign().descriptors[foreign().writeOrigin().load()].tx_counter++;//DEBUG
+                        //std::cout<<typeid(*this).name();
+                        //std::cout<<"$";
+                    }
+                    write(63);//'?' empty write
+                    write3plus1=0;
+                }
+            }
+            void read_object(int& read4minus1){
+                unsigned char data = read_byte();
+                read_bits(static_cast<unsigned long>(data));
+                read(data);
+                if (read4minus1<3){
+                    read4minus1++;
+                } else if (read4minus1==3){
+                    auto read3bytes = read_flush();
+                    if (readDestinationPos==foreign().descriptors[foreign().readDestination().load()].obj_size){
+                        foreign().descriptors[foreign().readDestination().load()].readLock=false;
+                        receive_lock=false;
+                        foreign().signal.getUpdatedRef().clear();
+                        //giving a read confirmation would require bidirectionalcontroller
+                        foreign().descriptors[foreign().readDestination().load()].rx_counter++;//DEBUG
+                    } else {
+                        for(std::size_t i=0;i<3;i++){
+                            reinterpret_cast<char*>(foreign().descriptors[foreign().readDestination().load()].obj)[readDestinationPos++]=read3bytes[i];
+                        }
+                    }
+                    read4minus1 = 0;
+                }
+            }
             std::array<std::bitset<8>,3> writeAssembly;
             std::bitset<24> readAssembly;
             void write(unsigned char w){
