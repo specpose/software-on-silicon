@@ -128,8 +128,10 @@ namespace SOS
             {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
-            virtual void com_power_action() final
+            virtual void com_hotplug_action() final
             {
+                SOS::Protocol::Serial<Objects...>::resend_current_object();
+                SOS::Protocol::Serial<Objects...>::clear_read_receive();
             }
             virtual void com_shutdown_action() final
             {
@@ -180,14 +182,14 @@ namespace SOS
             {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
-            virtual void com_power_action() final
+            virtual void com_hotplug_action() final
             {
-                SOS::Protocol::Serial<Objects...>::full_sync();
+                SOS::Protocol::Serial<Objects...>::resend_current_object();
+                SOS::Protocol::Serial<Objects...>::clear_read_receive();
             }
             virtual void com_shutdown_action() final
             {
-                SOS::Protocol::Serial<Objects...>::clear_sync();
-                request_stop();
+                request_stop();//No hotplug
             }
         };
     }
