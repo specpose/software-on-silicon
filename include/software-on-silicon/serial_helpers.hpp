@@ -14,13 +14,13 @@ template<unsigned long Bytes> constexpr unsigned long long bytearrayToUnsignedNu
     }
     return result;
 };
-template<unsigned int Bytes, unsigned int Bits> constexpr void bitsetToBytearray(std::array<unsigned char,Bytes>& dest,std::bitset<Bits>& source){
+template<unsigned long Bytes, unsigned long Bits> constexpr void bitsetToBytearray(std::array<unsigned char,Bytes>& dest,std::bitset<Bits>& source){
     if (source.to_ullong() > maxUnsignedInt<Bytes>())
         throw SFA::util::logic_error("BitSet does not fit into char[]",__FILE__,__func__);
     for (int i=0;i<Bytes;i++)//bitset is little endian, first destination byte is bigend
         dest[i]=static_cast<unsigned char>(((source << (Bytes-(Bytes-i))*8) >> (Bytes-1)*8).to_ulong());;
 };
-template<unsigned int Bytes, unsigned int Bits> constexpr void bytearrayToBitset(std::bitset<Bits>& dest,std::array<unsigned char,Bytes>& source){
+template<unsigned long Bytes, unsigned long Bits> constexpr void bytearrayToBitset(std::bitset<Bits>& dest,std::array<unsigned char,Bytes>& source){
     std::bitset<Bits> allSet;
     allSet.set();
     if (maxUnsignedInt<Bytes>() > allSet.to_ullong())

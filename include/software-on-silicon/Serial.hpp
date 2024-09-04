@@ -168,7 +168,6 @@ namespace SOS
                     std::this_thread::yield();
                 }
                 loop_shutdown = true;
-                // if (!com_shutdown){
                 while ((!sent_com_shutdown && received_com_shutdown) ||
                        (sent_com_shutdown && !received_com_shutdown))
                 {
@@ -186,7 +185,6 @@ namespace SOS
                     }
                     std::this_thread::yield();
                 }
-                //}
                 finished();
                 // std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
@@ -203,36 +201,35 @@ namespace SOS
             virtual bool receive_acknowledge() = 0; // 4
             virtual unsigned char read_byte() = 0;
             virtual void write_byte(unsigned char) = 0;
-            virtual void com_power_action() = 0;
-            virtual void com_shutdown_action() = 0;
-            void full_sync()
+            virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
+            //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
+            virtual void com_shutdown_action() = 0;//no lock checks; request_stop or hotplugging?
+            void resend_current_object()
             {
-                if (receive_lock || readCount != 0)
+                if (send_lock || writeCount != 0){
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
-                com_shutdown = false;
-                received_com_shutdown = false;
-                sent_com_shutdown = false;
+                    send_lock = true;
+                    writeCount = 0;
+                    writeOriginPos = 0;
+                    //send_request(); // DANGER: change writted state has to be after read_bits
+                }
+            }
+            void clear_read_receive()
+            {
+                if (receive_lock || readCount != 0){
+                    throw SFA::util::runtime_error("Hotplug after unexpected shutdown.", __FILE__, __func__);
+                    receive_lock = false;
+                    readCount = 0;
+                    readDestinationPos = 0;
+                }
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                 {
                     if (foreign().descriptors[j].readLock)
                     {
-                        throw SFA::util::runtime_error("DMAObjects needs to be reinitialized.", __FILE__, __func__);
+                        throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
+                        foreign().descriptors[j].readLock = false;
                     }
-                    foreign().descriptors[j].synced = false;
                 }
-                send_lock = false;
-            };
-            void clear_sync()
-            {
-                if (receive_lock || readCount != 0)
-                    throw SFA::util::runtime_error("All pending reads should have been satisfied when receiving com_shutdown.", __FILE__, __func__);
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                {
-                    if (foreign().descriptors[j].readLock)
-                        throw SFA::util::runtime_error("Object integrity has been corrupted.", __FILE__, __func__);
-                    foreign().descriptors[j].synced = true;
-                }
-                send_lock = false;
             };
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
@@ -257,17 +254,31 @@ namespace SOS
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
-                        com_power_action();
+                        if (com_shutdown){
+                            if (!received_com_shutdown){
+                                throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
+                            } else {
+                                //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
+                            }
+                        }
+                        com_shutdown = false;
+                        received_com_shutdown = false;
+                        sent_com_shutdown = false;
+                        com_hotplug_action();
+                        //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (com_shutdown)
-                            com_power_action();
+                        if (com_shutdown){
+                            throw SFA::util::logic_error("idlestate after shutdownstate.", __FILE__, __func__);
+                        }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
                         com_shutdown = true; // incoming
-                        // request_child_stop();
+                        received_com_shutdown = false;
+                        sent_com_shutdown = false;
+                        //stop_calc_thread
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
                     }
@@ -314,7 +325,6 @@ namespace SOS
                         if (com_shutdown)
                         {
                             received_com_shutdown = true;
-                            com_shutdown_action();
                         }
                     }
                 }
@@ -338,6 +348,7 @@ namespace SOS
                         std::cout << "X";
                         write_byte(static_cast<unsigned char>(id.to_ulong()));
                         sent_com_shutdown = true;
+                        com_shutdown_action();
                     }
                 }
             }

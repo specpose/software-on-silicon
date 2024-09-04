@@ -143,6 +143,29 @@ public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     FPGA(bus_type &myBus) : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
+        int writeBlinkCounter = 0;
+        bool writeBlink = true;
+        for (std::size_t i = 0; i < std::get<1>(_foreign.objects).size(); i++)
+        {
+            DMA::value_type data;
+            if (writeBlink)
+                data = 42; //'*'
+            else
+                data = 95; //'_'
+            std::get<1>(_foreign.objects)[i] = data;
+            writeBlinkCounter++;
+            if (writeBlink && writeBlinkCounter == 333)
+            {
+                writeBlink = false;
+                writeBlinkCounter = 0;
+            }
+            else if (!writeBlink && writeBlinkCounter == 666)
+            {
+                writeBlink = true;
+                writeBlinkCounter = 0;
+            }
+        }
+        foreign().descriptors[1].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = start(this);
     }
@@ -154,7 +177,7 @@ public:
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
     }
-    void requestStop()
+    void requestStop()//Only from Ctrl-C
     {
         request_stop();
     };
@@ -184,29 +207,9 @@ public:
     {
         std::get<0>(_foreign.objects).setNumber(0);
         std::get<0>(_foreign.objects).set_mcu_owned(false);
-        int writeBlinkCounter = 0;
-        bool writeBlink = true;
-        for (std::size_t i = 0; i < std::get<1>(_foreign.objects).size(); i++)
-        {
-            DMA::value_type data;
-            if (writeBlink)
-                data = 42; //'*'
-            else
-                data = 95; //'_'
-            std::get<1>(_foreign.objects)[i] = data;
-            writeBlinkCounter++;
-            if (writeBlink && writeBlinkCounter == 333)
-            {
-                writeBlink = false;
-                writeBlinkCounter = 0;
-            }
-            else if (!writeBlink && writeBlinkCounter == 666)
-            {
-                writeBlink = true;
-                writeBlinkCounter = 0;
-            }
-        }
+        foreign().descriptors[0].synced = false;
         std::get<2>(_foreign.objects).fill('-');
+        foreign().descriptors[2].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = start(this);
     }
@@ -218,7 +221,7 @@ public:
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
     }
-    void requestStop()
+    void requestStop()//Only from Ctrl-C
     {
         request_stop();
     }
