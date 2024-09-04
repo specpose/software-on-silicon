@@ -59,7 +59,7 @@ namespace SOS
             unsigned char id = 0xFF;
             void *obj = nullptr;
             std::size_t obj_size = 0;
-            bool readLock = false; // serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
+            //bool readLock = false; // serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
             bool synced = true;    // subcontroller transfer checks for synced
             int rx_counter = 0;    // DEBUG
             int tx_counter = 0;    // DEBUG
@@ -218,17 +218,17 @@ namespace SOS
             {
                 if (receive_lock || readCount != 0){
                     throw SFA::util::runtime_error("Hotplug after unexpected shutdown.", __FILE__, __func__);
+                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
+                    {
+                        //if (foreign().descriptors[j].readLock)
+                        if (foreign().readDestination().load() == j)
+                        {
+                            throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
+                        }
+                    }
                     receive_lock = false;
                     readCount = 0;
                     readDestinationPos = 0;
-                }
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                {
-                    if (foreign().descriptors[j].readLock)
-                    {
-                        throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
-                        foreign().descriptors[j].readLock = false;
-                    }
                 }
             };
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
@@ -290,7 +290,7 @@ namespace SOS
                             if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
                             {
                                 receive_lock = true;
-                                foreign().descriptors[j].readLock = true;
+                                //foreign().descriptors[j].readLock = true;
                                 foreign().readDestination().store(id);
                                 // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
                                 readDestinationPos = 0;
@@ -361,7 +361,8 @@ namespace SOS
                 bool gotOne = false;
                 for (std::size_t i = 0; i < foreign().descriptors.size() && !gotOne; i++)
                 {
-                    if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                    //if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                    if (receive_lock && i==foreign().readDestination().load() && !foreign().descriptors[i].synced)
                         throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
                     if (!foreign().descriptors[i].synced)
                     {
@@ -417,7 +418,7 @@ namespace SOS
                     auto read3bytes = read_flush();
                     if (readDestinationPos == foreign().descriptors[foreign().readDestination().load()].obj_size)
                     {
-                        foreign().descriptors[foreign().readDestination().load()].readLock = false;
+                        //foreign().descriptors[foreign().readDestination().load()].readLock = false;
                         receive_lock = false;
                         foreign().signal.getUpdatedRef().clear();
                         foreign().descriptors[foreign().readDestination().load()].rx_counter++; // DEBUG
