@@ -101,7 +101,7 @@ namespace SOS
         protected:
             virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
             virtual void finished() final { SOS::Behavior::Loop::finished(); }
-            virtual void request_stop() final { SOS::Behavior::Loop::request_stop(); }
+            virtual void request_stop() final { SOS::Protocol::Serial<Objects...>::loop_shutdown = true; }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() final
             {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
@@ -135,6 +135,7 @@ namespace SOS
             }
             virtual void com_shutdown_action() final
             {
+                SOS::Behavior::Loop::request_stop();
             }
         };
         template <typename ControllerType, typename... Objects>
@@ -155,7 +156,7 @@ namespace SOS
         protected:
             virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
             virtual void finished() final { SOS::Behavior::Loop::finished(); }
-            virtual void request_stop() final { SOS::Behavior::Loop::request_stop(); }
+            virtual void request_stop() final { SOS::Protocol::Serial<Objects...>::loop_shutdown = true; }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() final
             {
                 return SOS::Behavior::EventController<ControllerType>::_foreign;
@@ -189,7 +190,7 @@ namespace SOS
             }
             virtual void com_shutdown_action() final
             {
-                request_stop();//No hotplug
+                SOS::Behavior::Loop::request_stop();//No hotplug
             }
         };
     }

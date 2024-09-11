@@ -153,36 +153,26 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
+                    if (com_shutdown && sent_com_shutdown)
+                        finished_com_shutdown = true;
                     if (handshake())
                     {
                         if (!receive_lock)
                             read_hook(read4minus1);
                         else
                             read_object(read4minus1);
-                        if (!send_lock)
-                            write_hook(write3plus1);
+                        if (!send_lock) {
+                            if (!loop_shutdown && !com_shutdown)
+                                write_hook(write3plus1);
+                            else
+                                sync_hook(write3plus1);
+                        }
                         if (send_lock)
                             write_object(write3plus1);
                         handshake_ack();
                     }
-                    std::this_thread::yield();
-                }
-                loop_shutdown = true;
-                while ((!sent_com_shutdown && received_com_shutdown) ||
-                       (sent_com_shutdown && !received_com_shutdown))
-                {
-                    if (handshake())
-                    {
-                        if (!receive_lock)
-                            read_hook(read4minus1);
-                        else
-                            read_object(read4minus1);
-                        if (!send_lock)
-                            sync_hook(write3plus1);
-                        if (send_lock)
-                            write_object(write3plus1);
-                        handshake_ack();
-                    }
+                    if (loop_shutdown && finished_com_shutdown)
+                        com_shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
@@ -236,12 +226,12 @@ namespace SOS
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;  // mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
-
-        private:
             bool loop_shutdown = false;
+        private:
             bool com_shutdown = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
+            bool finished_com_shutdown = false;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int &read4minus1)
@@ -255,7 +245,7 @@ namespace SOS
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
                         if (com_shutdown){
-                            if (!received_com_shutdown){
+                            if (!finished_com_shutdown){
                                 throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
                             } else {
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
@@ -264,20 +254,19 @@ namespace SOS
                         com_shutdown = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
+                        finished_com_shutdown = false;
                         com_hotplug_action();
                         //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (com_shutdown){
-                            throw SFA::util::logic_error("idlestate after shutdownstate.", __FILE__, __func__);
+                        if (finished_com_shutdown){
+                            throw SFA::util::logic_error("Spurious handshake.", __FILE__, __func__);
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
                         com_shutdown = true; // incoming
-                        received_com_shutdown = false;
-                        sent_com_shutdown = false;
                         //stop_calc_thread
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
@@ -348,7 +337,6 @@ namespace SOS
                         std::cout << "X";
                         write_byte(static_cast<unsigned char>(id.to_ulong()));
                         sent_com_shutdown = true;
-                        com_shutdown_action();
                     }
                 }
             }
