@@ -166,14 +166,6 @@ namespace SOS {
             virtual void wait_acknowledge() {
                 _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
-            /*virtual bool exit_loop() {
-                if (!Stoppable::is_running()) {
-                    Stoppable::request_stop();
-                    return true;
-                } else {
-                    return false;
-                }
-            }*/
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename MemoryControllerType> class MemoryControllerWrite {
