@@ -4,24 +4,26 @@
 #include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
+#include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::BootstrapDummyEventController<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
+    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
-        _thread = SOS::Behavior::Loop::start(this);
+        _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~FPGAProcessingSwitch()
     {
         _thread.detach();
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
+    virtual void start() final { _thread = SOS::Behavior::Stoppable::start(this); }
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
@@ -67,26 +69,27 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
-    virtual void finished() final { SOS::Behavior::Loop::finished(); }
+    virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
+    virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
 
 private:
     bus_type &_nBus;
     std::thread _thread = std::thread{};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::BootstrapDummyEventController<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
+    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
-        _thread = SOS::Behavior::Loop::start(this);
+        _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~MCUProcessingSwitch()
     {
         _thread.detach();
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
+    virtual void start() final { throw SFA::util::runtime_error("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action.", __FILE__, __func__);}
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
@@ -130,8 +133,8 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
-    virtual void finished() final { SOS::Behavior::Loop::finished(); }
+    virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
+    virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
 
 private:
     bus_type &_nBus;
@@ -179,7 +182,8 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
-        request_stop();
+        SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::_child.stop();
+        loop_shutdown = true;
     };
     bool isStopped()
     {
@@ -223,7 +227,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
-        request_stop();
+        loop_shutdown = true;
     }
     bool isStopped()
     {

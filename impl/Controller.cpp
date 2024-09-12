@@ -1,6 +1,7 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include <iostream>
+#include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/loop_helpers.hpp"
 
 using namespace SOS::MemoryView;

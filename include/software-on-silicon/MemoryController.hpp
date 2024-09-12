@@ -105,17 +105,17 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
+        template<typename MemoryControllerType> class Reader : public SOS::Behavior::BootstrapDummyEventController<>,
         public virtual SOS::Behavior::ReadTask<MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::DummyEventController<>(outside.signal)
+            SOS::Behavior::BootstrapDummyEventController<>(outside.signal)
             {}
             ~Reader(){}
             void event_loop() final {
-                while(Loop::is_running()){
+                while(Stoppable::is_running()){
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
         //                        std::cout << "S";
                     read();//FIFO whole buffer with intermittent waits when write
@@ -123,7 +123,7 @@ namespace SOS {
                     _intrinsic.getAcknowledgeRef().clear();
                     }
                 }
-                Loop::finished();
+                Stoppable::finished();
             }
             private:
             virtual void read()=0;
@@ -139,8 +139,8 @@ namespace SOS {
                 _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
             /*virtual bool exit_loop() {
-                if (!Loop::is_running()) {
-                    Loop::request_stop();
+                if (!Stoppable::is_running()) {
+                    Stoppable::request_stop();
                     return true;
                 } else {
                     return false;

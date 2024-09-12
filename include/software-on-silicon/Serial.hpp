@@ -132,6 +132,7 @@ namespace SOS
             }
 
         protected:
+            virtual void start() = 0;
             virtual bool is_running() = 0;
             virtual void finished() = 0;
             virtual bool received() = 0;
@@ -178,7 +179,6 @@ namespace SOS
         protected:
             virtual bool is_running() = 0;
             virtual void finished() = 0;
-            virtual void request_stop() = 0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;    // 3

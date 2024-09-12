@@ -86,10 +86,10 @@ namespace SOS{
             }
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
-            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
             bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             private:
             SOS::MemoryView::HandShake stop_token;
+            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
             bool stop(){//dont need thread in here
                 request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){
