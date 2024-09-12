@@ -161,12 +161,8 @@ namespace SOS
                             read_hook(read4minus1);
                         else
                             read_object(read4minus1);
-                        if (!send_lock) {
-                            if (!loop_shutdown && !com_shutdown)
-                                write_hook(write3plus1);
-                            else
-                                sync_hook(write3plus1);
-                        }
+                        if (!send_lock)
+                            write_hook(write3plus1);
                         if (send_lock)
                             write_object(write3plus1);
                         handshake_ack();
@@ -229,7 +225,6 @@ namespace SOS
             bool loop_shutdown = false;
         private:
             bool com_shutdown = false;
-            bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
             bool finished_com_shutdown = false;
             bool receive_lock = false;
@@ -252,7 +247,6 @@ namespace SOS
                             }
                         }
                         com_shutdown = false;
-                        received_com_shutdown = false;
                         sent_com_shutdown = false;
                         finished_com_shutdown = false;
                         com_hotplug_action();
@@ -273,17 +267,21 @@ namespace SOS
                     }
                     else
                     {
-                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                        {
-                            if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
+                        if (com_shutdown) {
+                            //throw SFA::util::logic_error("Transfer requested after com_shutdown", __FILE__, __func__);
+                        } else {
+                            auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                             {
-                                receive_lock = true;
-                                //foreign().descriptors[j].readLock = true;
-                                foreign().readDestination().store(id);
-                                // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
-                                readDestinationPos = 0;
-                                send_acknowledge(); // DANGER: change writted state has to be after read_bits
+                                if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
+                                {
+                                    receive_lock = true;
+                                    //foreign().descriptors[j].readLock = true;
+                                    foreign().readDestination().store(id);
+                                    // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
+                                    readDestinationPos = 0;
+                                    send_acknowledge(); // DANGER: change writted state has to be after read_bits
+                                }
                             }
                         }
                     }
@@ -305,38 +303,22 @@ namespace SOS
                     // read in handshake -> set wire to valid state
                     if (!getFirstSyncObject())
                     {
-                        auto id = idleState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        // std::cout<<typeid(*this).name();
-                        // std::cout<<"!";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        if (com_shutdown)
-                        {
-                            received_com_shutdown = true;
+                        if (!loop_shutdown && !com_shutdown){//write an idle
+                            auto id = idleState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"!";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        } else {
+                            auto id = shutdownState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            std::cout << typeid(*this).name();
+                            std::cout << "X";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            sent_com_shutdown = true;
                         }
-                    }
-                }
-            }
-            void sync_hook(int &write3plus1)
-            {
-                if (receive_acknowledge())
-                {
-                    send_lock = true;
-                    foreign().signal.getAcknowledgeRef().clear(); // Used as separate signals, not a handshake
-                }
-                else
-                {
-                    // read in handshake -> set wire to valid state
-                    if (!getFirstSyncObject())
-                    {
-                        auto id = shutdownState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        std::cout << typeid(*this).name();
-                        std::cout << "X";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        sent_com_shutdown = true;
                     }
                 }
             }
