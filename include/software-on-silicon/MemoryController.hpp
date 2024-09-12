@@ -132,17 +132,17 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename MemoryControllerType> class Reader : public SOS::Behavior::BootstrapDummyEventController<>,
+        template<typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
         public virtual SOS::Behavior::ReadTask<MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::BootstrapDummyEventController<>(outside.signal)
+            SOS::Behavior::DummyEventController<>(outside.signal)
             {}
             ~Reader(){}
             void event_loop() final {
-                while(Stoppable::is_running()){
+                while(Loop::is_running()){
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
         //                        std::cout << "S";
                     read();//FIFO whole buffer with intermittent waits when write
@@ -150,7 +150,7 @@ namespace SOS {
                     _intrinsic.getAcknowledgeRef().clear();
                     }
                 }
-                Stoppable::finished();
+                Loop::finished();
             }
             private:
             virtual void read()=0;
@@ -166,14 +166,6 @@ namespace SOS {
             virtual void wait_acknowledge() {
                 _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
             }
-            /*virtual bool exit_loop() {
-                if (!Stoppable::is_running()) {
-                    Stoppable::request_stop();
-                    return true;
-                } else {
-                    return false;
-                }
-            }*/
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
         template<typename MemoryControllerType> class MemoryControllerWrite {
