@@ -132,6 +132,7 @@ namespace SOS
             }
 
         protected:
+            virtual void start() = 0;
             virtual bool is_running() = 0;
             virtual void finished() = 0;
             virtual bool received() = 0;
@@ -153,6 +154,8 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
+                    if (com_shutdown && sent_com_shutdown)
+                        finished_com_shutdown = true;
                     if (handshake())
                     {
                         if (!receive_lock)
@@ -165,24 +168,8 @@ namespace SOS
                             write_object(write3plus1);
                         handshake_ack();
                     }
-                    std::this_thread::yield();
-                }
-                loop_shutdown = true;
-                while ((!sent_com_shutdown && received_com_shutdown) ||
-                       (sent_com_shutdown && !received_com_shutdown))
-                {
-                    if (handshake())
-                    {
-                        if (!receive_lock)
-                            read_hook(read4minus1);
-                        else
-                            read_object(read4minus1);
-                        if (!send_lock)
-                            sync_hook(write3plus1);
-                        if (send_lock)
-                            write_object(write3plus1);
-                        handshake_ack();
-                    }
+                    if (loop_shutdown && finished_com_shutdown)
+                        com_shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
@@ -192,7 +179,6 @@ namespace SOS
         protected:
             virtual bool is_running() = 0;
             virtual void finished() = 0;
-            virtual void request_stop() = 0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
             virtual void send_acknowledge() = 0;    // 3
@@ -236,12 +222,11 @@ namespace SOS
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;  // mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
-
-        private:
             bool loop_shutdown = false;
+        private:
             bool com_shutdown = false;
-            bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
+            bool finished_com_shutdown = false;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(int &read4minus1)
@@ -255,46 +240,48 @@ namespace SOS
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
                         if (com_shutdown){
-                            if (!received_com_shutdown){
+                            if (!finished_com_shutdown){
                                 throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
                             } else {
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
                             }
                         }
                         com_shutdown = false;
-                        received_com_shutdown = false;
                         sent_com_shutdown = false;
+                        finished_com_shutdown = false;
                         com_hotplug_action();
                         //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (com_shutdown){
-                            throw SFA::util::logic_error("idlestate after shutdownstate.", __FILE__, __func__);
+                        if (finished_com_shutdown){
+                            throw SFA::util::logic_error("Spurious handshake.", __FILE__, __func__);
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
                         com_shutdown = true; // incoming
-                        received_com_shutdown = false;
-                        sent_com_shutdown = false;
                         //stop_calc_thread
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
                     }
                     else
                     {
-                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                        {
-                            if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
+                        if (com_shutdown) {
+                            //throw SFA::util::logic_error("Transfer requested after com_shutdown", __FILE__, __func__);
+                        } else {
+                            auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                             {
-                                receive_lock = true;
-                                //foreign().descriptors[j].readLock = true;
-                                foreign().readDestination().store(id);
-                                // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
-                                readDestinationPos = 0;
-                                send_acknowledge(); // DANGER: change writted state has to be after read_bits
+                                if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
+                                {
+                                    receive_lock = true;
+                                    //foreign().descriptors[j].readLock = true;
+                                    foreign().readDestination().store(id);
+                                    // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
+                                    readDestinationPos = 0;
+                                    send_acknowledge(); // DANGER: change writted state has to be after read_bits
+                                }
                             }
                         }
                     }
@@ -316,39 +303,22 @@ namespace SOS
                     // read in handshake -> set wire to valid state
                     if (!getFirstSyncObject())
                     {
-                        auto id = idleState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        // std::cout<<typeid(*this).name();
-                        // std::cout<<"!";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        if (com_shutdown)
-                        {
-                            received_com_shutdown = true;
+                        if (!loop_shutdown && !com_shutdown){//write an idle
+                            auto id = idleState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"!";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        } else {
+                            auto id = shutdownState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            std::cout << typeid(*this).name();
+                            std::cout << "X";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            sent_com_shutdown = true;
                         }
-                    }
-                }
-            }
-            void sync_hook(int &write3plus1)
-            {
-                if (receive_acknowledge())
-                {
-                    send_lock = true;
-                    foreign().signal.getAcknowledgeRef().clear(); // Used as separate signals, not a handshake
-                }
-                else
-                {
-                    // read in handshake -> set wire to valid state
-                    if (!getFirstSyncObject())
-                    {
-                        auto id = shutdownState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        std::cout << typeid(*this).name();
-                        std::cout << "X";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        sent_com_shutdown = true;
-                        com_shutdown_action();
                     }
                 }
             }
