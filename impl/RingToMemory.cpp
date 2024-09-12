@@ -16,7 +16,7 @@
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
-#include "software-on-silicon/loop_helpers.hpp"
+#include "software-on-silicon/simulation_helpers.hpp"
 
 typedef char SAMPLE_SIZE;
 #define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,334>
