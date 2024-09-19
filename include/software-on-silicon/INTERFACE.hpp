@@ -95,11 +95,14 @@ namespace SOS{
         };
     }
     namespace Behavior {
+        class Stoppable;
         //Loops always have at least one signal for termination acknowledge if used for single run
         class Loop {
+        	friend Stoppable;
             public:
             Loop() {
-                request_stop();
+                //if (!is_finished())
+                //    throw SFA::util::logic_error("Loop has not come out of while loop or request_stop() has not been called.", __FILE__, __func__);
             }
             virtual ~Loop(){stop();};
             virtual void event_loop()=0;
@@ -108,13 +111,17 @@ namespace SOS{
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
+            template<typename C> void destroy(C& destroyme){
+                request_stop();
+                destroyme.join();
+            }
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
             bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             private:
             SOS::MemoryView::HandShake stop_token;
-            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
-            bool stop(){//dont need thread in here
+            virtual void request_stop() { stop_token.getUpdatedRef().clear(); }
+            virtual bool stop() {//dont need thread in here
                 request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){
                     std::this_thread::yield();//caller thread, not LoopImpl
@@ -142,6 +149,10 @@ namespace SOS{
             constexpr EventSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
             protected:
             bus_type::signal_type& _intrinsic;
+        };
+        template<typename... Others> class DummyAsyncController : public Loop, protected SubController {
+            public:
+            DummyAsyncController() : Loop(), SubController() {}
         };
         template<typename... Others> class DummySimpleController : public Loop, protected SimpleSubController {
             public:
