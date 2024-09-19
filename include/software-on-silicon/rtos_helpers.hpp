@@ -2,35 +2,22 @@ namespace SOS
 {
     namespace Behavior
     {
-        class Stoppable {//FPGA are not stoppable
+        class Stoppable : public Loop {//FPGA are not stoppable
             public:
-            Stoppable() {
-                request_stop();
-            }
-            virtual ~Stoppable(){stop();};
-            virtual void event_loop()=0;
-            protected:
-            template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
-                startme->Stoppable::stop_token.getUpdatedRef().test_and_set();
-                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
-            }
-            bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
-            void finished() { stop_token.getAcknowledgeRef().clear(); }
-            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
-            bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
-            private:
-            SOS::MemoryView::HandShake stop_token;
+            Stoppable() : Loop() {}
             public:
+            void request_stop(){
+            	return Loop::request_stop();
+            }
             bool stop(){//dont need thread in here
-                request_stop();
-                while(stop_token.getAcknowledgeRef().test_and_set()){
-                    std::this_thread::yield();//caller thread, not LoopImpl
-                }
-                finished();
-                return true;
+                return Loop::stop();
             }
         };
         //BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
+        template<typename... Others> class BootstrapDummyAsyncController : public Stoppable, protected SubController {
+            public:
+            BootstrapDummyAsyncController() : Stoppable(), SubController() {}
+        };
         template<typename... Others> class BootstrapDummySimpleController : public Stoppable, protected SimpleSubController {
             public:
             BootstrapDummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Stoppable(), SimpleSubController(signal) {}

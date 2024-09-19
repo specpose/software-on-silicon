@@ -71,8 +71,10 @@ namespace SOS{
         };
     }
     namespace Behavior {
+        class Stoppable;
         //Loops always have at least one signal for termination acknowledge if used for single run
         class Loop {
+        	friend Stoppable;
             public:
             Loop() {
                 request_stop();
@@ -118,6 +120,10 @@ namespace SOS{
             constexpr EventSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
             protected:
             bus_type::signal_type& _intrinsic;
+        };
+        template<typename... Others> class DummyAsyncController : public Loop, protected SubController {
+            public:
+            DummyAsyncController() : Loop(), SubController() {}
         };
         template<typename... Others> class DummySimpleController : public Loop, protected SimpleSubController {
             public:
