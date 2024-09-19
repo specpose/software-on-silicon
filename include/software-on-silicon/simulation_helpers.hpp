@@ -16,8 +16,7 @@ template<typename DurationType,
         _thread = start(this);
     }
     ~Timer(){
-        request_stop();
-        _thread.join();
+        destroy(_thread);
         std::cout<<"Timer spent "<<duration_cast<DurationType>(t_counter -
         duration_cast<high_resolution_clock::duration>(DurationType{(runCount * Period)})
         ).count()<<" duration units more than expected."<<std::endl;

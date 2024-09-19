@@ -17,8 +17,7 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
         _thread=start(this);
     }
     ~SubControllerImpl() final {
-        request_stop();
-        _thread.join();
+        destroy(_thread);
     }
     void event_loop(){
         while(is_running()){
@@ -51,8 +50,7 @@ class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl>
         _thread=start(this);
     }
     ~ControllerImpl() {
-        request_stop();
-        _thread.join();
+        destroy(_thread);
     }
     void event_loop(){
         auto waiterBus = SOS::MemoryView::BusShaker{};

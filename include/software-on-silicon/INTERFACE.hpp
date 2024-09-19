@@ -87,12 +87,16 @@ namespace SOS{
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
+            template<typename C> void destroy(C& destroyme){
+                request_stop();
+                destroyme.join();
+            }
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
-            void request_stop() { stop_token.getUpdatedRef().clear(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
             bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             private:
             SOS::MemoryView::HandShake stop_token;
+            virtual void request_stop() { stop_token.getUpdatedRef().clear(); }
             virtual bool stop() {//dont need thread in here
                 request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){

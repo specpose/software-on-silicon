@@ -25,8 +25,7 @@ class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private Ri
         _thread = start(this);
     }
     ~RingBufferImpl() final{
-        request_stop();
-        _thread.join();
+        destroy(_thread);
     }
     void event_loop(){
         while(is_running()){

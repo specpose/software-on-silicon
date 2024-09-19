@@ -73,8 +73,7 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
         _thread = start(this);
     }
     ~ReaderImpl(){
-        request_stop();
-        _thread.join();
+        destroy(_thread);
     }
     private:
     virtual void read() final {
@@ -124,8 +123,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
         _thread = start(this);
     }
     ~RingBufferImpl() final{
-        request_stop();
-        _thread.join();
+        destroy(_thread);
     }
     //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){

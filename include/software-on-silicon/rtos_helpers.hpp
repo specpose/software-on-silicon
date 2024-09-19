@@ -10,9 +10,8 @@ namespace SOS
                 //    throw SFA::util::logic_error("stop() has not been called on Stoppable.", __FILE__, __func__);
             }
             public:
-            virtual bool stop() final {//dont need thread in here
-                return Loop::stop();
-            }
+            virtual void request_stop() final { Loop::request_stop(); }
+            virtual bool stop() final { return Loop::stop(); }
         };
         //BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
         template<typename... Others> class BootstrapDummyAsyncController : public Stoppable, protected SubController {
