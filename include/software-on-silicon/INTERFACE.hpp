@@ -77,7 +77,8 @@ namespace SOS{
         	friend Stoppable;
             public:
             Loop() {
-                request_stop();
+                //if (!is_finished())
+                //    throw SFA::util::logic_error("Loop has not come out of while loop or request_stop() has not been called.", __FILE__, __func__);
             }
             virtual ~Loop(){stop();};
             virtual void event_loop()=0;
@@ -87,11 +88,11 @@ namespace SOS{
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
+            void request_stop() { stop_token.getUpdatedRef().clear(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
             bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             private:
             SOS::MemoryView::HandShake stop_token;
-            void request_stop() { stop_token.getUpdatedRef().clear(); }//private
             virtual bool stop() {//dont need thread in here
                 request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){

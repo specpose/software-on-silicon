@@ -16,6 +16,7 @@ template<typename DurationType,
         _thread = start(this);
     }
     ~Timer(){
+        request_stop();
         _thread.join();
         std::cout<<"Timer spent "<<duration_cast<DurationType>(t_counter -
         duration_cast<high_resolution_clock::duration>(DurationType{(runCount * Period)})

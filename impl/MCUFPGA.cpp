@@ -20,7 +20,8 @@ public:
     }
     ~FPGAProcessingSwitch()
     {
-        _thread.detach();
+        request_stop();
+        _thread.join();
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     virtual void start() final { _thread = SOS::Behavior::Stoppable::start(this); }
@@ -86,7 +87,8 @@ public:
     }
     ~MCUProcessingSwitch()
     {
-        _thread.detach();
+        request_stop();
+        _thread.join();
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
     virtual void start() final { throw SFA::util::runtime_error("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action.", __FILE__, __func__);}
@@ -174,7 +176,8 @@ public:
     }
     ~FPGA()
     {
-        _thread.detach();
+        request_stop();
+        _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
@@ -219,7 +222,8 @@ public:
     }
     ~MCU()
     {
-        _thread.detach();
+        request_stop();
+        _thread.join();
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;

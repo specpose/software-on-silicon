@@ -57,8 +57,8 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
         _thread = start(this);
     }
     ~ReaderImpl(){
-        //_thread.join();
-        _thread.detach();
+        request_stop();
+        _thread.join();
     }
     private:
     virtual void read() final {
@@ -99,10 +99,8 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
-        //_child.stop();//ALWAYS needs to be called in the upper-most superclass of Controller with child
-        //stop_token.getUpdatedRef().clear();
-        //_thread.join();
-        _thread.detach();
+        request_stop();
+        _thread.join();
     };
     //multiple inheritance: Overriding PassThru not ReaderImpl
     void event_loop(){

@@ -23,8 +23,8 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
         _thread=start(this);
     }
     ~BlinkLoop() final {
-        //_thread.join();
-        _thread.detach();
+        request_stop();
+        _thread.join();
         std::cout<<"Thread has ended normally."<<std::endl;
     }
     void event_loop(){

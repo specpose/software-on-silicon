@@ -7,12 +7,9 @@ namespace SOS
             Stoppable() : Loop() {}
             ~Stoppable(){
                 //if (!is_finished())
-                //    throw SFA::util::logic_error("Stoppable has to be stopped manually before destruction.", __FILE__, __func__);
+                //    throw SFA::util::logic_error("stop() has not been called on Stoppable.", __FILE__, __func__);
             }
             public:
-            void request_stop(){
-            	return Loop::request_stop();
-            }
             virtual bool stop() final {//dont need thread in here
                 return Loop::stop();
             }
