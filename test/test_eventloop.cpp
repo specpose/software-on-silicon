@@ -24,4 +24,5 @@ int main () {
     std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
     std::this_thread::sleep_for(seconds{5});
     delete myHandler;
+    waiter.requestStop();
 }
