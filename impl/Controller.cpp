@@ -72,6 +72,7 @@ class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl>
         }
         finished();
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
+        waiter.requestStop();
     }
     void operator()(){
         if (!_foreign.signal.getNotifyRef().test_and_set()) {

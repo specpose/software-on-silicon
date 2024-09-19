@@ -92,7 +92,7 @@ namespace SOS{
             private:
             SOS::MemoryView::HandShake stop_token;
             void request_stop() { stop_token.getUpdatedRef().clear(); }//private
-            bool stop(){//dont need thread in here
+            virtual bool stop() {//dont need thread in here
                 request_stop();
                 while(stop_token.getAcknowledgeRef().test_and_set()){
                     std::this_thread::yield();//caller thread, not LoopImpl

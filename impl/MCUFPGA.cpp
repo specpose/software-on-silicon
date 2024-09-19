@@ -182,7 +182,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
-        SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::_child.stop();
+        SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::stop_children();
         loop_shutdown = true;
     };
     bool isStopped()
