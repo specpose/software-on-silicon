@@ -223,6 +223,7 @@ namespace SOS
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
         private:
+            bool first_run = true;
             bool com_shutdown = false;
             bool sent_com_shutdown = false;
             bool finished_com_shutdown = false;
@@ -300,23 +301,33 @@ namespace SOS
                 else
                 {
                     // read in handshake -> set wire to valid state
-                    if (!getFirstSyncObject())
-                    {
-                        if (!loop_shutdown && !com_shutdown){//write an idle
-                            auto id = idleState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            // std::cout<<typeid(*this).name();
-                            // std::cout<<"!";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        } else {
-                            auto id = shutdownState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            std::cout << typeid(*this).name();
-                            std::cout << "X";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            sent_com_shutdown = true;
+                    if (first_run){
+                        auto id = poweronState();
+                        write_bits(id);
+                        id.set(7, 1); // override write_bits
+                        std::cout<<typeid(*this).name();
+                        std::cout<<"P";
+                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        first_run=false;
+                    } else {
+                        if (!getFirstSyncObject())
+                        {
+                            if (!loop_shutdown && !com_shutdown){//write an idle
+                                auto id = idleState();
+                                write_bits(id);
+                                id.set(7, 1); // override write_bits
+                                // std::cout<<typeid(*this).name();
+                                // std::cout<<"!";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            } else {
+                                auto id = shutdownState();
+                                write_bits(id);
+                                id.set(7, 1); // override write_bits
+                                std::cout << typeid(*this).name();
+                                std::cout << "X";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                                sent_com_shutdown = true;
+                            }
                         }
                     }
                 }
