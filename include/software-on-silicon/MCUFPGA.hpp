@@ -134,6 +134,7 @@ namespace SOS
             }
             virtual void com_shutdown_action() final
             {
+                //SOS::Behavior::Stoppable::stop();
                 SOS::Behavior::Stoppable::request_stop();
             }
         };
@@ -188,6 +189,7 @@ namespace SOS
             }
             virtual void com_shutdown_action() final
             {
+                //SOS::Behavior::Stoppable::stop();
                 SOS::Behavior::Stoppable::request_stop();//No hotplug
             }
         };
