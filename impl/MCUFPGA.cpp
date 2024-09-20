@@ -170,7 +170,8 @@ public:
         }
         foreign().descriptors[1].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
-        _thread = start(this);
+        _thread = SOS::Behavior::Loop::start(this);
+        _intrinsic.getAcknowledgeRef().clear();//SIMULATION: start handshake, remove
     }
     ~FPGA()
     {
@@ -215,7 +216,7 @@ public:
         std::get<2>(_foreign.objects).fill('-');
         foreign().descriptors[2].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
-        _thread = start(this);
+        _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCU()
     {

@@ -154,10 +154,10 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
-                    if (com_shutdown && sent_com_shutdown)
-                        finished_com_shutdown = true;
                     if (handshake())
                     {
+                        if (com_shutdown && sent_com_shutdown)
+                            finished_com_shutdown = true;
                         if (!receive_lock)
                             read_hook(read4minus1);
                         else
@@ -194,10 +194,9 @@ namespace SOS
             {
                 if (send_lock || writeCount != 0){
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
-                    send_lock = true;
+                    send_lock = false;
                     writeCount = 0;
-                    writeOriginPos = 0;
-                    //send_request(); // DANGER: change writted state has to be after read_bits
+                    _write_transfer_request(foreign().writeOrigin().load());
                 }
             }
             void clear_read_receive()
@@ -224,6 +223,7 @@ namespace SOS
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
         private:
+            bool first_run = true;
             bool com_shutdown = false;
             bool sent_com_shutdown = false;
             bool finished_com_shutdown = false;
@@ -301,23 +301,33 @@ namespace SOS
                 else
                 {
                     // read in handshake -> set wire to valid state
-                    if (!getFirstSyncObject())
-                    {
-                        if (!loop_shutdown && !com_shutdown){//write an idle
-                            auto id = idleState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            // std::cout<<typeid(*this).name();
-                            // std::cout<<"!";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        } else {
-                            auto id = shutdownState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            std::cout << typeid(*this).name();
-                            std::cout << "X";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            sent_com_shutdown = true;
+                    if (first_run){
+                        auto id = poweronState();
+                        write_bits(id);
+                        id.set(7, 1); // override write_bits
+                        std::cout<<typeid(*this).name();
+                        std::cout<<"P";
+                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        first_run=false;
+                    } else {
+                        if (!getFirstSyncObject())
+                        {
+                            if (!loop_shutdown && !com_shutdown){//write an idle
+                                auto id = idleState();
+                                write_bits(id);
+                                id.set(7, 1); // override write_bits
+                                // std::cout<<typeid(*this).name();
+                                // std::cout<<"!";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            } else {
+                                auto id = shutdownState();
+                                write_bits(id);
+                                id.set(7, 1); // override write_bits
+                                std::cout << typeid(*this).name();
+                                std::cout << "X";
+                                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                                sent_com_shutdown = true;
+                            }
                         }
                     }
                 }
@@ -326,6 +336,17 @@ namespace SOS
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0; // read4minus1
             std::size_t readDestinationPos = 0;
+            void _write_transfer_request(unsigned char objectid){
+                send_request();
+                foreign().writeOrigin().store(objectid);
+                writeOriginPos = 0;
+                std::bitset<8> id;
+                write_bits(id);
+                std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load()); // DANGER: overflow check
+                id = id ^ obj_id;
+                // std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+            }
             bool getFirstSyncObject()
             {
                 bool gotOne = false;
@@ -336,15 +357,7 @@ namespace SOS
                         throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
                     if (!foreign().descriptors[i].synced)
                     {
-                        send_request();
-                        foreign().writeOrigin().store(foreign().descriptors[i].id);
-                        writeOriginPos = 0;
-                        std::bitset<8> id;
-                        write_bits(id);
-                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load()); // DANGER: overflow check
-                        id = id ^ obj_id;
-                        // std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        _write_transfer_request(foreign().descriptors[i].id);
                         gotOne = true;
                     }
                 }

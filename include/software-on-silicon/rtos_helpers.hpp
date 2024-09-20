@@ -10,6 +10,10 @@ namespace SOS
                 //    throw SFA::util::logic_error("stop() has not been called on Stoppable.", __FILE__, __func__);
             }
             public:
+            virtual void destroy(std::thread& destroyme) final {
+                stop();
+                destroyme.join();
+            }
             virtual void request_stop() final { Loop::request_stop(); }
             virtual bool stop() final { return Loop::stop(); }
         };

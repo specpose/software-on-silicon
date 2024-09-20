@@ -111,7 +111,7 @@ namespace SOS{
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
                 return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
             }
-            template<typename C> void destroy(C& destroyme){
+            virtual void destroy(std::thread& destroyme){
                 request_stop();
                 destroyme.join();
             }
