@@ -156,6 +156,10 @@ namespace SOS
                 {
                     if (handshake())
                     {
+                        if (first_run){
+                            poweron_hook();
+                            first_run = false;
+                        } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;
                         if (!receive_lock)
@@ -166,6 +170,7 @@ namespace SOS
                             write_hook(write3plus1);
                         if (send_lock)
                             write_object(write3plus1);
+                        }
                         handshake_ack();
                     }
                     if (loop_shutdown && finished_com_shutdown)
@@ -229,6 +234,14 @@ namespace SOS
             bool finished_com_shutdown = false;
             bool receive_lock = false;
             bool send_lock = false;
+            void poweron_hook(){
+                auto id = poweronState();
+                write_bits(id);
+                id.set(7, 1); // override write_bits
+                std::cout<<typeid(*this).name();
+                std::cout<<"P";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+            }
             void read_hook(int &read4minus1)
             {
                 unsigned char data = read_byte();
@@ -301,33 +314,23 @@ namespace SOS
                 else
                 {
                     // read in handshake -> set wire to valid state
-                    if (first_run){
-                        auto id = poweronState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        std::cout<<typeid(*this).name();
-                        std::cout<<"P";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        first_run=false;
-                    } else {
-                        if (!getFirstSyncObject())
-                        {
-                            if (!loop_shutdown && !com_shutdown){//write an idle
-                                auto id = idleState();
-                                write_bits(id);
-                                id.set(7, 1); // override write_bits
-                                // std::cout<<typeid(*this).name();
-                                // std::cout<<"!";
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            } else {
-                                auto id = shutdownState();
-                                write_bits(id);
-                                id.set(7, 1); // override write_bits
-                                std::cout << typeid(*this).name();
-                                std::cout << "X";
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                sent_com_shutdown = true;
-                            }
+                    if (!getFirstSyncObject())
+                    {
+                        if (!loop_shutdown && !com_shutdown){//write an idle
+                            auto id = idleState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"!";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        } else {
+                            auto id = shutdownState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            std::cout << typeid(*this).name();
+                            std::cout << "X";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            sent_com_shutdown = true;
                         }
                     }
                 }
