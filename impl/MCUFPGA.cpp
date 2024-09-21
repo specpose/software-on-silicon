@@ -226,7 +226,6 @@ public:
         foreign().descriptors[2].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Loop::start(this);
-        _intrinsic.getAcknowledgeRef().clear();//SIMULATION: start handshake, remove
     }
     ~MCU()
     {

@@ -156,9 +156,6 @@ namespace SOS
                 {
                     if (handshake())
                     {
-                        if (first_run){
-                            poweron_hook();
-                        } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;
                         if (!receive_lock)
@@ -169,7 +166,6 @@ namespace SOS
                             write_hook();
                         if (send_lock)
                             write_object(write3plus1);
-                        }
                         handshake_ack();
                     }
                     if (loop_shutdown && finished_com_shutdown)
@@ -264,7 +260,8 @@ namespace SOS
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        com_shutdown = true; // incoming
+                        if (!first_run)
+                            com_shutdown = true; // incoming
                         //stop_calc_thread
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
@@ -295,25 +292,27 @@ namespace SOS
                     //}
                 }
             }
-            void poweron_hook(){
-                auto id = poweronState();
-                write_bits(id);
-                id.set(7, 1); // override write_bits
-                std::cout<<typeid(*this).name();
-                std::cout<<"P";
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                first_run=false;
-            }
             void write_hook()
             {
                 if (receive_acknowledge())
                 {
+                    if (first_run)
+                        throw SFA::util::logic_error("Received transfer acknowledge during poweron.", __FILE__, __func__);
                     send_lock = true;
                     foreign().signal.getAcknowledgeRef().clear(); // Used as separate signals, not a handshake
                 }
                 else
                 {
                     // read in handshake -> set wire to valid state
+                    if (first_run){
+                        auto id = poweronState();
+                        write_bits(id);
+                        id.set(7, 1); // override write_bits
+                        std::cout<<typeid(*this).name();
+                        std::cout<<"P";
+                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        first_run=false;
+                    } else {
                     if (!getFirstSyncObject())
                     {
                         if (!loop_shutdown && !com_shutdown){//write an idle
@@ -332,6 +331,7 @@ namespace SOS
                             write_byte(static_cast<unsigned char>(id.to_ulong()));
                             sent_com_shutdown = true;
                         }
+                    }
                     }
                 }
             }
