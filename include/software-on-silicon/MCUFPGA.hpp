@@ -127,15 +127,6 @@ namespace SOS
             {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
-            virtual void com_hotplug_action() final
-            {
-                SOS::Protocol::Serial<Objects...>::resend_current_object();
-                SOS::Protocol::Serial<Objects...>::clear_read_receive();
-            }
-            virtual void com_shutdown_action() final
-            {
-                SOS::Behavior::Stoppable::request_stop();
-            }
         };
         template <typename ControllerType, typename... Objects>
         class SimulationMCU : public SOS::Protocol::SerialMCU<Objects...>,
@@ -180,15 +171,6 @@ namespace SOS
             virtual void write_byte(unsigned char byte) final
             {
                 SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
-            }
-            virtual void com_hotplug_action() final
-            {
-                SOS::Protocol::Serial<Objects...>::resend_current_object();
-                SOS::Protocol::Serial<Objects...>::clear_read_receive();
-            }
-            virtual void com_shutdown_action() final
-            {
-                SOS::Behavior::Stoppable::request_stop();//No hotplug
             }
         };
     }

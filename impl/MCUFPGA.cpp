@@ -195,6 +195,15 @@ public:
         }
         return false;
     }
+    virtual void com_hotplug_action() final
+    {
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+    }
+    virtual void com_shutdown_action() final
+    {
+        SOS::Behavior::Stoppable::request_stop();
+    }
 
 private:
     bool stateOfObjectOne = false;
@@ -239,6 +248,17 @@ public:
         }
         return false;
     };
+    virtual void com_hotplug_action() final
+    {
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        if (!std::get<0>(_foreign.objects).mcu_owned())
+        	_foreign.descriptors[0].synced = false;
+    }
+    virtual void com_shutdown_action() final
+    {
+        SOS::Behavior::Stoppable::request_stop();//No hotplug
+    }
 
 private:
     bool stateOfObjectZero = false;
