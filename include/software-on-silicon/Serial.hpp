@@ -156,10 +156,6 @@ namespace SOS
                 {
                     if (handshake())
                     {
-                        if (first_run){
-                            poweron_hook();
-                            first_run = false;
-                        } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;
                         if (!receive_lock)
@@ -170,7 +166,6 @@ namespace SOS
                             write_hook(write3plus1);
                         if (send_lock)
                             write_object(write3plus1);
-                        }
                         handshake_ack();
                     }
                     if (loop_shutdown && finished_com_shutdown)
@@ -199,9 +194,9 @@ namespace SOS
             {
                 if (send_lock || writeCount != 0){
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
-                    send_lock = false;
+                    send_lock = true;
                     writeCount = 0;
-                    _write_transfer_request(foreign().writeOrigin().load());
+                    writeOriginPos = 0;
                 }
             }
             void clear_read_receive()
@@ -234,14 +229,6 @@ namespace SOS
             bool finished_com_shutdown = false;
             bool receive_lock = false;
             bool send_lock = false;
-            void poweron_hook(){
-                auto id = poweronState();
-                write_bits(id);
-                id.set(7, 1); // override write_bits
-                std::cout<<typeid(*this).name();
-                std::cout<<"P";
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
-            }
             void read_hook(int &read4minus1)
             {
                 unsigned char data = read_byte();
@@ -262,7 +249,7 @@ namespace SOS
                         com_shutdown = false;
                         sent_com_shutdown = false;
                         finished_com_shutdown = false;
-                        com_hotplug_action();
+                        com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
@@ -306,6 +293,17 @@ namespace SOS
             }
             void write_hook(int &write3plus1)
             {
+                if (first_run){
+                    if (receive_acknowledge())
+                        throw SFA::util::logic_error("Received a transfer acknowledge during poweron.", __FILE__, __func__);
+                    auto id = poweronState();
+                    write_bits(id);
+                    id.set(7, 1); // override write_bits
+                    std::cout<<typeid(*this).name();
+                    std::cout<<"P";
+                    write_byte(static_cast<unsigned char>(id.to_ulong()));
+                    first_run=false;
+                } else {
                 if (receive_acknowledge())
                 {
                     send_lock = true;
@@ -333,6 +331,7 @@ namespace SOS
                             sent_com_shutdown = true;
                         }
                     }
+                }
                 }
             }
             unsigned int writeCount = 0; // write3plus1

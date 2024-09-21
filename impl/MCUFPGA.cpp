@@ -254,7 +254,7 @@ public:
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
         if (!std::get<0>(_foreign.objects).mcu_owned())
-        	_foreign.descriptors[0].synced = false;
+            _foreign.descriptors[0].synced = false;
     }
     virtual void com_shutdown_action() final
     {
