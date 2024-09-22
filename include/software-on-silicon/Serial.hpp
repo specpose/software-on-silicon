@@ -157,7 +157,9 @@ namespace SOS
                     if (handshake())
                     {
                         if (first_run){
-                            poweron_hook();//read, incoming request and acknowledge is ignored. if both are sending a poweron at the same time, constructor sequence takes precedence.
+                            //read_hook, (incoming request and acknowledge) are ignored.
+                            //if both are sending a poweron at the same time, only the second is read by the other party.
+                            poweron_hook();
                         } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;

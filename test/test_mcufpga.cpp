@@ -1,11 +1,16 @@
 #include "MCUFPGA.cpp"
 COM_BUFFER fpga_in_buffer;
 COM_BUFFER fpga_out_buffer;
+bool firstrun = true;
 COM_BUFFER mcu_in_buffer;
 COM_BUFFER mcu_out_buffer;
 
 void client_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFER& fpga_out_buffer, COM_BUFFER& mcu_out_buffer,
     SOS::MemoryView::ComBus<COM_BUFFER>& mcubus,SOS::MemoryView::ComBus<COM_BUFFER>& fpgabus){
+    if (firstrun){//ALWAYS: expect first byte not to be read and poweronstate is being written
+        fpgabus.signal.getUpdatedRef().clear();//ALWAYS: flip the first handshake
+        firstrun = false;
+    }
     if (!fpgabus.signal.getAcknowledgeRef().test_and_set()){
         //transfer fpga_out_buffer to mcu_in_buffer
         for (std::size_t n=0;n<mcu_in_buffer.size();n++)
