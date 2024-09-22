@@ -182,6 +182,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
+
         SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::stop_children();
         loop_shutdown = true;
     };
@@ -236,6 +237,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
+        SOS::Behavior::BootstrapEventController<MCUProcessingSwitch>::stop_children();
         loop_shutdown = true;
     }
     bool isStopped()
@@ -251,8 +253,10 @@ public:
     {
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
-        if (!std::get<0>(_foreign.objects).mcu_owned())
+        if (!std::get<0>(_foreign.objects).mcu_owned()){
+            std::get<0>(_foreign.objects).set_mcu_owned(false);
             _foreign.descriptors[0].synced = false;
+	}
     }
     virtual void com_shutdown_action() final
     {
