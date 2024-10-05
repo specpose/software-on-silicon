@@ -171,7 +171,6 @@ public:
         foreign().descriptors[1].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Loop::start(this);
-        _intrinsic.getAcknowledgeRef().clear();//SIMULATION: start handshake, remove
     }
     ~FPGA()
     {
@@ -183,6 +182,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
+
         SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::stop_children();
         loop_shutdown = true;
     };
@@ -194,6 +194,15 @@ public:
             return true;
         }
         return false;
+    }
+    virtual void com_hotplug_action() final
+    {
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+    }
+    virtual void com_shutdown_action() final
+    {
+        SOS::Behavior::Stoppable::request_stop();
     }
 
 private:
@@ -228,6 +237,7 @@ public:
     }
     void requestStop()//Only from Ctrl-C
     {
+        SOS::Behavior::BootstrapEventController<MCUProcessingSwitch>::stop_children();
         loop_shutdown = true;
     }
     bool isStopped()
@@ -239,6 +249,19 @@ public:
         }
         return false;
     };
+    virtual void com_hotplug_action() final
+    {
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        if (!std::get<0>(_foreign.objects).mcu_owned()){
+            std::get<0>(_foreign.objects).set_mcu_owned(false);
+            _foreign.descriptors[0].synced = false;
+	}
+    }
+    virtual void com_shutdown_action() final
+    {
+        SOS::Behavior::Stoppable::request_stop();//No hotplug
+    }
 
 private:
     bool stateOfObjectZero = false;

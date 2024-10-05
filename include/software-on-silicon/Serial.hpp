@@ -156,16 +156,22 @@ namespace SOS
                 {
                     if (handshake())
                     {
+                        if (first_run){
+                            //read_hook, (incoming request and acknowledge) are ignored.
+                            //if both are sending a poweron at the same time, only the second is read by the other party.
+                            poweron_hook();
+                        } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;
                         if (!receive_lock)
-                            read_hook(read4minus1);
+                            read_hook();
                         else
                             read_object(read4minus1);
                         if (!send_lock)
-                            write_hook(write3plus1);
+                            write_hook();
                         if (send_lock)
                             write_object(write3plus1);
+                        }
                         handshake_ack();
                     }
                     if (loop_shutdown && finished_com_shutdown)
@@ -194,9 +200,9 @@ namespace SOS
             {
                 if (send_lock || writeCount != 0){
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
-                    send_lock = false;
+                    send_lock = true;
                     writeCount = 0;
-                    _write_transfer_request(foreign().writeOrigin().load());
+                    writeOriginPos = 0;
                 }
             }
             void clear_read_receive()
@@ -229,7 +235,7 @@ namespace SOS
             bool finished_com_shutdown = false;
             bool receive_lock = false;
             bool send_lock = false;
-            void read_hook(int &read4minus1)
+            void read_hook()
             {
                 unsigned char data = read_byte();
                 read_bits(static_cast<unsigned long>(data));
@@ -249,7 +255,7 @@ namespace SOS
                         com_shutdown = false;
                         sent_com_shutdown = false;
                         finished_com_shutdown = false;
-                        com_hotplug_action();
+                        com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
@@ -291,7 +297,16 @@ namespace SOS
                     //}
                 }
             }
-            void write_hook(int &write3plus1)
+            void poweron_hook() {
+                auto id = poweronState();
+                write_bits(id);
+                id.set(7, 1); // override write_bits
+                std::cout<<typeid(*this).name();
+                std::cout<<"P";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                first_run=false;
+            }
+            void write_hook()
             {
                 if (receive_acknowledge())
                 {
@@ -301,33 +316,23 @@ namespace SOS
                 else
                 {
                     // read in handshake -> set wire to valid state
-                    if (first_run){
-                        auto id = poweronState();
-                        write_bits(id);
-                        id.set(7, 1); // override write_bits
-                        std::cout<<typeid(*this).name();
-                        std::cout<<"P";
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        first_run=false;
-                    } else {
-                        if (!getFirstSyncObject())
-                        {
-                            if (!loop_shutdown && !com_shutdown){//write an idle
-                                auto id = idleState();
-                                write_bits(id);
-                                id.set(7, 1); // override write_bits
-                                // std::cout<<typeid(*this).name();
-                                // std::cout<<"!";
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            } else {
-                                auto id = shutdownState();
-                                write_bits(id);
-                                id.set(7, 1); // override write_bits
-                                std::cout << typeid(*this).name();
-                                std::cout << "X";
-                                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                                sent_com_shutdown = true;
-                            }
+                    if (!getFirstSyncObject())
+                    {
+                        if (!loop_shutdown && !com_shutdown){//write an idle
+                            auto id = idleState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"!";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        } else {
+                            auto id = shutdownState();
+                            write_bits(id);
+                            id.set(7, 1); // override write_bits
+                            std::cout << typeid(*this).name();
+                            std::cout << "X";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                            sent_com_shutdown = true;
                         }
                     }
                 }
@@ -336,17 +341,6 @@ namespace SOS
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0; // read4minus1
             std::size_t readDestinationPos = 0;
-            void _write_transfer_request(unsigned char objectid){
-                send_request();
-                foreign().writeOrigin().store(objectid);
-                writeOriginPos = 0;
-                std::bitset<8> id;
-                write_bits(id);
-                std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load()); // DANGER: overflow check
-                id = id ^ obj_id;
-                // std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
-            }
             bool getFirstSyncObject()
             {
                 bool gotOne = false;
@@ -357,7 +351,15 @@ namespace SOS
                         throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
                     if (!foreign().descriptors[i].synced)
                     {
-                        _write_transfer_request(foreign().descriptors[i].id);
+                        send_request();
+                        foreign().writeOrigin().store(foreign().descriptors[i].id);
+                        writeOriginPos = 0;
+                        std::bitset<8> id;
+                        write_bits(id);
+                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load()); // DANGER: overflow check
+                        id = id ^ obj_id;
+                        // std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
+                        write_byte(static_cast<unsigned char>(id.to_ulong()));
                         gotOne = true;
                     }
                 }
