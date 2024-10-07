@@ -59,7 +59,8 @@ namespace SOS
             unsigned char id = 0xFF;
             void *obj = nullptr;
             std::size_t obj_size = 0;
-            //bool readLock = false; // serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
+            bool readLock = false; // serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
+            bool transfer = false; // serial priority checks for readLockAck
             bool synced = true;    // subcontroller transfer checks for synced
             int rx_counter = 0;    // DEBUG
             int tx_counter = 0;    // DEBUG
@@ -90,8 +91,8 @@ namespace SOS
         struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 2>
         {
             DestinationAndOrigin() : SOS::MemoryView::TaskCable<std::size_t, 2>{0, 0} {}
-            auto &getReadDestinationRef() { return std::get<0>(*this); }
-            auto &getWriteOriginRef() { return std::get<1>(*this); }
+            auto &getReceiveNotificationRef() { return std::get<0>(*this); }
+            auto &getSendNotificationRef() { return std::get<1>(*this); }
         };
         template <typename... Objects>
         struct SerialProcessNotifier : public SOS::MemoryView::BusShaker
@@ -104,8 +105,8 @@ namespace SOS
             cables_type cables;
             std::tuple<Objects...> objects{};
             SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};
-            auto &readDestination() { return std::get<0>(cables).getReadDestinationRef(); }
-            auto &writeOrigin() { return std::get<0>(cables).getWriteOriginRef(); }
+            auto &receiveNotificationId() { return std::get<0>(cables).getReceiveNotificationRef(); }
+            auto &sendNotificationId() { return std::get<0>(cables).getSendNotificationRef(); }
         };
     }
     namespace Behavior
@@ -163,13 +164,13 @@ namespace SOS
                         } else {
                         if (com_shutdown && sent_com_shutdown)
                             finished_com_shutdown = true;
-                        if (!receive_lock)
-                            read_hook();
+                        unsigned char data = read_byte();
+                        read_bits(static_cast<unsigned long>(data));
+                        if (receive_request())
+                            read_hook(data);
                         else
-                            read_object(read4minus1);
-                        if (!send_lock)
-                            write_hook();
-                        if (send_lock)
+                            read_object(read4minus1,data);
+                        if (!transfer_hook())
                             write_object(write3plus1);
                         }
                         handshake_ack();
@@ -195,14 +196,13 @@ namespace SOS
             virtual void write_byte(unsigned char) = 0;
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
-            virtual void com_shutdown_action() = 0;//no lock checks; request_stop or hotplugging?
+            virtual void com_shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
                 if (send_lock || writeCount != 0){
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
-                    send_lock = true;
-                    writeCount = 0;
-                    writeOriginPos = 0;
+                    foreign().descriptors[writeOrigin].synced = false;
+                    foreign().descriptors[writeOrigin].transfer = false;
                 }
             }
             void clear_read_receive()
@@ -211,8 +211,7 @@ namespace SOS
                     throw SFA::util::runtime_error("Hotplug after unexpected shutdown.", __FILE__, __func__);
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                     {
-                        //if (foreign().descriptors[j].readLock)
-                        if (foreign().readDestination().load() == j)
+                        if (foreign().descriptors[j].readLock)
                         {
                             throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
                         }
@@ -233,14 +232,11 @@ namespace SOS
             bool com_shutdown = false;
             bool sent_com_shutdown = false;
             bool finished_com_shutdown = false;
+            std::size_t acknowledgeId = 255;
             bool receive_lock = false;
             bool send_lock = false;
-            void read_hook()
+            void read_hook(unsigned char &data)
             {
-                unsigned char data = read_byte();
-                read_bits(static_cast<unsigned long>(data));
-                if (receive_request())
-                {
                     std::bitset<8> obj_id = static_cast<unsigned long>(data);
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
@@ -273,126 +269,174 @@ namespace SOS
                     }
                     else
                     {
-                        if (com_shutdown) {
-                            //throw SFA::util::logic_error("Transfer requested after com_shutdown", __FILE__, __func__);
-                        } else {
-                            auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                            {
-                                if (foreign().descriptors[j].synced == true && foreign().descriptors[j].id == id)
+                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
+                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
+                        {
+                            if (foreign().descriptors[j].id == id){
+                                if (foreign().descriptors[j].synced)
                                 {
-                                    receive_lock = true;
-                                    //foreign().descriptors[j].readLock = true;
-                                    foreign().readDestination().store(id);
-                                    // std::cout<<typeid(*this).name()<<" starting ReadDestination "<<foreign().readDestination()<<std::endl;
-                                    readDestinationPos = 0;
-                                    send_acknowledge(); // DANGER: change writted state has to be after read_bits
+                                    foreign().descriptors[j].readLock = true;
+                                    send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
+                                    std::cout<<".";
+                                } else
+                                {
+                                    if (!foreign().descriptors[j].transfer){
+                                        throw SFA::util::runtime_error("Incoming readLock is undoing local write operation",__FILE__,__func__);
+                                        foreign().descriptors[j].readLock = true;
+                                        foreign().descriptors[j].synced = true;//OVERRIDE
+                                        send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
+                                        std::cout<<".";
+                                    } else {
+                                        throw SFA::util::logic_error("readLock requested on transfer in progress",__FILE__,__func__);
+                                    }
                                 }
                             }
                         }
                     }
-                    // else {
-                    // std::cout<<typeid(*this).name();
-                    // std::cout<<".";
-                    //}
-                }
             }
             void poweron_hook() {
                 auto id = poweronState();
+                send_request();
                 write_bits(id);
-                id.set(7, 1); // override write_bits
                 std::cout<<typeid(*this).name();
                 std::cout<<"P";
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 first_run=false;
             }
-            void write_hook()
-            {
+            void shutdown_hook() {
+                auto id = shutdownState();
+                send_request();
+                write_bits(id);
+                std::cout << typeid(*this).name();
+                std::cout << "X";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                sent_com_shutdown = true;
+            }
+            bool transfer_hook() {
+                bool got_a_transfer = false;
                 if (receive_acknowledge())
                 {
-                    send_lock = true;
-                    foreign().signal.getAcknowledgeRef().clear(); // Used as separate signals, not a handshake
-                }
-                else
-                {
-                    // read in handshake -> set wire to valid state
-                    if (!getFirstSyncObject())
-                    {
-                        if (!loop_shutdown && !com_shutdown){//write an idle
-                            auto id = idleState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            // std::cout<<typeid(*this).name();
-                            // std::cout<<"!";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        } else {
-                            auto id = shutdownState();
-                            write_bits(id);
-                            id.set(7, 1); // override write_bits
-                            std::cout << typeid(*this).name();
-                            std::cout << "X";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                            sent_com_shutdown = true;
+                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                        if (j == acknowledgeId){
+                            if (foreign().descriptors[j].synced)
+                                SFA::util::logic_error("Received a transfer request on synced object",__FILE__,__func__);
+                            if (foreign().descriptors[j].readLock)
+                                SFA::util::logic_error("Received a transfer request on readLocked object",__FILE__,__func__);
+                            foreign().descriptors[j].transfer = true;
                         }
                     }
-                }
+                } //else {//WO/RD inversion BUG here
+                    //throw SFA::util::runtime_error("DEBUG no transfer reached", __FILE__, __func__);
+                    got_a_transfer = getFirstTransfer();
+                //}
+                return got_a_transfer;
             }
             unsigned int writeCount = 0; // write3plus1
+            std::size_t writeOrigin = 255;
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0; // read4minus1
+            std::size_t readDestination = 255;
             std::size_t readDestinationPos = 0;
-            bool getFirstSyncObject()
+            bool getFirstTransfer()
             {
                 bool gotOne = false;
-                for (std::size_t i = 0; i < foreign().descriptors.size() && !gotOne; i++)
-                {
-                    //if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
-                    if (receive_lock && i==foreign().readDestination().load() && !foreign().descriptors[i].synced)
-                        throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
-                    if (!foreign().descriptors[i].synced)
-                    {
-                        send_request();
-                        foreign().writeOrigin().store(foreign().descriptors[i].id);
-                        writeOriginPos = 0;
+                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                    if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer){
+                        if (foreign().descriptors[j].readLock)
+                            throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
+                        acknowledgeId = j;//gets overridden at baud rate
                         std::bitset<8> id;
+                        send_request();
                         write_bits(id);
-                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().writeOrigin().load()); // DANGER: overflow check
+                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().descriptors[j].id); // DANGER: overflow check
                         id = id ^ obj_id;
-                        // std::cout<<typeid(*this).name()<<" sending WriteOrigin "<<foreign().writeOrigin()<<std::endl;
+                        //std::cout<<typeid(*this).name();
+                        //std::cout<<"TR"<<(unsigned int)foreign().descriptors[j].id<<std::endl;//why not ID?!
                         write_byte(static_cast<unsigned char>(id.to_ulong()));
                         gotOne = true;
                     }
                 }
                 return gotOne;
             }
+            bool getFirstSyncObject()
+            {
+                bool gotOne = false;
+                    for (std::size_t i = 0; i < foreign().descriptors.size() && !gotOne; i++)
+                    {
+                        if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                            throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
+                        if (foreign().descriptors[i].transfer)
+                        {
+                            if (foreign().descriptors[i].synced)
+                                SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
+                            if (foreign().descriptors[i].readLock)
+                                SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
+                            send_lock = true;
+                            writeOrigin = i;
+                            std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
+                            writeOriginPos = 0;
+                            gotOne = true;
+                        }
+                    }
+                return gotOne;
+            }
             void write_object(int &write3plus1)
             {
+                if (!send_lock){
+                    // read in handshake -> set wire to valid state
+                    if (!getFirstSyncObject())
+                    {
+                        if (!loop_shutdown && !com_shutdown){//write an idle
+                            auto id = idleState();
+                            send_request();
+                            write_bits(id);
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"!";
+                            write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        }else {
+                            shutdown_hook();
+                        }
+                    }
+                }
+                if (send_lock) {
                 if (write3plus1 < 3)
                 {
                     unsigned char data;
-                    data = reinterpret_cast<char *>(foreign().descriptors[foreign().writeOrigin().load()].obj)[writeOriginPos++];
+                    data = reinterpret_cast<char *>(foreign().descriptors[writeOrigin].obj)[writeOriginPos++];
                     write(data);
                     write3plus1++;
                 }
                 else
                 { // write3plus1==3
-                    if (writeOriginPos == foreign().descriptors[foreign().writeOrigin().load()].obj_size)
+                    if (writeOriginPos == foreign().descriptors[writeOrigin].obj_size)
                     {
-                        foreign().descriptors[foreign().writeOrigin().load()].synced = true;
+                        foreign().descriptors[writeOrigin].transfer = false;
+                        foreign().descriptors[writeOrigin].synced = true;
                         send_lock = false;
-                        writeOriginPos = 0;
-                        foreign().descriptors[foreign().writeOrigin().load()].tx_counter++; // DEBUG
+                        foreign().sendNotificationId().store(writeOrigin);
+                        foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
+                        foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"$";
                     }
                     write(63); //'?' empty write
                     write3plus1 = 0;
                 }
+                }
             }
-            void read_object(int &read4minus1)
+            void read_object(int &read4minus1, unsigned char &data)
             {
-                unsigned char data = read_byte();
-                read_bits(static_cast<unsigned long>(data));
+                if (!receive_lock){
+                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                        if (foreign().descriptors[j].readLock){
+                            receive_lock = true;
+                            readDestination = j;
+                            std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
+                            readDestinationPos = 0;
+                        }
+                    }
+                }
+                if (receive_lock){
                 read(data);
                 if (read4minus1 < 3)
                 {
@@ -401,21 +445,28 @@ namespace SOS
                 else if (read4minus1 == 3)
                 {
                     auto read3bytes = read_flush();
-                    if (readDestinationPos == foreign().descriptors[foreign().readDestination().load()].obj_size)
+                    if (readDestinationPos == foreign().descriptors[readDestination].obj_size)
                     {
-                        //foreign().descriptors[foreign().readDestination().load()].readLock = false;
+
+                        for (std::size_t i = 0; i < foreign().descriptors.size(); i++)//USELESS
+                        {
+                            if (readDestination==i)
+                                foreign().descriptors[i].readLock = false;
+                        }
                         receive_lock = false;
-                        foreign().signal.getUpdatedRef().clear();
-                        foreign().descriptors[foreign().readDestination().load()].rx_counter++; // DEBUG
+                        foreign().receiveNotificationId().store(readDestination);
+                        foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
+                        foreign().descriptors[readDestination].rx_counter++; // DEBUG
                     }
                     else
                     {
                         for (std::size_t i = 0; i < 3; i++)
                         {
-                            reinterpret_cast<char *>(foreign().descriptors[foreign().readDestination().load()].obj)[readDestinationPos++] = read3bytes[i];
+                            reinterpret_cast<char *>(foreign().descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
                     }
                     read4minus1 = 0;
+                }
                 }
             }
             std::array<std::bitset<8>, 3> writeAssembly;

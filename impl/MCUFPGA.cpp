@@ -26,7 +26,7 @@ public:
     virtual void start() final { _thread = SOS::Behavior::Stoppable::start(this); }
     void read_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
         switch (object_id)
         {
         case 0:
@@ -47,7 +47,7 @@ public:
     }
     void write_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id)
         {
         case 0:
@@ -92,7 +92,7 @@ public:
     virtual void start() final { throw SFA::util::runtime_error("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action.", __FILE__, __func__);}
     void read_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getReadDestinationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
         switch (object_id)
         {
         case 0:
@@ -112,7 +112,7 @@ public:
     }
     void write_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getWriteOriginRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id)
         {
         case 0:
