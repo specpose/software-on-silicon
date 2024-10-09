@@ -234,6 +234,7 @@ namespace SOS
             bool save_completed = false;
             bool transmission_received = false;
             std::size_t acknowledgeId = 255;
+            bool acknowledgeRequested = false;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(unsigned char &data)
@@ -279,17 +280,21 @@ namespace SOS
                                 {
                                     foreign().descriptors[j].readLock = true;
                                     send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
-                                    std::cout<<".";
                                 } else
                                 {
                                     if (!foreign().descriptors[j].transfer){
-                                        throw SFA::util::runtime_error("Incoming readLock is undoing local write operation",__FILE__,__func__);
+                                        //if (acknowledgeRequested)
+                                        //    throw SFA::util::runtime_error("Incoming readLock is canceling local transfer request",__FILE__,__func__);
+                                        //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
+                                        std::cout<<std::endl<<"OVERRIDE"<<std::endl;
                                         foreign().descriptors[j].readLock = true;
                                         foreign().descriptors[j].synced = true;//OVERRIDE
+                                        acknowledgeId = 255;
+                                        acknowledgeRequested = false;
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
-                                        std::cout<<".";
                                     } else {
-                                        throw SFA::util::logic_error("readLock requested on transfer in progress",__FILE__,__func__);
+                                        std::cout<<std::endl<<"REJECT"<<std::endl;
+                                        //throw SFA::util::logic_error("Incoming readLock is rejected!",__FILE__,__func__);//The other side has to cope with it
                                     }
                                 }
                             }
@@ -328,24 +333,56 @@ namespace SOS
                 write_bits(id);
                 std::bitset<8> obj_id = static_cast<unsigned long>(unsynced); // DANGER: overflow check
                 id = id ^ obj_id;
-                //std::cout<<typeid(*this).name();
-                //std::cout<<"TR"<<(unsigned int)foreign().descriptors[j].id<<std::endl;//why not ID?!
+                std::cout<<typeid(*this).name();
+                std::cout<<":"<<(unsigned int)unsynced<<std::endl;//why not ID?!
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
             bool transfer_hook() {
                 bool got_a_send = false;
                 if (receive_acknowledge())
                 {
-                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                        if (j == acknowledgeId){
-                            if (foreign().descriptors[j].synced)
-                                SFA::util::logic_error("Received a transfer request on synced object",__FILE__,__func__);
-                            if (foreign().descriptors[j].readLock)
-                                SFA::util::logic_error("Received a transfer request on readLocked object",__FILE__,__func__);
-                            foreign().descriptors[j].transfer = true;
+                    std::cout<<typeid(*this).name();
+                    std::cout<<"."<<acknowledgeId<<std::endl;
+                    if (!acknowledgeRequested){
+                        throw SFA::util::logic_error("Acknowledge received without any request.", __FILE__, __func__);
+                    } else {
+                        bool gotOne = false;
+                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                            if (j == acknowledgeId){
+                                if (foreign().descriptors[j].synced)
+                                    SFA::util::logic_error("Received a transfer request on synced object",__FILE__,__func__);
+                                if (foreign().descriptors[j].readLock)
+                                    SFA::util::logic_error("Received a transfer request on readLocked object",__FILE__,__func__);
+                                foreign().descriptors[j].transfer = true;//SUCCESS
+                                acknowledgeId = 255;
+                                acknowledgeRequested = false;
+                                gotOne = true;
+                            }
                         }
+                        if (!gotOne)
+                            throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
-                } else {//WO,RD inversion BUG here
+                } else {
+                    if (acknowledgeRequested){
+                        throw SFA::util::runtime_error("Previous transfer has not been acknowledged.", __FILE__, __func__);
+                        bool gotOne = false;
+                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                            if (j == acknowledgeId){
+                                if (!foreign().descriptors[j].readLock)
+                                    SFA::util::logic_error("The only reason for not getting an acknowledge is that a readLock has already been issued by the other side",__FILE__,__func__);
+                                if (foreign().descriptors[j].synced)
+                                    SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
+                                foreign().descriptors[j].synced = true;
+                                //foreign().descriptors[j].transfer = false;//FAIL
+                                acknowledgeId = 255;
+                                acknowledgeRequested = false;
+                                gotOne = true;
+                            }
+                        }
+                        if (!gotOne)
+                            throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
+                    }
+                //}//WO,RD inversion BUG here
                     if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
                         send_comshutdownRequest();
                         got_a_send = true;
@@ -369,6 +406,7 @@ namespace SOS
                         if (foreign().descriptors[j].readLock)
                             throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
                         acknowledgeId = j;//gets overridden at baud rate
+                        acknowledgeRequested = true;
                         send_transferRequest(foreign().descriptors[j].id);
                         gotOne = true;
                     }
@@ -440,7 +478,8 @@ namespace SOS
             {
                 if (!receive_lock){
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                        if (foreign().descriptors[j].readLock){
+                        //BUG readLock is in before the transfer on the other party is updated
+                        if (foreign().descriptors[j].readLock){//WO,RD inversion BUG here
                             receive_lock = true;
                             readDestination = j;
                             std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
@@ -459,12 +498,7 @@ namespace SOS
                     auto read3bytes = read_flush();
                     if (readDestinationPos == foreign().descriptors[readDestination].obj_size)
                     {
-
-                        for (std::size_t i = 0; i < foreign().descriptors.size(); i++)//USELESS
-                        {
-                            if (readDestination==i)
-                                foreign().descriptors[i].readLock = false;
-                        }
+                        foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
