@@ -160,27 +160,25 @@ namespace SOS
                         if (first_run){
                             //read_hook, (incoming request and acknowledge) are ignored.
                             //if both are sending a poweron at the same time, only the second is read by the other party.
-                            poweron_hook();
+                            send_poweronRequest();
                         } else {
-                        if (com_shutdown && sent_com_shutdown)
-                            finished_com_shutdown = true;
-                        unsigned char data = read_byte();
-                        read_bits(static_cast<unsigned long>(data));
-                        if (receive_request())
-                            read_hook(data);
-                        else
-                            read_object(read4minus1,data);
-                        if (!transfer_hook())
-                            write_object(write3plus1);
+                            unsigned char data = read_byte();
+                            read_bits(static_cast<unsigned long>(data));
+                            if (receive_request())
+                                read_hook(data);
+                            else
+                                read_object(read4minus1,data);
+                            if (!transfer_hook())
+                                write_object(write3plus1);
                         }
                         handshake_ack();
                     }
-                    if (loop_shutdown && finished_com_shutdown)
-                        com_shutdown_action();
+                    if (loop_shutdown && save_completed)
+                        shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
-                // std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
+                std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
 
         protected:
@@ -196,7 +194,9 @@ namespace SOS
             virtual void write_byte(unsigned char) = 0;
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
-            virtual void com_shutdown_action() = 0;//no lock checks; request_stop or hotplugging
+            virtual void dangling_idle_action() = 0;
+            virtual void save_completed_action() = 0;//stop processing data
+            virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
                 if (send_lock || writeCount != 0){
@@ -229,9 +229,10 @@ namespace SOS
             bool loop_shutdown = false;
         private:
             bool first_run = true;
-            bool com_shutdown = false;
+            bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            bool finished_com_shutdown = false;
+            bool save_completed = false;
+            bool transmission_received = false;
             std::size_t acknowledgeId = 255;
             bool receive_lock = false;
             bool send_lock = false;
@@ -241,28 +242,29 @@ namespace SOS
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
-                        if (com_shutdown){
-                            if (!finished_com_shutdown){
+                        if (received_com_shutdown){
+                            if (!save_completed){
                                 throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
                             } else {
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
                             }
                         }
-                        com_shutdown = false;
+                        received_com_shutdown = false;
                         sent_com_shutdown = false;
-                        finished_com_shutdown = false;
+                        save_completed = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (finished_com_shutdown){
-                            throw SFA::util::logic_error("Spurious handshake.", __FILE__, __func__);
+                        if (received_com_shutdown && !transmission_received){
+                            dangling_idle_action();
+                            transmission_received = true;
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        com_shutdown = true; // incoming
+                        received_com_shutdown = true; // incoming
                         //stop_calc_thread
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
@@ -294,7 +296,7 @@ namespace SOS
                         }
                     }
             }
-            void poweron_hook() {
+            void send_poweronRequest() {
                 auto id = poweronState();
                 send_request();
                 write_bits(id);
@@ -303,7 +305,7 @@ namespace SOS
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 first_run=false;
             }
-            void shutdown_hook() {
+            void send_comshutdownRequest() {
                 auto id = shutdownState();
                 send_request();
                 write_bits(id);
@@ -312,8 +314,26 @@ namespace SOS
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_com_shutdown = true;
             }
+            void send_idleRequest() {
+                auto id = idleState();
+                send_request();
+                write_bits(id);
+                // std::cout<<typeid(*this).name();
+                // std::cout<<"!";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+            }
+            void send_transferRequest(decltype(DMADescriptor::id) unsynced){
+                std::bitset<8> id;
+                send_request();
+                write_bits(id);
+                std::bitset<8> obj_id = static_cast<unsigned long>(unsynced); // DANGER: overflow check
+                id = id ^ obj_id;
+                //std::cout<<typeid(*this).name();
+                //std::cout<<"TR"<<(unsigned int)foreign().descriptors[j].id<<std::endl;//why not ID?!
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+            }
             bool transfer_hook() {
-                bool got_a_transfer = false;
+                bool got_a_send = false;
                 if (receive_acknowledge())
                 {
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
@@ -325,11 +345,15 @@ namespace SOS
                             foreign().descriptors[j].transfer = true;
                         }
                     }
-                } //else {//WO/RD inversion BUG here
-                    //throw SFA::util::runtime_error("DEBUG no transfer reached", __FILE__, __func__);
-                    got_a_transfer = getFirstTransfer();
-                //}
-                return got_a_transfer;
+                } else {//WO,RD inversion BUG here
+                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
+                        send_comshutdownRequest();
+                        got_a_send = true;
+                    } else if (getFirstTransfer()){
+                        got_a_send = true;
+                    }
+                }
+                return got_a_send;
             }
             unsigned int writeCount = 0; // write3plus1
             std::size_t writeOrigin = 255;
@@ -345,14 +369,7 @@ namespace SOS
                         if (foreign().descriptors[j].readLock)
                             throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
                         acknowledgeId = j;//gets overridden at baud rate
-                        std::bitset<8> id;
-                        send_request();
-                        write_bits(id);
-                        std::bitset<8> obj_id = static_cast<unsigned long>(foreign().descriptors[j].id); // DANGER: overflow check
-                        id = id ^ obj_id;
-                        //std::cout<<typeid(*this).name();
-                        //std::cout<<"TR"<<(unsigned int)foreign().descriptors[j].id<<std::endl;//why not ID?!
-                        write_byte(static_cast<unsigned char>(id.to_ulong()));
+                        send_transferRequest(foreign().descriptors[j].id);
                         gotOne = true;
                     }
                 }
@@ -383,19 +400,14 @@ namespace SOS
             void write_object(int &write3plus1)
             {
                 if (!send_lock){
-                    // read in handshake -> set wire to valid state
                     if (!getFirstSyncObject())
                     {
-                        if (!loop_shutdown && !com_shutdown){//write an idle
-                            auto id = idleState();
-                            send_request();
-                            write_bits(id);
-                            // std::cout<<typeid(*this).name();
-                            // std::cout<<"!";
-                            write_byte(static_cast<unsigned char>(id.to_ulong()));
-                        }else {
-                            shutdown_hook();
+                        if (sent_com_shutdown) {
+                            save_completed_action();
+                            save_completed = true;
                         }
+                        // read in handshake -> set wire to valid state
+                        send_idleRequest();
                     }
                 }
                 if (send_lock) {
