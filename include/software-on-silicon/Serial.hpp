@@ -44,17 +44,17 @@ namespace SOS
             DMADescriptor() {} // DANGER
             DMADescriptor(unsigned char id, void *obj, std::size_t obj_size) : id(id), obj(obj), obj_size(obj_size)
             {
-                if (obj_size % 3 != 0)
-                    throw SFA::util::logic_error("Invalid DMAObject size", __FILE__, __func__);
+                //if (obj_size % 3 != 0)
+                //    throw SFA::util::logic_error("Invalid DMAObject size", __FILE__, __func__);
                 const auto idleId = static_cast<unsigned long>(((idleState() << 2) >> 2).to_ulong());
-                if (id == idleId)
-                    throw SFA::util::logic_error("DMADescriptor id is reserved for the serial line idle state", __FILE__, __func__);
+                //if (id == idleId)
+                //    throw SFA::util::logic_error("DMADescriptor id is reserved for the serial line idle state", __FILE__, __func__);
                 const auto shutdownId = static_cast<unsigned long>(((shutdownState() << 2) >> 2).to_ulong());
-                if (id == shutdownId)
-                    throw SFA::util::logic_error("DMADescriptor id is reserved for the com_shutdown request on idle", __FILE__, __func__);
+                //if (id == shutdownId)
+                //    throw SFA::util::logic_error("DMADescriptor id is reserved for the com_shutdown request on idle", __FILE__, __func__);
                 const auto poweronId = static_cast<unsigned long>(((poweronState() << 2) >> 2).to_ulong());
-                if (id == poweronId)
-                    throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification", __FILE__, __func__);
+                //if (id == poweronId)
+                //    throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification", __FILE__, __func__);
             }
             unsigned char id = 0xFF;
             void *obj = nullptr;
@@ -200,7 +200,7 @@ namespace SOS
             void resend_current_object()
             {
                 if (send_lock || writeCount != 0){
-                    throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
+                    //throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
                     foreign().descriptors[writeOrigin].synced = false;
                     foreign().descriptors[writeOrigin].transfer = false;
                 }
@@ -208,12 +208,12 @@ namespace SOS
             void clear_read_receive()
             {
                 if (receive_lock || readCount != 0){
-                    throw SFA::util::runtime_error("Hotplug after unexpected shutdown.", __FILE__, __func__);
+                    //throw SFA::util::runtime_error("Hotplug after unexpected shutdown.", __FILE__, __func__);
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                     {
                         if (foreign().descriptors[j].readLock)
                         {
-                            throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
+                            //throw SFA::util::runtime_error("Object could be outdated. Corrupted unless resend_current_object is called from the other side.", __FILE__, __func__);
                         }
                     }
                     receive_lock = false;
@@ -245,9 +245,9 @@ namespace SOS
                     {
                         if (received_com_shutdown){
                             if (!save_completed){
-                                throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
+                                //throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
                             } else {
-                                //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
+                                ////throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
                             }
                         }
                         received_com_shutdown = false;
@@ -283,9 +283,9 @@ namespace SOS
                                 } else
                                 {
                                     if (!foreign().descriptors[j].transfer){
-                                        //if (acknowledgeRequested)
-                                        //    throw SFA::util::runtime_error("Incoming readLock is canceling local transfer request",__FILE__,__func__);
-                                        //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
+                                        ////if (acknowledgeRequested)
+                                        ////    throw SFA::util::runtime_error("Incoming readLock is canceling local transfer request",__FILE__,__func__);
+                                        ////throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
                                         std::cout<<std::endl<<"OVERRIDE"<<std::endl;
                                         foreign().descriptors[j].readLock = true;
                                         foreign().descriptors[j].synced = true;//OVERRIDE
@@ -294,7 +294,7 @@ namespace SOS
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {
                                         std::cout<<std::endl<<"REJECT"<<std::endl;
-                                        //throw SFA::util::logic_error("Incoming readLock is rejected!",__FILE__,__func__);//The other side has to cope with it
+                                        ////throw SFA::util::logic_error("Incoming readLock is rejected!",__FILE__,__func__);//The other side has to cope with it
                                     }
                                 }
                             }
@@ -344,7 +344,7 @@ namespace SOS
                     std::cout<<typeid(*this).name();
                     std::cout<<"."<<acknowledgeId<<std::endl;
                     if (!acknowledgeRequested){
-                        throw SFA::util::logic_error("Acknowledge received without any request.", __FILE__, __func__);
+                        //throw SFA::util::logic_error("Acknowledge received without any request.", __FILE__, __func__);
                     } else {
                         bool gotOne = false;
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
@@ -359,12 +359,12 @@ namespace SOS
                                 gotOne = true;
                             }
                         }
-                        if (!gotOne)
-                            throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
+                        //if (!gotOne)
+                        //    throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
                 } else {
                     if (acknowledgeRequested){
-                        throw SFA::util::runtime_error("Previous transfer has not been acknowledged.", __FILE__, __func__);
+                        //throw SFA::util::runtime_error("Previous transfer has not been acknowledged.", __FILE__, __func__);
                         bool gotOne = false;
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                             if (j == acknowledgeId){
@@ -379,8 +379,8 @@ namespace SOS
                                 gotOne = true;
                             }
                         }
-                        if (!gotOne)
-                            throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
+                        //if (!gotOne)
+                        //    throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
                 //}//WO,RD inversion BUG here
                     if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
@@ -403,8 +403,8 @@ namespace SOS
                 bool gotOne = false;
                 for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer){
-                        if (foreign().descriptors[j].readLock)
-                            throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
+                        //if (foreign().descriptors[j].readLock)
+                        //    throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
                         acknowledgeId = j;//gets overridden at baud rate
                         acknowledgeRequested = true;
                         send_transferRequest(foreign().descriptors[j].id);
@@ -418,8 +418,8 @@ namespace SOS
                 bool gotOne = false;
                     for (std::size_t i = 0; i < foreign().descriptors.size() && !gotOne; i++)
                     {
-                        if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
-                            throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
+                        //if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                        //    throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
                         if (foreign().descriptors[i].transfer)
                         {
                             if (foreign().descriptors[i].synced)
