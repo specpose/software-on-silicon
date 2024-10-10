@@ -173,7 +173,7 @@ namespace SOS
                         }
                         handshake_ack();
                     }
-                    if (loop_shutdown && save_completed)
+                    if (loop_shutdown && transmission_received && save_completed)
                         shutdown_action();
                     std::this_thread::yield();
                 }
@@ -194,6 +194,7 @@ namespace SOS
             virtual void write_byte(unsigned char) = 0;
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
+            virtual void com_shutdown_action() = 0;
             virtual void dangling_idle_action() = 0;
             virtual void save_completed_action() = 0;//stop processing data
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
@@ -265,8 +266,9 @@ namespace SOS
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        received_com_shutdown = true; // incoming
                         //stop_calc_thread
+                        com_shutdown_action();
+                        received_com_shutdown = true; // incoming
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"O";
                     }
@@ -382,11 +384,13 @@ namespace SOS
                             throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
                 }
-                if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
-                    send_comshutdownRequest();
+                if (getFirstTransfer()) {
                     got_a_send = true;
-                } else if (getFirstTransfer()){
-                    got_a_send = true;
+                } else {
+                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
+                        send_comshutdownRequest();
+                        got_a_send = true;
+                    }
                 }
                 return got_a_send;
             }
@@ -465,12 +469,13 @@ namespace SOS
                         foreign().descriptors[writeOrigin].transfer = false;
                         foreign().descriptors[writeOrigin].synced = true;
                         send_lock = false;
-                        writeOriginPos = 0;
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
                         // std::cout<<typeid(*this).name();
                         // std::cout<<"$";
+                        writeOrigin = 255;
+                        writeOriginPos = 0;
                     }
                     write(63); //'?' empty write
                     write3plus1 = 0;
@@ -509,10 +514,11 @@ namespace SOS
                     {
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
-                        readDestinationPos = 0;
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG
+                        readDestination = 255;
+                        readDestinationPos = 0;
                     }
                     else
                     {

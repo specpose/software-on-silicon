@@ -198,16 +198,19 @@ public:
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
     }
-    virtual void save_completed_action() final
+    virtual void com_shutdown_action() final
     {
         SOS::Behavior::BootstrapEventController<FPGAProcessingSwitch>::stop_children();
     }
+    virtual void save_completed_action() final
+    {
+    }
     virtual void dangling_idle_action() final
     {
-        SOS::Behavior::Stoppable::request_stop();
     }
     virtual void shutdown_action() final
     {
+        SOS::Behavior::Stoppable::request_stop();
     }
 
 private:
@@ -261,6 +264,9 @@ public:
             std::get<0>(_foreign.objects).set_mcu_owned(false);
             _foreign.descriptors[0].synced = false;
         }
+    }
+    virtual void com_shutdown_action() final
+    {
     }
     virtual void save_completed_action() final
     {
