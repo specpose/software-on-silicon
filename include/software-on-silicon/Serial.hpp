@@ -178,6 +178,10 @@ namespace SOS
                     std::this_thread::yield();
                 }
                 finished();
+                /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    if (foreign().descriptors[j].readLock)
+                        throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
+                }*/
                 std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
 
@@ -260,6 +264,10 @@ namespace SOS
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
                         if (received_com_shutdown && !transmission_received){
+                            /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                                if (foreign().descriptors[j].readLock)
+                                    throw SFA::util::logic_error("There should not be any idle coming in when there are unsynced objects.", __FILE__, __func__);
+                            }*/
                             dangling_idle_action();
                             transmission_received = true;
                         }
@@ -278,10 +286,16 @@ namespace SOS
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                         {
                             if (foreign().descriptors[j].id == id){
+                                if (foreign().descriptors[j].readLock)
+                                    throw SFA::util::runtime_error("Duplicate readLock request",__FILE__,__func__);
                                 if (foreign().descriptors[j].synced)
                                 {
+                                    if (!foreign().descriptors[j].transfer){
                                     foreign().descriptors[j].readLock = true;
                                     send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
+                                    } else {
+                                        throw SFA::util::logic_error("Incoming readLock is rejected!",__FILE__,__func__);//The other side has to cope with it
+                                    }
                                 } else
                                 {
                                     if (!foreign().descriptors[j].transfer){
@@ -374,7 +388,7 @@ namespace SOS
                                     throw SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
                                 throw SFA::util::runtime_error("The other side has overridden sync priority",__FILE__,__func__);
                                 foreign().descriptors[j].synced = true;
-                                //foreign().descriptors[j].transfer = false;//FAIL
+                                foreign().descriptors[j].transfer = false;//FAIL
                                 acknowledgeId = 255;
                                 acknowledgeRequested = false;
                                 gotOne = true;
@@ -448,6 +462,10 @@ namespace SOS
                     {
                         if (sent_com_shutdown) {
                             save_completed_action();
+                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                                if (foreign().descriptors[j].synced == false)
+                                    throw SFA::util::logic_error("Unsynced object after child stopped",__FILE__,__func__);
+                            }
                             save_completed = true;
                         }
                         // read in handshake -> set wire to valid state

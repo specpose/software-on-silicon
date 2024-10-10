@@ -2,6 +2,8 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include <limits>
 #include "software-on-silicon/error.hpp"
+#include <bitset>
+#include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/Serial.hpp"
 
 using namespace SOS::Protocol;
