@@ -345,18 +345,20 @@ namespace SOS
                     std::cout<<"."<<acknowledgeId<<std::endl;
                     if (!acknowledgeRequested){
                         //throw SFA::util::logic_error("Acknowledge received without any request.", __FILE__, __func__);
+                        std::cout<<"OVERRIDDEN"<<std::endl;
                     } else {
                         bool gotOne = false;
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                             if (j == acknowledgeId){
-                                if (foreign().descriptors[j].synced)
-                                    SFA::util::logic_error("Received a transfer request on synced object",__FILE__,__func__);
-                                if (foreign().descriptors[j].readLock)
-                                    SFA::util::logic_error("Received a transfer request on readLocked object",__FILE__,__func__);
+                                //if (foreign().descriptors[j].synced)
+                                //    throw SFA::util::logic_error("Received a transfer request on synced object",__FILE__,__func__);
+                                //if (foreign().descriptors[j].readLock)
+                                //    throw SFA::util::logic_error("Received a transfer request on readLocked object",__FILE__,__func__);
                                 foreign().descriptors[j].transfer = true;//SUCCESS
                                 acknowledgeId = 255;
                                 acknowledgeRequested = false;
                                 gotOne = true;
+                                std::cout<<"SUCCESS"<<std::endl;
                             }
                         }
                         //if (!gotOne)
@@ -368,15 +370,16 @@ namespace SOS
                         bool gotOne = false;
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                             if (j == acknowledgeId){
-                                if (!foreign().descriptors[j].readLock)
-                                    SFA::util::logic_error("The only reason for not getting an acknowledge is that a readLock has already been issued by the other side",__FILE__,__func__);
-                                if (foreign().descriptors[j].synced)
-                                    SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
+                                //if (!foreign().descriptors[j].readLock)
+                                //    throw SFA::util::logic_error("The only reason for not getting an acknowledge is that a readLock has already been issued by the other side",__FILE__,__func__);
+                                //if (foreign().descriptors[j].synced)
+                                //    throw SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
                                 foreign().descriptors[j].synced = true;
                                 //foreign().descriptors[j].transfer = false;//FAIL
                                 acknowledgeId = 255;
                                 acknowledgeRequested = false;
                                 gotOne = true;
+                                std::cout<<"FAIL"<<std::endl;
                             }
                         }
                         //if (!gotOne)
@@ -422,10 +425,10 @@ namespace SOS
                         //    throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
                         if (foreign().descriptors[i].transfer)
                         {
-                            if (foreign().descriptors[i].synced)
-                                SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
-                            if (foreign().descriptors[i].readLock)
-                                SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
+                            //if (foreign().descriptors[i].synced)
+                            //    throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
+                            //if (foreign().descriptors[i].readLock)
+                            //    throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
                             send_lock = true;
                             writeOrigin = i;
                             std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
