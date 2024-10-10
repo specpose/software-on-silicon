@@ -429,10 +429,11 @@ namespace SOS
                             //    throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
                             //if (foreign().descriptors[i].readLock)
                             //    throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
+                            if (writeOriginPos != 0)
+                                std::cout<<typeid(*this).name()<<"WRITEERROR"<<writeOrigin<<std::endl;
                             send_lock = true;
                             writeOrigin = i;
                             std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
-                            writeOriginPos = 0;
                             gotOne = true;
                         }
                     }
@@ -466,6 +467,7 @@ namespace SOS
                         foreign().descriptors[writeOrigin].transfer = false;
                         foreign().descriptors[writeOrigin].synced = true;
                         send_lock = false;
+                        writeOriginPos = 0;
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
@@ -483,10 +485,11 @@ namespace SOS
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                         //BUG readLock is in before the transfer on the other party is updated
                         if (foreign().descriptors[j].readLock){//WO,RD inversion BUG here
+                            if (writeOriginPos != 0)
+                                std::cout<<typeid(*this).name()<<"READERROR"<<readDestination<<std::endl;
                             receive_lock = true;
                             readDestination = j;
                             std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
-                            readDestinationPos = 0;
                         }
                     }
                 }
@@ -503,6 +506,7 @@ namespace SOS
                     {
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
+                        readDestinationPos = 0;
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG
