@@ -385,13 +385,12 @@ namespace SOS
                         //if (!gotOne)
                         //    throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
-                //}//WO,RD inversion BUG here
-                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
-                        send_comshutdownRequest();
-                        got_a_send = true;
-                    } else if (getFirstTransfer()){
-                        got_a_send = true;
-                    }
+                }
+                if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
+                    send_comshutdownRequest();
+                    got_a_send = true;
+                } else if (getFirstTransfer()){
+                    got_a_send = true;
                 }
                 return got_a_send;
             }
@@ -435,6 +434,7 @@ namespace SOS
                             writeOrigin = i;
                             std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
                             gotOne = true;
+                            break;
                         }
                     }
                 return gotOne;
@@ -483,13 +483,13 @@ namespace SOS
             {
                 if (!receive_lock){
                     for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                        //BUG readLock is in before the transfer on the other party is updated
-                        if (foreign().descriptors[j].readLock){//WO,RD inversion BUG here
+                        if (foreign().descriptors[j].readLock){
                             if (writeOriginPos != 0)
                                 std::cout<<typeid(*this).name()<<"READERROR"<<readDestination<<std::endl;
                             receive_lock = true;
                             readDestination = j;
                             std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
+                            break;
                         }
                     }
                 }
