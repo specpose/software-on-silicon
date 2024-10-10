@@ -414,15 +414,15 @@ namespace SOS
             bool getFirstSyncObject()
             {
                 bool gotOne = false;
-                    for (std::size_t i = 0; i < foreign().descriptors.size() && !gotOne; i++)
+                    for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++)
                     {
-                        if (foreign().descriptors[i].readLock && !foreign().descriptors[i].synced)
+                        if (foreign().descriptors[j].readLock && !foreign().descriptors[j].synced)
                             throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
-                        if (foreign().descriptors[i].transfer)
+                        if (foreign().descriptors[j].transfer)
                         {
-                            if (foreign().descriptors[i].synced)
+                            if (foreign().descriptors[j].synced)
                                 throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
-                            if (foreign().descriptors[i].readLock)
+                            if (foreign().descriptors[j].readLock)
                                 throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
                             if (writeOriginPos != 0)
                                 throw SFA::util::logic_error("WRITEERROR",__FILE__,__func__);
@@ -430,10 +430,9 @@ namespace SOS
                             if ((writeOrigin == readDestination) && writeOrigin != 255 && readDestination != 255)
                                 throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             send_lock = true;
-                            writeOrigin = i;
+                            writeOrigin = j;
                             std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
                             gotOne = true;
-                            break;
                         }
                     }
                 return gotOne;
@@ -481,7 +480,8 @@ namespace SOS
             void read_object(int &read4minus1, unsigned char &data)
             {
                 if (!receive_lock){
-                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    bool gotOne = false;
+                    for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                         if (foreign().descriptors[j].readLock){
                             if (readDestinationPos != 0){
                                 throw SFA::util::logic_error("READERROR",__FILE__,__func__);
@@ -492,7 +492,7 @@ namespace SOS
                             receive_lock = true;
                             readDestination = j;
                             std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
-                            break;
+                            gotOne = true;
                         }
                     }
                 }
