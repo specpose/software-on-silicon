@@ -31,12 +31,18 @@ public:
         {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!std::get<0>(_nBus.objects).mcu_owned())
-            { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+            if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
-                std::get<0>(_nBus.objects).setNumber(++n);
-                std::get<0>(_nBus.objects).set_mcu_owned(true);
-                _nBus.descriptors[0].synced = false;
+                if (!std::get<0>(_nBus.objects).mcu_owned())
+                { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+                    if (_nBus.descriptors[0].synced){
+                        std::get<0>(_nBus.objects).setNumber(++n);
+                        std::get<0>(_nBus.objects).set_mcu_owned(true);
+                        _nBus.descriptors[0].synced = false;
+                    }
+                }
+            } else {
+                throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
             }
             break;
         case 1:
@@ -50,8 +56,8 @@ public:
         auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id)
         {
+        // just been transfered, can now process further
         case 0:
-            // just been synced, can now process further
             break;
         case 1:
             break;
@@ -96,12 +102,19 @@ public:
         switch (object_id)
         {
         case 0:
-            if (std::get<0>(_nBus.objects).mcu_owned())
-            { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+            // fresh out of read_lock, safe before unsynced
+            if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
-                std::get<0>(_nBus.objects).setNumber(++n);
-                std::get<0>(_nBus.objects).set_mcu_owned(false);
-                _nBus.descriptors[0].synced = false;
+                if (std::get<0>(_nBus.objects).mcu_owned())
+                { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+                    if (_nBus.descriptors[0].synced){
+                        std::get<0>(_nBus.objects).setNumber(++n);
+                        std::get<0>(_nBus.objects).set_mcu_owned(false);
+                        _nBus.descriptors[0].synced = false;
+                    }
+                }
+            } else {
+                throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
             }
             break;
         case 1:
@@ -115,6 +128,7 @@ public:
         auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id)
         {
+        // just been transfered, can now process further
         case 0:
             break;
         case 1:
