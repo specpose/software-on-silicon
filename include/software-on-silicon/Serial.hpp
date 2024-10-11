@@ -165,11 +165,14 @@ namespace SOS
                         } else {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
-                            if (receive_request())
+                            bool received = receive_request();
+                            if (received){
                                 read_hook(data);
-                            else
-                                read_object(read4minus1,data);
+                            }
                             acknowledge_hook();
+                            if (!received){
+                                read_object(read4minus1,data);
+                            }
                             if (!write_hook())
                                 write_object(write3plus1);
                         }
