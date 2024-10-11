@@ -159,20 +159,16 @@ namespace SOS
                     {
                         written_byte_once = false;
                         if (first_run){
-                            //read_hook, (incoming request and acknowledge) are ignored.
                             //if both are sending a poweron at the same time, only the second is read by the other party.
                             send_poweronRequest();
                         } else {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
-                            bool received = receive_request();
-                            if (received){
-                                read_hook(data);
-                            }
                             acknowledge_hook();
-                            if (!received){
+                            if (receive_request())
+                                read_hook(data);
+                            else
                                 read_object(read4minus1,data);
-                            }
                             if (!write_hook())
                                 write_object(write3plus1);
                         }
@@ -295,25 +291,23 @@ namespace SOS
                                 if (foreign().descriptors[j].readLock)
                                     throw SFA::util::runtime_error("Duplicate readLock request",__FILE__,__func__);
                                 if (foreign().descriptors[j].synced)
-                                {
+                                {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
-                                    foreign().descriptors[j].readLock = true;
-                                    send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
+                                        foreign().descriptors[j].readLock = true;
+                                        send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {
-                                        throw SFA::util::logic_error("Synced objects are not supposed to have a transfer!",__FILE__,__func__);//The other side has to cope with it
+                                        throw SFA::util::logic_error("Synced objects are not supposed to have a transfer!",__FILE__,__func__);
                                     }
                                 } else
                                 {
-                                    if (!foreign().descriptors[j].transfer){//same as !receive_acknowledge&&acknowledgeRequested in acknowledge_hook
-                                        throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
+                                    if (!foreign().descriptors[j].transfer){//OVERRIDE
+                                        //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
                                         foreign().descriptors[j].readLock = true;
-                                        foreign().descriptors[j].synced = true;//OVERRIDE
-                                        //acknowledgeId = 255;
-                                        //acknowledgeRequested = false;
+                                        foreign().descriptors[j].synced = true;
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {//VALID STATE
                                         //do not acknowledge
-                                        throw SFA::util::logic_error("Incoming readLock is rejected.",__FILE__,__func__);//The other side has to cope with it
+                                        //throw SFA::util::logic_error("Incoming readLock is rejected/omitted.",__FILE__,__func__);//The other side has to cope with it
                                     }
                                 }
                             }
@@ -371,9 +365,13 @@ namespace SOS
                                     throw SFA::util::logic_error("Received a transfer acknowledge on readLocked object",__FILE__,__func__);
                                 if (foreign().descriptors[j].transfer)
                                     throw SFA::util::logic_error("Received a duplicate transfer acknowledge on object in transfer",__FILE__,__func__);
-                                foreign().descriptors[j].transfer = true;//SUCCESS
-                                std::cout<<typeid(*this).name();
-                                std::cout<<"."<<acknowledgeId<<std::endl;
+                                if (!foreign().descriptors[j].readLock){
+                                    foreign().descriptors[j].transfer = true;//SUCCESS
+                                    std::cout<<typeid(*this).name();
+                                    std::cout<<"."<<acknowledgeId<<std::endl;
+                                } else {
+                                    throw SFA::util::logic_error("ReadLock pre-dates acknowledge.",__FILE__,__func__);
+                                }
                                 gotOne = true;
                             }
                         }
@@ -388,13 +386,9 @@ namespace SOS
                             if (j == acknowledgeId){
                                 if (foreign().descriptors[j].synced)
                                     throw SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
-                                if (foreign().descriptors[j].readLock){
-                                    //throw SFA::util::runtime_error("The other side has overridden sync priority",__FILE__,__func__);
-                                    foreign().descriptors[j].synced = true;//OVERRIDE
-                                    //FAIL
-                                } else {
-                                    throw SFA::util::logic_error("There should be a fresh readLock on this side by now if the acknowledge was rejected on the other side",__FILE__,__func__);
-                                }
+                                //throw SFA::util::runtime_error("The other side has overridden sync priority",__FILE__,__func__);
+                                foreign().descriptors[j].synced = true;//OVERRIDE
+                                //FAIL
                                 gotOne = true;
                             }
                         }
@@ -440,9 +434,9 @@ namespace SOS
                             if (foreign().descriptors[j].readLock)
                                 throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
                             if (writeOriginPos != 0)
-                                throw SFA::util::logic_error("WRITEERROR",__FILE__,__func__);
+                                throw SFA::util::logic_error("Previous object write has not been completed",__FILE__,__func__);
                                 //std::cout<<typeid(*this).name()<<"WRITEERROR"<<writeOrigin<<std::endl;
-                            if ((writeOrigin == readDestination) && writeOrigin != 255 && readDestination != 255)
+                            if (writeOrigin==j && readDestination==j)
                                 throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             send_lock = true;
                             writeOrigin = j;
@@ -517,10 +511,9 @@ namespace SOS
                     for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                         if (foreign().descriptors[j].readLock){
                             if (readDestinationPos != 0){
-                                throw SFA::util::logic_error("READERROR",__FILE__,__func__);
-                                //std::cout<<typeid(*this).name()<<"READERROR"<<readDestination<<std::endl;
+                                throw SFA::util::logic_error("Previous read object has not finished!",__FILE__,__func__);
                             }
-                            if ((writeOrigin == readDestination) && writeOrigin != 255 && readDestination != 255)
+                            if (writeOrigin==j && readDestination==j)
                                 throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             receive_lock = true;
                             readDestination = j;

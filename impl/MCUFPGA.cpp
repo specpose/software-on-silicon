@@ -16,6 +16,8 @@ public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
+        if (_nBus.descriptors.size()>3)//TODO also assert on tuple
+            throw SFA::util::runtime_error("DMADescriptors initialization failed.", __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~FPGAProcessingSwitch()
@@ -88,6 +90,8 @@ public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
+        if (_nBus.descriptors.size()>3)//TODO also assert on tuple
+            throw SFA::util::runtime_error("DMADescriptors initialization failed.", __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~MCUProcessingSwitch()
