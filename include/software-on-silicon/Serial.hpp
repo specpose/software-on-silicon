@@ -169,8 +169,7 @@ namespace SOS
                             else
                                 read_object(read4minus1,data);
                             acknowledge_hook();
-                            write_hook();
-                            if (send_lock)
+                            if (write_hook())
                                 write_object(write3plus1);
                         }
                         handshake_ack();
@@ -447,10 +446,14 @@ namespace SOS
                     }
                 return gotOne;
             }
-            void write_hook(){
-                if (!getFirstTransfer()) {
+            bool write_hook(){
+                bool send_complete = false;
+                if (getFirstTransfer()) {//NOT SAVE, double write
+                    send_complete = true;
+                } else {
                     if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
-                        send_comshutdownRequest();
+                        send_comshutdownRequest();//NOT SAFE, double write
+                        send_complete = true;
                     } else {
                         if (!send_lock){
                             if (!getFirstSyncObject()) {
@@ -463,14 +466,17 @@ namespace SOS
                                     save_completed = true;
                                 }
                                 // read in handshake -> set wire to valid state
-                                send_idleRequest();
+                                send_idleRequest();//SAFE, still no send_lock
+                                send_complete = true;
                             }
                         }
                     }
                 }
+                return send_complete;
             }
             void write_object(int &write3plus1)
             {
+                if (send_lock){
                 if (write3plus1 < 3)
                 {
                     unsigned char data;
@@ -495,6 +501,7 @@ namespace SOS
                     }
                     write(63); //'?' empty write
                     write3plus1 = 0;
+                }
                 }
             }
             void read_object(int &read4minus1, unsigned char &data)
