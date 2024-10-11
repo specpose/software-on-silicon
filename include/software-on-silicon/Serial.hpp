@@ -179,10 +179,10 @@ namespace SOS
                     std::this_thread::yield();
                 }
                 finished();
-                /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].readLock)
                         throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
-                }*/
+                }
                 std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
 
@@ -266,10 +266,10 @@ namespace SOS
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
                         if (received_com_shutdown && !transmission_received){
-                            /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                                 if (foreign().descriptors[j].readLock)
                                     throw SFA::util::logic_error("There should not be any idle coming in when there are unsynced objects.", __FILE__, __func__);
-                            }*/
+                            }
                             dangling_idle_action();
                             transmission_received = true;
                         }
