@@ -168,7 +168,9 @@ namespace SOS
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
-                            if (!transfer_hook())
+                            acknowledge_hook();
+                            write_hook();
+                            if (send_lock)
                                 write_object(write3plus1);
                         }
                         handshake_ack();
@@ -351,8 +353,7 @@ namespace SOS
                 //std::cout<<":"<<(unsigned int)unsynced<<std::endl;//why not ID?!
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
-            bool transfer_hook() {
-                bool got_a_send = false;
+            void acknowledge_hook() {
                 if (receive_acknowledge())
                 {
                     //std::cout<<typeid(*this).name();
@@ -398,15 +399,6 @@ namespace SOS
                             throw SFA::util::logic_error("AcknowledgeId does not reference a valid object.", __FILE__, __func__);
                     }
                 }
-                if (getFirstTransfer()) {
-                    got_a_send = true;
-                } else {
-                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
-                        send_comshutdownRequest();
-                        got_a_send = true;
-                    }
-                }
-                return got_a_send;
             }
             unsigned int writeCount = 0; // write3plus1
             std::size_t writeOrigin = 255;
@@ -455,24 +447,30 @@ namespace SOS
                     }
                 return gotOne;
             }
-            void write_object(int &write3plus1)
-            {
-                if (!send_lock){
-                    if (!getFirstSyncObject())
-                    {
-                        if (sent_com_shutdown) {
-                            save_completed_action();
-                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                                if (foreign().descriptors[j].synced == false)
-                                    throw SFA::util::logic_error("Unsynced object after child stopped",__FILE__,__func__);
+            void write_hook(){
+                if (!getFirstTransfer()) {
+                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
+                        send_comshutdownRequest();
+                    } else {
+                        if (!send_lock){
+                            if (!getFirstSyncObject()) {
+                                if (sent_com_shutdown) {
+                                    save_completed_action();
+                                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                                        if (foreign().descriptors[j].synced == false)
+                                            throw SFA::util::logic_error("Unsynced object after child stopped",__FILE__,__func__);
+                                    }
+                                    save_completed = true;
+                                }
+                                // read in handshake -> set wire to valid state
+                                send_idleRequest();
                             }
-                            save_completed = true;
                         }
-                        // read in handshake -> set wire to valid state
-                        send_idleRequest();
                     }
                 }
-                if (send_lock) {
+            }
+            void write_object(int &write3plus1)
+            {
                 if (write3plus1 < 3)
                 {
                     unsigned char data;
@@ -497,7 +495,6 @@ namespace SOS
                     }
                     write(63); //'?' empty write
                     write3plus1 = 0;
-                }
                 }
             }
             void read_object(int &read4minus1, unsigned char &data)
