@@ -59,9 +59,9 @@ namespace SOS
             unsigned char id = 0xFF;
             void *obj = nullptr;
             std::size_t obj_size = 0;
-            bool readLock = false; // serial priority checks for readLock; subcontroller<subcontroller> read checks for readLock
-            bool transfer = false; // serial priority checks for readLockAck
-            bool synced = true;    // subcontroller transfer checks for synced
+            volatile bool readLock = false; // SerialProcessing thread
+            bool transfer = false;
+            volatile bool synced = true;    // SerialProcessing thread
             int rx_counter = 0;    // DEBUG
             int tx_counter = 0;    // DEBUG
         };
@@ -174,15 +174,15 @@ namespace SOS
                         }
                         handshake_ack();
                     }
-                    if (loop_shutdown && transmission_received && save_completed)
+                    if (loop_shutdown && finished_com_shutdown)
                         shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].readLock)
                         throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
-                }
+                }*/
                 std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
 
@@ -200,9 +200,9 @@ namespace SOS
             bool written_byte_once = false;//DEBUG
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
+            virtual void stop_notifier() = 0;
+            virtual void com_suspend_action() = 0;//stop changing synced status
             virtual void com_shutdown_action() = 0;
-            virtual void dangling_idle_action() = 0;
-            virtual void save_completed_action() = 0;//stop processing data
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
@@ -228,18 +228,28 @@ namespace SOS
                     readDestinationPos = 0;
                 }
             };
+            bool read_writes_left(){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    if (foreign().descriptors[j].readLock)
+                        return true;
+                }
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    if (foreign().descriptors[j].transfer)
+                        return true;
+                }
+                return false;
+            }
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;  // mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
+            bool finished_com_shutdown = false;
         private:
             bool first_run = true;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            bool save_completed = false;
-            bool transmission_received = false;
             std::size_t acknowledgeId = 255;
             bool acknowledgeRequested = false;
             bool receive_lock = false;
@@ -251,7 +261,7 @@ namespace SOS
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
                         if (received_com_shutdown){
-                            if (!save_completed){
+                            if (!finished_com_shutdown){
                                 throw SFA::util::logic_error("Power on with pending com_shutdown.", __FILE__, __func__);
                             } else {
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
@@ -259,28 +269,26 @@ namespace SOS
                         }
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
-                        save_completed = false;
+                        finished_com_shutdown = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
+                        //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (received_com_shutdown && !transmission_received){
-                            for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                                if (foreign().descriptors[j].readLock)
-                                    throw SFA::util::logic_error("There should not be any idle coming in when there are unsynced objects.", __FILE__, __func__);
-                            }
-                            dangling_idle_action();
-                            transmission_received = true;
+                        if (sent_com_shutdown){//COM_SHUTDOWN Wait for read/writes to be finished on the client
+                            com_shutdown_action();
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        //stop_calc_thread
-                        com_shutdown_action();
-                        received_com_shutdown = true; // incoming
-                        // std::cout<<typeid(*this).name();
-                        // std::cout<<"O";
+                        if (!received_com_shutdown){//COM_SHUTDOWN
+                            //stop_calc_thread
+                            com_suspend_action();
+                            received_com_shutdown = true;
+                            // std::cout<<typeid(*this).name();
+                            // std::cout<<"O";
+                        }
                     }
                     else
                     {
@@ -366,7 +374,7 @@ namespace SOS
                                 if (foreign().descriptors[j].transfer)
                                     throw SFA::util::logic_error("Received a duplicate transfer acknowledge on object in transfer",__FILE__,__func__);
                                 if (!foreign().descriptors[j].readLock){
-                                    foreign().descriptors[j].transfer = true;//SUCCESS
+                                    foreign().descriptors[j].transfer = true;
                                     std::cout<<typeid(*this).name();
                                     std::cout<<"."<<acknowledgeId<<std::endl;
                                 } else {
@@ -388,7 +396,7 @@ namespace SOS
                                     throw SFA::util::logic_error("Invalid acknowledgeId",__FILE__,__func__);
                                 //throw SFA::util::runtime_error("The other side has overridden sync priority",__FILE__,__func__);
                                 foreign().descriptors[j].synced = true;//OVERRIDE
-                                //FAIL
+                                //The readLock on the other side is expected to be cleared
                                 gotOne = true;
                             }
                         }
@@ -448,25 +456,17 @@ namespace SOS
             }
             bool write_hook(){
                 bool send_complete = false;
-                if (getFirstTransfer()) {//NOT SAVE, double write
+                if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
-                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){
-                        send_comshutdownRequest();//NOT SAFE, double write
+                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){//COM_SHUTDOWN
+                        send_comshutdownRequest();
                         send_complete = true;
                     } else {
                         if (!send_lock){
                             if (!getFirstSyncObject()) {
-                                if (sent_com_shutdown) {
-                                    save_completed_action();
-                                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                                        if (foreign().descriptors[j].synced == false)
-                                            throw SFA::util::logic_error("Unsynced object after child stopped",__FILE__,__func__);
-                                    }
-                                    save_completed = true;
-                                }
                                 // read in handshake -> set wire to valid state
-                                send_idleRequest();//SAFE, still no send_lock
+                                send_idleRequest();
                                 send_complete = true;
                             }
                         }

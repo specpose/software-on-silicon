@@ -105,7 +105,10 @@ namespace SOS
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
             }
-
+            virtual void stop_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+            }
         private:
             virtual bool handshake() final
             {
@@ -155,7 +158,10 @@ namespace SOS
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
             }
-
+            virtual void stop_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+            }
         private:
             virtual bool handshake() final
             {
