@@ -133,7 +133,6 @@ namespace SOS
             }
 
         protected:
-            virtual void start() = 0;
             virtual bool is_running() = 0;
             virtual void finished() = 0;
             virtual bool received() = 0;

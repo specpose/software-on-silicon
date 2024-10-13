@@ -25,7 +25,7 @@ public:
         SOS::Behavior::Stoppable::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    virtual void start() final { _thread = SOS::Behavior::Stoppable::start(this); }
+    virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
@@ -99,7 +99,7 @@ public:
         SOS::Behavior::Stoppable::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    virtual void start() final { throw SFA::util::runtime_error("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action.", __FILE__, __func__);}
+    virtual void restart() final { throw SFA::util::runtime_error("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action.", __FILE__, __func__);}
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
@@ -203,6 +203,9 @@ public:
         stop_notifier();
         loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
+    void restart() {
+        _thread = SOS::Behavior::Loop::start(this);
+    }
     bool isStopped()
     {
         if (is_finished())
@@ -263,6 +266,9 @@ public:
     {
         loop_shutdown = true;
         finished_com_shutdown = true;
+    }
+    void restart() {
+        _thread = SOS::Behavior::Loop::start(this);
     }
     bool isStopped()
     {
