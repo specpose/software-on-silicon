@@ -36,6 +36,19 @@ namespace SOS
             id.set(7, 1); // updated==true
             id.set(6, 0); // acknowledge==false
             id.set(1, 0);
+            id.set(0, 1);
+            return id; //-> "10111101"
+        }
+        static std::bitset<8> writesFinished_state()
+        { // constexpr
+            std::bitset<8> id;
+            for (std::size_t i = 0; i < id.size(); i++)
+            {
+                id.set(i, 1);
+            }
+            id.set(7, 1); // updated==true
+            id.set(6, 0); // acknowledge==false
+            id.set(1, 0);
             id.set(0, 0);
             return id; //-> "10111100"
         }
@@ -55,6 +68,9 @@ namespace SOS
                 const auto poweronId = static_cast<unsigned long>(((poweronState() << 2) >> 2).to_ulong());
                 if (id == poweronId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification", __FILE__, __func__);
+                const auto writesFinished_id = static_cast<unsigned long>(((writesFinished_state() << 2) >> 2).to_ulong());
+                if (id == writesFinished_id)
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the writesFinished notification", __FILE__, __func__);
             }
             unsigned char id = 0xFF;
             void *obj = nullptr;
@@ -201,6 +217,7 @@ namespace SOS
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
             virtual void com_suspend_action() = 0;//stop changing synced status
+            virtual void writes_ended_action() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
@@ -227,17 +244,20 @@ namespace SOS
                     readDestinationPos = 0;
                 }
             };
-            bool read_writes_left(){
+            bool writes_pending(){
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                    if (foreign().descriptors[j].readLock)
-                        return true;
-                }
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                    if (foreign().descriptors[j].transfer)
+                    if (!foreign().descriptors[j].synced)
                         return true;
                 }
                 return false;
             }
+            /*bool reads_pending(){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    if (!foreign().descriptors[j].readLock)
+                        return true;
+                }
+                return false;
+            }*/
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
@@ -245,12 +265,14 @@ namespace SOS
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
             bool finished_com_shutdown = false;
+            bool transfer_requests_cleared = false;
         private:
             bool first_run = true;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            bool sent_all = false;
-            bool received_all = false;
+            bool sent_writes_finished = false;
+            bool received_writes_finished = false;
+            bool writes_complete = false;//A com_shutdown is confirmed with a writes_complete
             std::size_t acknowledgeId = 255;
             bool acknowledgeRequested = false;
             bool receive_lock = false;
@@ -270,18 +292,29 @@ namespace SOS
                         }
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
-                        sent_all = false;
-                        received_all = false;
+                        sent_writes_finished = false;
+                        received_writes_finished = false;
                         finished_com_shutdown = false;
+                        transfer_requests_cleared = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        //if (received_all){//COM_SHUTDOWN Wait for read/writes to be finished on the client
-                        if (sent_all){//BUG: Object 2 not finished receiving on FPGA
+                        if (!received_writes_finished && !sent_writes_finished)
+                            std::cout<<"!";
+                            //throw SFA::util::logic_error("Spurious handshake",__FILE__,__func__);
+                        else
                             com_shutdown_action();
+                    }
+                    else if (obj_id == ((writesFinished_state() << 2) >> 2))
+                    {
+                        if (received_writes_finished)
+                            throw SFA::util::logic_error("Duplicate writeFinished",__FILE__,__func__);
+                        if (sent_com_shutdown && !received_writes_finished){// && !receive_lock){//BUG: Object 2 not finished receiving on FPGA
+                            writes_ended_action();
+                            received_writes_finished = true;
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
@@ -342,6 +375,15 @@ namespace SOS
                 std::cout << "X";
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_com_shutdown = true;
+            }
+            void send_writesFinishedRequest() {
+                auto id = writesFinished_state();
+                send_request();
+                write_bits(id);
+                std::cout << typeid(*this).name();
+                std::cout << "O";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                sent_writes_finished = true;
             }
             void send_idleRequest() {
                 auto id = idleState();
@@ -464,16 +506,20 @@ namespace SOS
                 if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
-                    if ((received_com_shutdown && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){//COM_SHUTDOWN
+                    if ((sent_writes_finished && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){//COM_SHUTDOWN
                         send_comshutdownRequest();
                         send_complete = true;
                     } else {
                         if (!send_lock){
-                            if (sent_com_shutdown)
-                                sent_all = true;
-                            // read in handshake -> set wire to valid state
-                            send_idleRequest();
-                            send_complete = true;
+                            //writes_pending: unsynced objects that are not in transfer!
+                            if (received_com_shutdown && !writes_pending() && !sent_writes_finished){// && !receive_lock){//BUG: Object 2 not finished receiving on FPGA
+                                send_writesFinishedRequest();
+                                send_complete = true;
+                            } else {
+                                // read in handshake -> set wire to valid state
+                                send_idleRequest();
+                                send_complete = true;
+                            }
                         }
                     }
                 }
@@ -526,9 +572,9 @@ namespace SOS
                             gotOne = true;
                         }
                     }
-                    if (!gotOne)
-                        if (sent_all)
-                            received_all = true;
+                    //if (!gotOne)
+                    //    if (sent_all && !received_writes_finished)
+                    //        received_writes_finished = true;
                 }
                 if (receive_lock){
                 read(data);
