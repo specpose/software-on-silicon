@@ -189,7 +189,7 @@ namespace SOS
                         }
                         handshake_ack();
                     }
-                    if (loop_shutdown && finished_com_shutdown)
+                    if (loop_shutdown && (finished_com_shutdown || exit))
                         shutdown_action();
                     std::this_thread::yield();
                 }
@@ -216,9 +216,12 @@ namespace SOS
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
-            virtual void com_suspend_action() = 0;//stop changing synced status
-            virtual void writes_ended_action() = 0;
+            virtual void idle_everAfter_action() = 0;
+            virtual bool writes_finished_query() = 0;
             virtual void com_shutdown_action() = 0;
+            virtual bool transfers_cleared_query() = 0;
+            virtual bool reads_finished_query() = 0;
+            virtual void signal_hangup_action() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
@@ -251,13 +254,13 @@ namespace SOS
                 }
                 return false;
             }
-            /*bool reads_pending(){
+            bool reads_pending(){
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].readLock)
                         return true;
                 }
                 return false;
-            }*/
+            }
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
@@ -265,14 +268,16 @@ namespace SOS
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
             bool finished_com_shutdown = false;
-            bool transfer_requests_cleared = false;
-        private:
-            bool first_run = true;
+            bool exit = false;
+            bool transfers_done = false;
+            bool writes_finished = false;
+            bool performed_reads_finished = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
             bool sent_writes_finished = false;
             bool received_writes_finished = false;
-            bool writes_complete = false;//A com_shutdown is confirmed with a writes_complete
+        private:
+            bool first_run = true;
             std::size_t acknowledgeId = 255;
             bool acknowledgeRequested = false;
             bool receive_lock = false;
@@ -290,40 +295,46 @@ namespace SOS
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
                             }
                         }
+                        finished_com_shutdown = false;
+                        transfers_done = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
                         sent_writes_finished = false;
                         received_writes_finished = false;
-                        finished_com_shutdown = false;
-                        transfer_requests_cleared = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (!received_writes_finished && !sent_writes_finished)
-                            std::cout<<"!";
-                            //throw SFA::util::logic_error("Spurious handshake",__FILE__,__func__);
-                        else
-                            com_shutdown_action();
+                        if (reads_finished_query() && !performed_reads_finished){
+                            idle_everAfter_action();
+                            performed_reads_finished = true;
+                        } else {
+                            //throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
+                        }
+                        //std::cout<<"!";
+                        //throw SFA::util::logic_error("Spurious handshake",__FILE__,__func__);
                     }
                     else if (obj_id == ((writesFinished_state() << 2) >> 2))
                     {
-                        if (received_writes_finished)
-                            throw SFA::util::logic_error("Duplicate writeFinished",__FILE__,__func__);
-                        if (sent_com_shutdown && !received_writes_finished){// && !receive_lock){//BUG: Object 2 not finished receiving on FPGA
-                            writes_ended_action();
+                        if (!received_writes_finished)
+                        {//BUG: Object 2 not finished receiving on FPGA
+                            signal_hangup_action();
                             received_writes_finished = true;
+                        } else {
+                            throw SFA::util::logic_error("Duplicate writesFinished",__FILE__,__func__);
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        if (!received_com_shutdown){//COM_SHUTDOWN
-                            com_suspend_action();//stop_calc_thread
+                        if (!received_com_shutdown){
+                            com_shutdown_action();
                             received_com_shutdown = true;
                             // std::cout<<typeid(*this).name();
                             // std::cout<<"O";
+                        } else {
+                            throw SFA::util::logic_error("Duplicate comShutdown",__FILE__,__func__);
                         }
                     }
                     else
@@ -506,13 +517,12 @@ namespace SOS
                 if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
-                    if ((sent_writes_finished && !sent_com_shutdown) || (loop_shutdown && !sent_com_shutdown)){//COM_SHUTDOWN
+                    if (transfers_cleared_query() && !sent_com_shutdown){
                         send_comshutdownRequest();
                         send_complete = true;
                     } else {
                         if (!send_lock){
-                            //writes_pending: unsynced objects that are not in transfer!
-                            if (received_com_shutdown && !writes_pending() && !sent_writes_finished){// && !receive_lock){//BUG: Object 2 not finished receiving on FPGA
+                            if (writes_finished_query() && !sent_writes_finished){
                                 send_writesFinishedRequest();
                                 send_complete = true;
                             } else {
@@ -572,8 +582,9 @@ namespace SOS
                             gotOne = true;
                         }
                     }
+                    //Never reached because of idle
                     //if (!gotOne)
-                    //    if (sent_all && !received_writes_finished)
+                    //    if (!received_writes_finished)
                     //        received_writes_finished = true;
                 }
                 if (receive_lock){

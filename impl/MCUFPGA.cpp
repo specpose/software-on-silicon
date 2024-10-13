@@ -33,7 +33,7 @@ public:
         {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock){
+            /*if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (!std::get<0>(_nBus.objects).mcu_owned())
                 { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
@@ -45,7 +45,7 @@ public:
                 }
             } else {
                 throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
-            }
+            }*/
             break;
         case 1:
             break;
@@ -107,7 +107,7 @@ public:
         {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock){
+            /*if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (std::get<0>(_nBus.objects).mcu_owned())
                 { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
@@ -119,7 +119,7 @@ public:
                 }
             } else {
                 throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
-            }
+            }*/
             break;
         case 1:
             break;
@@ -220,16 +220,42 @@ public:
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
     }
-    virtual void com_suspend_action() final
+    virtual void idle_everAfter_action() final
     {
+        exit = true;
+    }
+    virtual void signal_hangup_action() final
+    {
+        writes_finished = true;
     }
     virtual void com_shutdown_action() final
     {
-        finished_com_shutdown = true;
+        transfers_done = true;
     }
     virtual void shutdown_action() final
     {
         SOS::Behavior::Stoppable::request_stop();
+    }
+    virtual bool transfers_cleared_query() final
+    {
+        if (loop_shutdown)
+            return true;
+        return false;
+    }
+    virtual bool writes_finished_query() final
+    {
+        //writes_pending: unsynced objects that are not in transfer!
+        /*if(sent_com_shutdown && !writes_pending() && !sent_writes_finished)*/
+        if (sent_com_shutdown && received_com_shutdown && !writes_pending())
+            return true;
+        return false;
+    }
+    virtual bool reads_finished_query() final
+    {
+        if (sent_writes_finished && received_writes_finished && !reads_pending()) {
+            return true;
+        }
+        return false;
     }
 
 private:
@@ -265,7 +291,6 @@ public:
     void requestStop()//Only from Ctrl-C
     {
         loop_shutdown = true;
-        finished_com_shutdown = true;
     }
     void restart() {
         _thread = SOS::Behavior::Loop::start(this);
@@ -288,16 +313,43 @@ public:
             _foreign.descriptors[0].synced = false;
         }
     }
-    virtual void com_suspend_action() final
+    virtual void idle_everAfter_action() final
     {
-        stop_notifier();
+        writes_finished = true;
+        finished_com_shutdown = true;
+    }
+    virtual void signal_hangup_action() final
+    {
+        transfers_done = true;
     }
     virtual void com_shutdown_action() final
     {
+        stop_notifier();
     }
     virtual void shutdown_action() final
     {
-        SOS::Behavior::Stoppable::request_stop();//No hotplug
+        SOS::Behavior::Stoppable::request_stop();
+    }
+    virtual bool transfers_cleared_query() final
+    {
+        if (received_com_shutdown)
+            return true;
+        return false;
+    }
+    virtual bool writes_finished_query() final
+    {
+        //writes_pending: unsynced objects that are not in transfer!
+        /*if(received_writes_finished && !writes_pending() && !sent_writes_finished)*/
+        if (received_com_shutdown && sent_com_shutdown && received_writes_finished && !writes_pending())
+            return true;
+        return false;
+    }
+    virtual bool reads_finished_query() final
+    {
+        if (received_writes_finished && sent_writes_finished && !reads_pending()) {
+            return true;
+        }
+        return false;
     }
 
 private:
