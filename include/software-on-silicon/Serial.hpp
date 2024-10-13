@@ -250,6 +250,8 @@ namespace SOS
             bool first_run = true;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
+            bool sent_all = false;
+            bool received_all = false;
             std::size_t acknowledgeId = 255;
             bool acknowledgeRequested = false;
             bool receive_lock = false;
@@ -269,6 +271,8 @@ namespace SOS
                         }
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
+                        sent_all = false;
+                        received_all = false;
                         finished_com_shutdown = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
@@ -276,15 +280,15 @@ namespace SOS
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (sent_com_shutdown){//COM_SHUTDOWN Wait for read/writes to be finished on the client
+                        //if (received_all){//COM_SHUTDOWN Wait for read/writes to be finished on the client
+                        if (sent_all){//BUG: Object 2 not finished receiving on FPGA
                             com_shutdown_action();
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
                         if (!received_com_shutdown){//COM_SHUTDOWN
-                            //stop_calc_thread
-                            com_suspend_action();
+                            com_suspend_action();//stop_calc_thread
                             received_com_shutdown = true;
                             // std::cout<<typeid(*this).name();
                             // std::cout<<"O";
@@ -456,6 +460,8 @@ namespace SOS
             }
             bool write_hook(){
                 bool send_complete = false;
+                if (!send_lock)
+                    getFirstSyncObject();
                 if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
@@ -464,11 +470,11 @@ namespace SOS
                         send_complete = true;
                     } else {
                         if (!send_lock){
-                            if (!getFirstSyncObject()) {
-                                // read in handshake -> set wire to valid state
-                                send_idleRequest();
-                                send_complete = true;
-                            }
+                            if (sent_com_shutdown)
+                                sent_all = true;
+                            // read in handshake -> set wire to valid state
+                            send_idleRequest();
+                            send_complete = true;
                         }
                     }
                 }
@@ -521,6 +527,9 @@ namespace SOS
                             gotOne = true;
                         }
                     }
+                    if (!gotOne)
+                        if (sent_all)
+                            received_all = true;
                 }
                 if (receive_lock){
                 read(data);

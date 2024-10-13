@@ -201,7 +201,7 @@ public:
     void requestStop()//Only from Ctrl-C
     {
         stop_notifier();
-        loop_shutdown = true;
+        loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
     bool isStopped()
     {
@@ -222,8 +222,7 @@ public:
     }
     virtual void com_shutdown_action() final
     {
-        if (!SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::read_writes_left())
-            finished_com_shutdown = true;
+        finished_com_shutdown = true;
     }
     virtual void shutdown_action() final
     {
