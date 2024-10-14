@@ -252,7 +252,7 @@ public:
     }
     virtual bool reads_finished_query() final
     {
-        if (sent_writes_finished && received_writes_finished && !reads_pending()) {
+        if (sent_writes_finished && received_writes_finished ){//&& !reads_pending()) {//BUG FPGA Object 2 doesnt finish read
             return true;
         }
         return false;
@@ -346,7 +346,7 @@ public:
     }
     virtual bool reads_finished_query() final
     {
-        if (received_writes_finished && sent_writes_finished && !reads_pending()) {
+        if (received_writes_finished && sent_writes_finished ){//&& !reads_pending()) {//BUG FPGA Object 2 doesnt finish read
             return true;
         }
         return false;
