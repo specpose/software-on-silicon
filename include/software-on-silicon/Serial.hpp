@@ -352,7 +352,7 @@ namespace SOS
                     if (!foreign().descriptors[i].synced)
                     {
                         send_request();
-                        foreign().writeOrigin().store(foreign().descriptors[i].id);
+                        foreign().writeOrigin() = foreign().descriptors[i].id;
                         writeOriginPos = 0;
                         std::bitset<8> id;
                         write_bits(id);
