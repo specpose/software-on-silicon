@@ -52,6 +52,20 @@ namespace SOS
             id.set(0, 0);
             return id; //-> "10111100"
         }
+        static std::bitset<8> readsFinished_state()
+        { // constexpr
+            std::bitset<8> id;
+            for (std::size_t i = 0; i < id.size(); i++)
+            {
+                id.set(i, 1);
+            }
+            id.set(7, 1); // updated==true
+            id.set(6, 0); // acknowledge==false
+            id.set(2, 0);
+            id.set(1, 1);
+            id.set(0, 1);
+            return id; //-> "10111011"
+        }
         struct DMADescriptor
         {
             DMADescriptor() {} // DANGER
@@ -170,6 +184,10 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
+                    if (loop_shutdown && (finished_com_shutdown || exit))
+                        shutdown_action();
+                    if (received_reads_finished && sent_reads_finished)
+                        idle_everAfter_action();
                     if (handshake())
                     {
                         written_byte_once = false;
@@ -189,8 +207,6 @@ namespace SOS
                         }
                         handshake_ack();
                     }
-                    if (loop_shutdown && (finished_com_shutdown || exit))
-                        shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
@@ -217,11 +233,8 @@ namespace SOS
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
             virtual void idle_everAfter_action() = 0;
-            virtual bool writes_finished_query() = 0;
             virtual void com_shutdown_action() = 0;
-            virtual bool transfers_cleared_query() = 0;
-            virtual bool reads_finished_query() = 0;
-            virtual void signal_hangup_action() = 0;
+            virtual bool incoming_shutdown_query() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
@@ -269,13 +282,13 @@ namespace SOS
             bool loop_shutdown = false;
             bool finished_com_shutdown = false;
             bool exit = false;
-            bool transfers_done = false;
-            bool writes_finished = false;
-            bool performed_reads_finished = false;
+            bool assume_reads_finished = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
             bool sent_writes_finished = false;
             bool received_writes_finished = false;
+            bool sent_reads_finished = false;
+            bool received_reads_finished = false;
         private:
             bool first_run = true;
             std::size_t acknowledgeId = 255;
@@ -296,20 +309,21 @@ namespace SOS
                             }
                         }
                         finished_com_shutdown = false;
-                        transfers_done = false;
+                        assume_reads_finished = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
                         sent_writes_finished = false;
                         received_writes_finished = false;
+                        sent_reads_finished = false;
+                        received_reads_finished = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (reads_finished_query() && !performed_reads_finished){
-                            idle_everAfter_action();
-                            performed_reads_finished = true;
+                        if (received_writes_finished && !assume_reads_finished){
+                            assume_reads_finished = true;
                         } else {
                             //throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
                         }
@@ -318,12 +332,20 @@ namespace SOS
                     }
                     else if (obj_id == ((writesFinished_state() << 2) >> 2))
                     {
-                        if (!received_writes_finished)
+                        if (sent_com_shutdown && !received_writes_finished)
                         {//BUG: Object 2 not finished receiving on FPGA
-                            signal_hangup_action();
                             received_writes_finished = true;
                         } else {
                             throw SFA::util::logic_error("Duplicate writesFinished",__FILE__,__func__);
+                        }
+                    }
+                    else if (obj_id == ((readsFinished_state() << 2) >> 2))
+                    {
+                        if (sent_writes_finished && !received_reads_finished)
+                        {//BUG: Object 2 not finished receiving on FPGA
+                            received_reads_finished = true;
+                        } else {
+                            throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
                         }
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
@@ -395,6 +417,15 @@ namespace SOS
                 std::cout << "O";
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_writes_finished = true;
+            }
+            void send_readsFinishedRequest() {
+                auto id = readsFinished_state();
+                send_request();
+                write_bits(id);
+                std::cout << typeid(*this).name();
+                std::cout << "I";
+                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                sent_reads_finished = true;
             }
             void send_idleRequest() {
                 auto id = idleState();
@@ -512,18 +543,21 @@ namespace SOS
             }
             bool write_hook(){
                 bool send_complete = false;
-                if (!send_lock)
-                    getFirstSyncObject();
                 if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
-                    if (transfers_cleared_query() && !sent_com_shutdown){
+                    if (incoming_shutdown_query() && !sent_com_shutdown){
                         send_comshutdownRequest();
                         send_complete = true;
                     } else {
+                        if (!send_lock)
+                            getFirstSyncObject();
                         if (!send_lock){
-                            if (writes_finished_query() && !sent_writes_finished){
+                            if (received_com_shutdown && !sent_writes_finished && !writes_pending()){
                                 send_writesFinishedRequest();
+                                send_complete = true;
+                            } else if (assume_reads_finished && !sent_reads_finished){// && !reads_pending()){
+                                send_readsFinishedRequest();
                                 send_complete = true;
                             } else {
                                 // read in handshake -> set wire to valid state

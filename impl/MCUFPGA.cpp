@@ -224,37 +224,17 @@ public:
     {
         exit = true;
     }
-    virtual void signal_hangup_action() final
-    {
-        writes_finished = true;
-    }
     virtual void com_shutdown_action() final
     {
-        transfers_done = true;
     }
     virtual void shutdown_action() final
     {
         SOS::Behavior::Stoppable::request_stop();
     }
-    virtual bool transfers_cleared_query() final
+    virtual bool incoming_shutdown_query() final
     {
         if (loop_shutdown)
             return true;
-        return false;
-    }
-    virtual bool writes_finished_query() final
-    {
-        //writes_pending: unsynced objects that are not in transfer!
-        /*if(sent_com_shutdown && !writes_pending() && !sent_writes_finished)*/
-        if (sent_com_shutdown && received_com_shutdown && !writes_pending())
-            return true;
-        return false;
-    }
-    virtual bool reads_finished_query() final
-    {
-        if (sent_writes_finished && received_writes_finished ){//&& !reads_pending()) {//BUG FPGA Object 2 doesnt finish read
-            return true;
-        }
         return false;
     }
 
@@ -315,12 +295,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        writes_finished = true;
         finished_com_shutdown = true;
-    }
-    virtual void signal_hangup_action() final
-    {
-        transfers_done = true;
     }
     virtual void com_shutdown_action() final
     {
@@ -330,25 +305,10 @@ public:
     {
         SOS::Behavior::Stoppable::request_stop();
     }
-    virtual bool transfers_cleared_query() final
+    virtual bool incoming_shutdown_query() final
     {
         if (received_com_shutdown)
             return true;
-        return false;
-    }
-    virtual bool writes_finished_query() final
-    {
-        //writes_pending: unsynced objects that are not in transfer!
-        /*if(received_writes_finished && !writes_pending() && !sent_writes_finished)*/
-        if (received_com_shutdown && sent_com_shutdown && received_writes_finished && !writes_pending())
-            return true;
-        return false;
-    }
-    virtual bool reads_finished_query() final
-    {
-        if (received_writes_finished && sent_writes_finished ){//&& !reads_pending()) {//BUG FPGA Object 2 doesnt finish read
-            return true;
-        }
         return false;
     }
 
