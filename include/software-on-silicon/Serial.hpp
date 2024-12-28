@@ -575,7 +575,7 @@ namespace SOS
                             if (received_com_shutdown && !sent_writes_finished && !writes_pending()){
                                 send_writesFinishedRequest();
                                 send_complete = true;
-                            } else if (assume_reads_finished && !sent_reads_finished){// && !reads_pending()){//BUG 3
+                            } else if (assume_reads_finished && !sent_reads_finished && !reads_pending()){//BUG 3
                                 send_readsFinishedRequest();
                                 send_complete = true;
                             } else {
