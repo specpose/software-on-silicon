@@ -16,7 +16,7 @@ public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
-        if (_nBus.descriptors.size()>3)//TODO also assert on tuple
+        if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             throw SFA::util::runtime_error("DMADescriptors initialization failed.", __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -90,7 +90,7 @@ public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
-        if (_nBus.descriptors.size()>3)//TODO also assert on tuple
+        if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             throw SFA::util::runtime_error("DMADescriptors initialization failed.", __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -192,11 +192,15 @@ public:
     }
     ~FPGA()
     {
+        //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+        //    std::this_thread::yield();
         destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
+        //if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+        //    throw SFA::util::runtime_error("Reads pending",__FILE__,__func__);
     }
     void requestStop()//Only from Ctrl-C
     {
@@ -217,8 +221,8 @@ public:
     }
     virtual void com_hotplug_action() final
     {
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
     }
     virtual void idle_everAfter_action() final
     {
@@ -262,11 +266,15 @@ public:
     }
     ~MCU()
     {
+        //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+        //    std::this_thread::yield();
         destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
+        //if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+        //    throw SFA::util::runtime_error("Reads pending",__FILE__,__func__);
     }
     void requestStop()//Only from Ctrl-C
     {
@@ -286,12 +294,12 @@ public:
     };
     virtual void com_hotplug_action() final
     {
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
-        if (!std::get<0>(_foreign.objects).mcu_owned()){
-            std::get<0>(_foreign.objects).set_mcu_owned(false);
-            _foreign.descriptors[0].synced = false;
-        }
+        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        //if (!std::get<0>(_foreign.objects).mcu_owned()){
+        //    std::get<0>(_foreign.objects).set_mcu_owned(false);
+        //    _foreign.descriptors[0].synced = false;
+        //}
     }
     virtual void idle_everAfter_action() final
     {

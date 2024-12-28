@@ -85,13 +85,17 @@ namespace SOS
                 const auto writesFinished_id = static_cast<unsigned long>(((writesFinished_state() << 2) >> 2).to_ulong());
                 if (id == writesFinished_id)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the writesFinished notification", __FILE__, __func__);
+                const auto readsFinished_id = static_cast<unsigned long>(((readsFinished_state() << 2) >> 2).to_ulong());
+                if (id == readsFinished_id)
+                    throw SFA::util::logic_error("DMADescriptor id is reserved for the readsFinished notification", __FILE__, __func__);
             }
             unsigned char id = 0xFF;
             void *obj = nullptr;
             std::size_t obj_size = 0;
             volatile bool readLock = false; // SerialProcessing thread
-            bool transfer = false;
+            bool queued = false;
             volatile bool synced = true;    // SerialProcessing thread
+            bool transfer = false;
             int rx_counter = 0;    // DEBUG
             int tx_counter = 0;    // DEBUG
         };
@@ -260,16 +264,23 @@ namespace SOS
                     readDestinationPos = 0;
                 }
             };
+            bool transfers_pending(){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                    if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer)
+                        return true;
+                }
+                return false;
+            }
             bool writes_pending(){
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                    if (!foreign().descriptors[j].synced)
+                    if (!foreign().descriptors[j].synced && foreign().descriptors[j].transfer)
                         return true;
                 }
                 return false;
             }
             bool reads_pending(){
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                    if (!foreign().descriptors[j].readLock)
+                    if (foreign().descriptors[j].readLock)
                         return true;
                 }
                 return false;
@@ -371,6 +382,10 @@ namespace SOS
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
                                         foreign().descriptors[j].readLock = true;
+                                        std::cout<<typeid(*this).name();
+                                        std::cout<<"_"<<j<<std::endl;
+                                        if (receive_lock)
+                                            foreign().descriptors[j].queued = true;
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {
                                         throw SFA::util::logic_error("Synced objects are not supposed to have a transfer!",__FILE__,__func__);
@@ -380,6 +395,10 @@ namespace SOS
                                     if (!foreign().descriptors[j].transfer){//OVERRIDE
                                         //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
                                         foreign().descriptors[j].readLock = true;
+                                        std::cout<<typeid(*this).name();
+                                        std::cout<<"_"<<j<<std::endl;
+                                        if (receive_lock)
+                                            foreign().descriptors[j].queued = true;
                                         foreign().descriptors[j].synced = true;
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {//VALID STATE
@@ -475,7 +494,7 @@ namespace SOS
                     }
                 } else {
                     if (acknowledgeRequested){
-                        //throw SFA::util::runtime_error("Previous transfer has not been acknowledged.", __FILE__, __func__);
+                        throw SFA::util::runtime_error("Previous transfer has not been acknowledged.", __FILE__, __func__);
                         bool gotOne = false;
                         for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                             if (j == acknowledgeId){
@@ -528,14 +547,14 @@ namespace SOS
                                 throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
                             if (foreign().descriptors[j].readLock)
                                 throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
-                            if (writeOriginPos != 0)
+                            if (writeOriginPos != 0){
+                                std::cout<<typeid(*this).name()<<" Item: "<<j<<";send_lock: "<<send_lock<<";writeOrigin: "<<writeOrigin<<";writeOriginPos: "<<writeOriginPos<<std::endl;
                                 throw SFA::util::logic_error("Previous object write has not been completed",__FILE__,__func__);
-                                //std::cout<<typeid(*this).name()<<"WRITEERROR"<<writeOrigin<<std::endl;
+                            }
                             if (writeOrigin==j && readDestination==j)
                                 throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             send_lock = true;
                             writeOrigin = j;
-                            std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
                             gotOne = true;
                         }
                     }
@@ -546,7 +565,7 @@ namespace SOS
                 if (getFirstTransfer()) {
                     send_complete = true;
                 } else {
-                    if (incoming_shutdown_query() && !sent_com_shutdown){
+                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending()){
                         send_comshutdownRequest();
                         send_complete = true;
                     } else {
@@ -556,7 +575,7 @@ namespace SOS
                             if (received_com_shutdown && !sent_writes_finished && !writes_pending()){
                                 send_writesFinishedRequest();
                                 send_complete = true;
-                            } else if (assume_reads_finished && !sent_reads_finished){// && !reads_pending()){
+                            } else if (assume_reads_finished && !sent_reads_finished){// && !reads_pending()){//BUG 3
                                 send_readsFinishedRequest();
                                 send_complete = true;
                             } else {
@@ -589,9 +608,7 @@ namespace SOS
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
-                        // std::cout<<typeid(*this).name();
-                        // std::cout<<"$";
-                        writeOrigin = 255;
+                        std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
                         writeOriginPos = 0;
                     }
                     write(63); //'?' empty write
@@ -604,15 +621,15 @@ namespace SOS
                 if (!receive_lock){
                     bool gotOne = false;
                     for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
-                        if (foreign().descriptors[j].readLock){
+                        if (foreign().descriptors[j].readLock && !foreign().descriptors[j].queued){
                             if (readDestinationPos != 0){
+                                std::cout<<typeid(*this).name()<<" Item: "<<j<<";receive_lock: "<<receive_lock<<";readDestination: "<<readDestination<<";readDestinationPos: "<<readDestinationPos<<std::endl;
                                 throw SFA::util::logic_error("Previous read object has not finished!",__FILE__,__func__);
                             }
                             if (writeOrigin==j && readDestination==j)
                                 throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             receive_lock = true;
                             readDestination = j;
-                            std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
                             gotOne = true;
                         }
                     }
@@ -630,25 +647,32 @@ namespace SOS
                 else if (read4minus1 == 3)
                 {
                     auto read3bytes = read_flush();
-                    if (readDestinationPos == foreign().descriptors[readDestination].obj_size)
+                    if (readDestinationPos < foreign().descriptors[readDestination].obj_size)
                     {
-                        foreign().descriptors[readDestination].readLock = false;
-                        receive_lock = false;
-                        foreign().receiveNotificationId().store(readDestination);
-                        foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
-                        foreign().descriptors[readDestination].rx_counter++; // DEBUG
-                        readDestination = 255;
-                        readDestinationPos = 0;
-                    }
-                    else
-                    {
+                        //std::cout<<"*"<<readDestinationPos;
                         for (std::size_t i = 0; i < 3; i++)
                         {
                             reinterpret_cast<char *>(foreign().descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
                     }
+                    if (readDestinationPos == foreign().descriptors[readDestination].obj_size)
+                    {
+                        //std::cout<<"#";
+                        foreign().descriptors[readDestination].readLock = false;
+                        receive_lock = false;
+                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                            foreign().descriptors[j].queued = false;
+                        }
+                        foreign().receiveNotificationId().store(readDestination);
+                        foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
+                        foreign().descriptors[readDestination].rx_counter++; // DEBUG
+                        std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
+                        readDestinationPos = 0;
+                    }
                     read4minus1 = 0;
                 }
+                } else {
+                    throw SFA::util::logic_error("No idle received and no receive_lock obtained.",__FILE__,__func__);
                 }
             }
             std::array<std::bitset<8>, 3> writeAssembly;
