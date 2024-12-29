@@ -188,10 +188,6 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
-                    if (loop_shutdown && (finished_com_shutdown || exit))
-                        shutdown_action();
-                    if (received_reads_finished && sent_reads_finished)
-                        idle_everAfter_action();
                     if (handshake())
                     {
                         written_byte_once = false;
@@ -206,11 +202,14 @@ namespace SOS
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
+                            idle_everAfter_action();//checks for received_reads_finished and !reads_pending()
                             if (!write_hook())
                                 write_object(write3plus1);
                         }
                         handshake_ack();
                     }
+                    if (loop_shutdown && (finished_com_shutdown || exit))
+                        shutdown_action();
                     std::this_thread::yield();
                 }
                 finished();
@@ -338,15 +337,12 @@ namespace SOS
                     {
                         if (received_writes_finished && !assume_reads_finished){
                             assume_reads_finished = true;
-                        } else {
-                            //throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
                         }
                         //std::cout<<"!";
-                        //throw SFA::util::logic_error("Spurious handshake",__FILE__,__func__);
                     }
                     else if (obj_id == ((writesFinished_state() << 2) >> 2))
                     {
-                        if (sent_com_shutdown && !received_writes_finished)
+                        if (sent_com_shutdown && !received_writes_finished)//BUG 6
                         {//BUG: Object 2 not finished receiving on FPGA
                             received_writes_finished = true;
                         } else {
@@ -355,7 +351,7 @@ namespace SOS
                     }
                     else if (obj_id == ((readsFinished_state() << 2) >> 2))
                     {
-                        if (sent_writes_finished && !received_reads_finished)
+                        if (sent_writes_finished && !received_reads_finished)//BUG 6
                         {//BUG: Object 2 not finished receiving on FPGA
                             received_reads_finished = true;
                         } else {
@@ -367,8 +363,6 @@ namespace SOS
                         if (!received_com_shutdown){
                             com_shutdown_action();
                             received_com_shutdown = true;
-                            // std::cout<<typeid(*this).name();
-                            // std::cout<<"O";
                         } else {
                             throw SFA::util::logic_error("Duplicate comShutdown",__FILE__,__func__);
                         }
@@ -564,14 +558,22 @@ namespace SOS
             bool write_hook(){
                 bool send_complete = false;
                 if (getFirstTransfer()) {
+                    if (sent_com_shutdown)
+                        throw SFA::util::logic_error("No transfers supposed to be left after sending com_shutdown.",__FILE__,__func__);
                     send_complete = true;
                 } else {
-                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending()){
+                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending() && !acknowledgeRequested){
+                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                            if (!foreign().descriptors[j].transfer)
+                                foreign().descriptors[j].synced = true;
+                        }
                         send_comshutdownRequest();
                         send_complete = true;
                     } else {
                         if (!send_lock)
                             getFirstSyncObject();
+                        if (sent_writes_finished && send_lock)
+                            throw SFA::util::logic_error("No writes supposed to be left after sending writes_finished.",__FILE__,__func__);
                         if (!send_lock){
                             if (received_com_shutdown && !sent_writes_finished && !writes_pending()){
                                 send_writesFinishedRequest();
