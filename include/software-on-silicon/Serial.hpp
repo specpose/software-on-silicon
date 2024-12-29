@@ -246,6 +246,9 @@ namespace SOS
                     throw SFA::util::runtime_error("Poweron after unexpected shutdown.", __FILE__, __func__);
                     foreign().descriptors[writeOrigin].synced = false;
                     foreign().descriptors[writeOrigin].transfer = false;
+                    send_lock = false;
+                    writeCount = 0;
+                    writeOriginPos = 0;
                 }
             }
             void clear_read_receive()
@@ -551,8 +554,6 @@ namespace SOS
                                 std::cout<<typeid(*this).name()<<" Item: "<<j<<";send_lock: "<<send_lock<<";writeOrigin: "<<writeOrigin<<";writeOriginPos: "<<writeOriginPos<<std::endl;
                                 throw SFA::util::logic_error("Previous object write has not been completed",__FILE__,__func__);
                             }
-                            if (writeOrigin==j && readDestination==j)
-                                throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             send_lock = true;
                             writeOrigin = j;
                             gotOne = true;
@@ -626,8 +627,6 @@ namespace SOS
                                 std::cout<<typeid(*this).name()<<" Item: "<<j<<";receive_lock: "<<receive_lock<<";readDestination: "<<readDestination<<";readDestinationPos: "<<readDestinationPos<<std::endl;
                                 throw SFA::util::logic_error("Previous read object has not finished!",__FILE__,__func__);
                             }
-                            if (writeOrigin==j && readDestination==j)
-                                throw SFA::util::logic_error("Object can not be read and written at the same time!",__FILE__,__func__);
                             receive_lock = true;
                             readDestination = j;
                             gotOne = true;

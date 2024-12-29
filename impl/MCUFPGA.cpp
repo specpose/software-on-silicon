@@ -44,7 +44,7 @@ public:
                     }
                 }
             } else {
-                throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
+                throw SFA::util::runtime_error("FPGAProcessingSwitch thread is too slow.",__FILE__,__func__);
             }*/
             break;
         case 1:
@@ -118,7 +118,7 @@ public:
                     }
                 }
             } else {
-                throw SFA::util::runtime_error("This thread is too slow.",__FILE__,__func__);
+                throw SFA::util::runtime_error("MCUProcessingSwitch thread is too slow.",__FILE__,__func__);
             }*/
             break;
         case 1:
@@ -221,12 +221,13 @@ public:
     }
     virtual void com_hotplug_action() final
     {
-        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
-        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
     }
     virtual void idle_everAfter_action() final
     {
-        exit = true;
+        if (received_reads_finished && !reads_pending())
+            exit = true;
     }
     virtual void com_shutdown_action() final
     {
@@ -294,8 +295,8 @@ public:
     };
     virtual void com_hotplug_action() final
     {
-        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
-        //SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
+        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
         //if (!std::get<0>(_foreign.objects).mcu_owned()){
         //    std::get<0>(_foreign.objects).set_mcu_owned(false);
         //    _foreign.descriptors[0].synced = false;
@@ -303,7 +304,8 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        finished_com_shutdown = true;
+        if (received_reads_finished && !reads_pending())
+            finished_com_shutdown = true;
     }
     virtual void com_shutdown_action() final
     {
