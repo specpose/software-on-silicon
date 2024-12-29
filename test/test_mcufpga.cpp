@@ -36,7 +36,7 @@ int main () {
     bool host_request_stop = false;
     SOS::MemoryView::ComBus<COM_BUFFER> fpgabus{std::begin(fpga_in_buffer),std::end(fpga_in_buffer),std::begin(fpga_out_buffer),std::end(fpga_out_buffer)};
     using namespace std::chrono_literals;
-    std::this_thread::sleep_for(300ms);//SIMULATION: no way to check if thread is running without interfering with handshake
+    //std::this_thread::sleep_for(300ms);//SIMULATION: no way to check if thread is running without interfering with handshake
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
     bool client_request_stop = false;
     bool stop = false;

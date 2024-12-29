@@ -188,6 +188,7 @@ namespace SOS
                 int write3plus1 = 0;
                 while (is_running())
                 {
+                    std::this_thread::yield();
                     if (handshake())
                     {
                         written_byte_once = false;
@@ -210,7 +211,6 @@ namespace SOS
                     }
                     if (loop_shutdown && (finished_com_shutdown || exit))
                         shutdown_action();
-                    std::this_thread::yield();
                 }
                 finished();
                 /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
