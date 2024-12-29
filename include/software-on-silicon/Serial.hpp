@@ -338,11 +338,11 @@ namespace SOS
                         if (received_writes_finished && !assume_reads_finished){
                             assume_reads_finished = true;
                         }
-                        //std::cout<<"!";
+                        std::cout<<"!";
                     }
                     else if (obj_id == ((writesFinished_state() << 2) >> 2))
                     {
-                        if (sent_com_shutdown && !received_writes_finished)//BUG 6
+                        if (!received_writes_finished)//BUG 6
                         {//BUG: Object 2 not finished receiving on FPGA
                             received_writes_finished = true;
                         } else {
@@ -351,7 +351,7 @@ namespace SOS
                     }
                     else if (obj_id == ((readsFinished_state() << 2) >> 2))
                     {
-                        if (sent_writes_finished && !received_reads_finished)//BUG 6
+                        if (!received_reads_finished)//BUG 6
                         {//BUG: Object 2 not finished receiving on FPGA
                             received_reads_finished = true;
                         } else {
