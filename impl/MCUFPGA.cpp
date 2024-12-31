@@ -33,7 +33,7 @@ public:
         {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            /*if (!_nBus.descriptors[0].readLock){
+            if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (!std::get<0>(_nBus.objects).mcu_owned())
                 { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
@@ -45,7 +45,7 @@ public:
                 }
             } else {
                 throw SFA::util::runtime_error("FPGAProcessingSwitch thread is too slow.",__FILE__,__func__);
-            }*/
+            }
             break;
         case 1:
             break;
@@ -107,7 +107,7 @@ public:
         {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            /*if (!_nBus.descriptors[0].readLock){
+            if (!_nBus.descriptors[0].readLock){
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (std::get<0>(_nBus.objects).mcu_owned())
                 { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
@@ -119,7 +119,7 @@ public:
                 }
             } else {
                 throw SFA::util::runtime_error("MCUProcessingSwitch thread is too slow.",__FILE__,__func__);
-            }*/
+            }
             break;
         case 1:
             break;
@@ -226,7 +226,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (received_reads_finished && !reads_pending())
+        if (sent_com_shutdown && received_com_shutdown)//received_reads_finished && !reads_pending())
             exit = true;
     }
     virtual void com_shutdown_action() final
@@ -238,7 +238,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (loop_shutdown)
+        if (loop_shutdown || received_com_shutdown)
             return true;
         return false;
     }
@@ -304,7 +304,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (received_writes_finished && !writes_pending())
+        if (sent_com_shutdown && received_com_shutdown)//received_writes_finished && !writes_pending())
             finished_com_shutdown = true;
     }
     virtual void com_shutdown_action() final

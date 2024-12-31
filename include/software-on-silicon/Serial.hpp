@@ -267,25 +267,28 @@ namespace SOS
                 }
             };
             bool transfers_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                bool gotOne = false;
+                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer)
-                        return true;
+                        gotOne=true;
                 }
-                return false;
+                return gotOne;
             }
             bool writes_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                bool gotOne = false;
+                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                     if (!foreign().descriptors[j].synced && foreign().descriptors[j].transfer)
-                        return true;
+                        gotOne=true;
                 }
-                return false;
+                return gotOne;
             }
             bool reads_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                bool gotOne = false;
+                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                     if (foreign().descriptors[j].readLock)
-                        return true;
+                        gotOne=true;
                 }
-                return false;
+                return gotOne;
             }
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
@@ -557,9 +560,8 @@ namespace SOS
             }
             bool write_hook(){
                 bool send_complete = false;
-                if (getFirstTransfer()) {
-                    if (sent_com_shutdown)
-                        throw SFA::util::logic_error("No transfers supposed to be left after sending com_shutdown.",__FILE__,__func__);
+                bool got_a_transfer = !sent_com_shutdown? getFirstTransfer() : false;
+                if (got_a_transfer) {
                     send_complete = true;
                 } else {
                     if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending() && !acknowledgeRequested){
