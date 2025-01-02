@@ -238,7 +238,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (loop_shutdown || received_com_shutdown)
+        if (loop_shutdown)
             return true;
         return false;
     }
