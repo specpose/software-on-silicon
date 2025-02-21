@@ -226,11 +226,11 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (sent_com_shutdown && received_com_shutdown)//received_reads_finished && !reads_pending())
-            exit = true;
     }
     virtual void com_shutdown_action() final
     {
+        if (sent_com_shutdown && !reads_pending())
+            exit = true;
     }
     virtual void shutdown_action() final
     {
@@ -304,7 +304,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (sent_com_shutdown && received_com_shutdown)//received_writes_finished && !writes_pending())
+        if (assume_reads_finished && sent_com_shutdown)
             finished_com_shutdown = true;
     }
     virtual void com_shutdown_action() final

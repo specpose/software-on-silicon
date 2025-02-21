@@ -39,33 +39,6 @@ namespace SOS
             id.set(0, 1);
             return id; //-> "10111101"
         }
-        static std::bitset<8> writesFinished_state()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            id.set(1, 0);
-            id.set(0, 0);
-            return id; //-> "10111100"
-        }
-        static std::bitset<8> readsFinished_state()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            id.set(2, 0);
-            id.set(1, 1);
-            id.set(0, 1);
-            return id; //-> "10111011"
-        }
         struct DMADescriptor
         {
             DMADescriptor() {} // DANGER
@@ -82,12 +55,6 @@ namespace SOS
                 const auto poweronId = static_cast<unsigned long>(((poweronState() << 2) >> 2).to_ulong());
                 if (id == poweronId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification", __FILE__, __func__);
-                const auto writesFinished_id = static_cast<unsigned long>(((writesFinished_state() << 2) >> 2).to_ulong());
-                if (id == writesFinished_id)
-                    throw SFA::util::logic_error("DMADescriptor id is reserved for the writesFinished notification", __FILE__, __func__);
-                const auto readsFinished_id = static_cast<unsigned long>(((readsFinished_state() << 2) >> 2).to_ulong());
-                if (id == readsFinished_id)
-                    throw SFA::util::logic_error("DMADescriptor id is reserved for the readsFinished notification", __FILE__, __func__);
             }
             unsigned char id = 0xFF;
             void *obj = nullptr;
@@ -203,9 +170,9 @@ namespace SOS
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
-                            idle_everAfter_action();//checks for received_reads_finished and !reads_pending()
                             if (!write_hook())
                                 write_object(write3plus1);
+                            idle_everAfter_action();
                         }
                         handshake_ack();
                     }
@@ -301,10 +268,6 @@ namespace SOS
             bool assume_reads_finished = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            bool sent_writes_finished = false;
-            bool received_writes_finished = false;
-            bool sent_reads_finished = false;
-            bool received_reads_finished = false;
         private:
             bool first_run = true;
             std::size_t acknowledgeId = 255;
@@ -328,38 +291,16 @@ namespace SOS
                         assume_reads_finished = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
-                        sent_writes_finished = false;
-                        received_writes_finished = false;
-                        sent_reads_finished = false;
-                        received_reads_finished = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (received_writes_finished && !assume_reads_finished){
+                        if (received_com_shutdown && !assume_reads_finished){
                             assume_reads_finished = true;
                         }
-                        std::cout<<"!";
-                    }
-                    else if (obj_id == ((writesFinished_state() << 2) >> 2))
-                    {
-                        if (!received_writes_finished)//BUG 6
-                        {//BUG: Object 2 not finished receiving on FPGA
-                            received_writes_finished = true;
-                        } else {
-                            throw SFA::util::logic_error("Duplicate writesFinished",__FILE__,__func__);
-                        }
-                    }
-                    else if (obj_id == ((readsFinished_state() << 2) >> 2))
-                    {
-                        if (!received_reads_finished)//BUG 6
-                        {//BUG: Object 2 not finished receiving on FPGA
-                            received_reads_finished = true;
-                        } else {
-                            throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
-                        }
+                        //std::cout<<"!";
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
@@ -427,24 +368,6 @@ namespace SOS
                 std::cout << "X";
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_com_shutdown = true;
-            }
-            void send_writesFinishedRequest() {
-                auto id = writesFinished_state();
-                send_request();
-                write_bits(id);
-                std::cout << typeid(*this).name();
-                std::cout << "O";
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                sent_writes_finished = true;
-            }
-            void send_readsFinishedRequest() {
-                auto id = readsFinished_state();
-                send_request();
-                write_bits(id);
-                std::cout << typeid(*this).name();
-                std::cout << "I";
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
-                sent_reads_finished = true;
             }
             void send_idleRequest() {
                 auto id = idleState();
@@ -564,7 +487,7 @@ namespace SOS
                 if (got_a_transfer) {
                     send_complete = true;
                 } else {
-                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending() && !acknowledgeRequested){
+                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending() && !acknowledgeRequested && !writes_pending()){
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                             if (!foreign().descriptors[j].transfer)
                                 foreign().descriptors[j].synced = true;
@@ -574,20 +497,10 @@ namespace SOS
                     } else {
                         if (!send_lock)
                             getFirstSyncObject();
-                        if (sent_writes_finished && send_lock)
-                            throw SFA::util::logic_error("No writes supposed to be left after sending writes_finished.",__FILE__,__func__);
                         if (!send_lock){
-                            if (received_com_shutdown && !sent_writes_finished && !writes_pending()){
-                                send_writesFinishedRequest();
-                                send_complete = true;
-                            } else if (assume_reads_finished && !sent_reads_finished && !reads_pending()){//BUG 3
-                                send_readsFinishedRequest();
-                                send_complete = true;
-                            } else {
-                                // read in handshake -> set wire to valid state
-                                send_idleRequest();
-                                send_complete = true;
-                            }
+                            // read in handshake -> set wire to valid state
+                            send_idleRequest();
+                            send_complete = true;
                         }
                     }
                 }
