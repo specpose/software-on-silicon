@@ -226,11 +226,19 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
+        if (sent_reads_finished && !writes_pending())
+            exit = true;
     }
     virtual void com_shutdown_action() final
     {
-        if (sent_com_shutdown && !reads_pending())
-            exit = true;
+    }
+    virtual void com_sighup_action() final
+    {
+    }
+    virtual void com_idle_action() final
+    {
+        if (received_com_shutdown)
+            assume_reads_finished = true;
     }
     virtual void shutdown_action() final
     {
@@ -304,12 +312,20 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (assume_reads_finished && sent_com_shutdown)
+        if (received_reads_finished && sent_reads_finished)
             finished_com_shutdown = true;
     }
     virtual void com_shutdown_action() final
     {
         stop_notifier();
+    }
+    virtual void com_sighup_action() final
+    {
+    }
+    virtual void com_idle_action() final
+    {
+        if (received_com_shutdown)
+            assume_reads_finished = true;
     }
     virtual void shutdown_action() final
     {
