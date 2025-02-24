@@ -356,7 +356,7 @@ namespace SOS
                         {
                             if (foreign().descriptors[j].id == id){
                                 if (foreign().descriptors[j].readLock)
-                                    throw SFA::util::runtime_error("Duplicate readLock request",__FILE__,__func__);
+                                    throw SFA::util::runtime_error(typeid(*this).name()+std::string{"Duplicate readLock request"},__FILE__,__func__);
                                 if (foreign().descriptors[j].synced)
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){

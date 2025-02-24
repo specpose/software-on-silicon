@@ -108,7 +108,6 @@ namespace SOS
             virtual void stop_notifier() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
-                std::cout<<typeid(*this).name()<<"SN";
             }
         private:
             virtual bool handshake() final
@@ -162,7 +161,6 @@ namespace SOS
             virtual void stop_notifier() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
-                std::cout<<typeid(*this).name()<<"SN";
             }
         private:
             virtual bool handshake() final
