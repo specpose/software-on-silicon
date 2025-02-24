@@ -39,7 +39,7 @@ namespace SOS
             id.set(0, 1);
             return id; //-> "10111101"
         }
-        static std::bitset<8> readsFinished_state()
+        static std::bitset<8> sighupState()
         { // constexpr
             std::bitset<8> id;
             for (std::size_t i = 0; i < id.size(); i++)
@@ -68,8 +68,8 @@ namespace SOS
                 const auto poweronId = static_cast<unsigned long>(((poweronState() << 2) >> 2).to_ulong());
                 if (id == poweronId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the poweron notification", __FILE__, __func__);
-                const auto readsFinished_id = static_cast<unsigned long>(((readsFinished_state() << 2) >> 2).to_ulong());
-                if (id == readsFinished_id)
+                const auto sighupId = static_cast<unsigned long>(((sighupState() << 2) >> 2).to_ulong());
+                if (id == sighupId)
                     throw SFA::util::logic_error("DMADescriptor id is reserved for the readsFinished notification", __FILE__, __func__);
             }
             unsigned char id = 0xFF;
@@ -223,6 +223,7 @@ namespace SOS
             virtual void com_sighup_action() = 0;
             virtual void com_idle_action() = 0;
             virtual bool incoming_shutdown_query() = 0;
+            virtual bool outgoing_sighup_query() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
@@ -286,12 +287,12 @@ namespace SOS
             bool assume_reads_finished = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
-            bool received_reads_finished = false;
-            bool sent_reads_finished = false;
+            bool received_sighup = false;
+            bool sent_sighup = false;
+            bool acknowledgeRequested = false;
         private:
             bool first_run = true;
             std::size_t acknowledgeId = 255;
-            bool acknowledgeRequested = false;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(unsigned char &data)
@@ -311,8 +312,8 @@ namespace SOS
                         assume_reads_finished = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
-                        received_reads_finished = false;
-                        sent_reads_finished = false;
+                        received_sighup = false;
+                        sent_sighup = false;
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
@@ -335,14 +336,14 @@ namespace SOS
                             throw SFA::util::logic_error("Duplicate comShutdown",__FILE__,__func__);
                         }
                     }
-                    else if (obj_id == ((readsFinished_state() << 2) >> 2))
+                    else if (obj_id == ((sighupState() << 2) >> 2))
                     {
-                        if (!received_reads_finished)
+                        if (!received_sighup)
                         {
                             com_sighup_action();
-                            received_reads_finished = true;
+                            received_sighup = true;
                         } else {
-                            throw SFA::util::logic_error("Duplicate readsFinished",__FILE__,__func__);
+                            throw SFA::util::logic_error("Duplicate sighup",__FILE__,__func__);
                         }
                     }
                     else
@@ -421,14 +422,14 @@ namespace SOS
                 std::cout<<":"<<(unsigned int)unsynced<<std::endl;//why not ID?!
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
-            void send_readsFinishedRequest() {
-                auto id = readsFinished_state();
+            void send_sighupRequest() {
+                auto id = sighupState();
                 send_request();
                 write_bits(id);
                 std::cout << typeid(*this).name();
                 std::cout << "I";
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
-                sent_reads_finished = true;
+                sent_sighup = true;
             }
             void acknowledge_hook() {
                 if (receive_acknowledge())
@@ -541,8 +542,8 @@ namespace SOS
                         if (!send_lock)
                             getFirstSyncObject();
                         if (!send_lock){
-                            if (assume_reads_finished && !sent_reads_finished){
-                                send_readsFinishedRequest();
+                            if (outgoing_sighup_query() && !sent_sighup && assume_reads_finished && !writes_pending()){
+                                send_sighupRequest();
                                 send_complete = true;
                             } else {
                                 // read in handshake -> set wire to valid state

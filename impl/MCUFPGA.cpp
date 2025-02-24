@@ -199,8 +199,8 @@ public:
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
-        //if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-        //    throw SFA::util::runtime_error("Reads pending",__FILE__,__func__);
+        if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+            std::cout<<typeid(*this).name()<<" Reads Pending!";
     }
     void requestStop()//Only from Ctrl-C
     {
@@ -226,7 +226,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (sent_reads_finished && !writes_pending())
+        if (received_sighup)
             exit = true;
     }
     virtual void com_shutdown_action() final
@@ -248,6 +248,10 @@ public:
     {
         if (loop_shutdown)
             return true;
+        return false;
+    }
+    virtual bool outgoing_sighup_query() final
+    {
         return false;
     }
 
@@ -282,8 +286,8 @@ public:
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
-        //if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-        //    throw SFA::util::runtime_error("Reads pending",__FILE__,__func__);
+        if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+            std::cout<<typeid(*this).name()<<" Reads Pending!";
     }
     void requestStop()//Only from Ctrl-C
     {
@@ -312,7 +316,7 @@ public:
     }
     virtual void idle_everAfter_action() final
     {
-        if (received_reads_finished && sent_reads_finished)
+        if (sent_sighup)
             finished_com_shutdown = true;
     }
     virtual void com_shutdown_action() final
@@ -334,6 +338,12 @@ public:
     virtual bool incoming_shutdown_query() final
     {
         if (received_com_shutdown)
+            return true;
+        return false;
+    }
+    virtual bool outgoing_sighup_query() final
+    {
+        if (sent_com_shutdown)
             return true;
         return false;
     }
