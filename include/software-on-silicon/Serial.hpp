@@ -221,7 +221,7 @@ namespace SOS
             virtual void idle_everAfter_action() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void com_sighup_action() = 0;
-            virtual void com_idle_action() = 0;
+            virtual bool com_idle_query() = 0;
             virtual bool incoming_shutdown_query() = 0;
             virtual bool outgoing_sighup_query() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
@@ -290,6 +290,7 @@ namespace SOS
             bool received_sighup = false;
             bool sent_sighup = false;
             bool acknowledgeRequested = false;
+            bool updateRequestReceived = false;
         private:
             bool first_run = true;
             std::size_t acknowledgeId = 255;
@@ -297,6 +298,7 @@ namespace SOS
             bool send_lock = false;
             void read_hook(unsigned char &data)
             {
+                    updateRequestReceived = false;
                     std::bitset<8> obj_id = static_cast<unsigned long>(data);
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
@@ -308,6 +310,8 @@ namespace SOS
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__);
                             }
                         }
+                        if (acknowledgeRequested || updateRequestReceived)
+                            throw SFA::util::logic_error("Previous transfer requests were not cleared.", __FILE__, __func__);
                         finished_com_shutdown = false;
                         assume_reads_finished = false;
                         received_com_shutdown = false;
@@ -321,8 +325,7 @@ namespace SOS
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
                         if (!assume_reads_finished){
-                            com_idle_action();
-                            assume_reads_finished = true;
+                            assume_reads_finished = com_idle_query();
                         } else {
                             std::cout<<"!";
                         }
@@ -357,6 +360,7 @@ namespace SOS
                                 if (foreign().descriptors[j].synced)
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
+                                        updateRequestReceived = true;
                                         foreign().descriptors[j].readLock = true;
                                         std::cout<<typeid(*this).name();
                                         std::cout<<"_"<<j<<std::endl;
@@ -370,6 +374,7 @@ namespace SOS
                                 {
                                     if (!foreign().descriptors[j].transfer){//OVERRIDE
                                         //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
+                                        updateRequestReceived = true;
                                         foreign().descriptors[j].readLock = true;
                                         std::cout<<typeid(*this).name();
                                         std::cout<<"_"<<j<<std::endl;
@@ -531,7 +536,7 @@ namespace SOS
                 if (got_a_transfer) {
                     send_complete = true;
                 } else {
-                    if (incoming_shutdown_query() && !sent_com_shutdown && !transfers_pending() && !acknowledgeRequested){
+                    if (incoming_shutdown_query() && !sent_com_shutdown){
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                             if (!foreign().descriptors[j].transfer)
                                 foreign().descriptors[j].synced = true;
@@ -542,7 +547,7 @@ namespace SOS
                         if (!send_lock)
                             getFirstSyncObject();
                         if (!send_lock){
-                            if (outgoing_sighup_query() && !sent_sighup && assume_reads_finished && !writes_pending()){
+                            if (outgoing_sighup_query() && !sent_sighup){
                                 send_sighupRequest();
                                 send_complete = true;
                             } else {

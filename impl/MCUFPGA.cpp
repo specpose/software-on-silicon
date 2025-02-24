@@ -235,10 +235,11 @@ public:
     virtual void com_sighup_action() final
     {
     }
-    virtual void com_idle_action() final
+    virtual bool com_idle_query() final
     {
         if (received_com_shutdown)
-            assume_reads_finished = true;
+            return true;
+        return false;
     }
     virtual void shutdown_action() final
     {
@@ -246,7 +247,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (loop_shutdown)
+        if (loop_shutdown && !transfers_pending() && !acknowledgeRequested)
             return true;
         return false;
     }
@@ -326,10 +327,11 @@ public:
     virtual void com_sighup_action() final
     {
     }
-    virtual void com_idle_action() final
+    virtual bool com_idle_query() final
     {
         if (received_com_shutdown)
-            assume_reads_finished = true;
+            return true;
+        return false;
     }
     virtual void shutdown_action() final
     {
@@ -337,13 +339,13 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (received_com_shutdown)
+        if (received_com_shutdown && !transfers_pending() && !acknowledgeRequested)
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
-        if (sent_com_shutdown)
+        if (sent_com_shutdown && assume_reads_finished && !writes_pending())
             return true;
         return false;
     }
