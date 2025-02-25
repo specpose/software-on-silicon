@@ -455,10 +455,10 @@ namespace SOS
                                     foreign().descriptors[j].transfer = true;
                                     std::cout<<typeid(*this).name();
                                     std::cout<<"."<<acknowledgeId<<std::endl;
+                                    gotOne = true;
                                 } else {
                                     throw SFA::util::logic_error("ReadLock pre-dates acknowledge.",__FILE__,__func__);
                                 }
-                                gotOne = true;
                             }
                         }
                         if (!gotOne)
