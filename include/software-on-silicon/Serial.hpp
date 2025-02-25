@@ -253,28 +253,25 @@ namespace SOS
                 }
             };
             bool transfers_pending(){
-                bool gotOne = false;
-                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer)
-                        gotOne=true;
+                        return true;
                 }
-                return gotOne;
+                return false;
             }
             bool writes_pending(){
-                bool gotOne = false;
-                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].synced && foreign().descriptors[j].transfer)
-                        gotOne=true;
+                        return true;
                 }
-                return gotOne;
+                return false;
             }
             bool reads_pending(){
-                bool gotOne = false;
-                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].readLock)
-                        gotOne=true;
+                        return true;
                 }
-                return gotOne;
+                return false;
             }
             bool mcu_updated = false;      // mcu_write,fpga_read bit 7
             bool fpga_acknowledge = false; // mcu_write,fpga_read bit 6
@@ -493,48 +490,44 @@ namespace SOS
             std::size_t readDestinationPos = 0;
             bool getFirstTransfer()
             {
-                bool gotOne = false;
-                for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer){
                         if (foreign().descriptors[j].readLock)
                             throw SFA::util::logic_error("Synced status has not been overriden when readLock was acquired.", __FILE__, __func__);
                         acknowledgeId = j;//overridden when synced is set to false
                         acknowledgeRequested = true;
                         send_transferRequest(foreign().descriptors[j].id);
-                        gotOne = true;
+                        return true;
                     }
                 }
-                return gotOne;
+                return false;
             }
             bool getFirstSyncObject()
             {
-                bool gotOne = false;
-                    for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++)
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
+                {
+                    if (foreign().descriptors[j].readLock && !foreign().descriptors[j].synced)
+                        throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
+                    if (foreign().descriptors[j].transfer)
                     {
-                        if (foreign().descriptors[j].readLock && !foreign().descriptors[j].synced)
-                            throw SFA::util::logic_error("DMAObject has entered an illegal sync state.", __FILE__, __func__);
-                        if (foreign().descriptors[j].transfer)
-                        {
-                            if (foreign().descriptors[j].synced)
-                                throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
-                            if (foreign().descriptors[j].readLock)
-                                throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
-                            if (writeOriginPos != 0){
-                                std::cout<<typeid(*this).name()<<" Item: "<<j<<";send_lock: "<<send_lock<<";writeOrigin: "<<writeOrigin<<";writeOriginPos: "<<writeOriginPos<<std::endl;
-                                throw SFA::util::logic_error("Previous object write has not been completed",__FILE__,__func__);
-                            }
-                            send_lock = true;
-                            writeOrigin = j;
-                            gotOne = true;
+                        if (foreign().descriptors[j].synced)
+                            throw SFA::util::logic_error("Found a transfer object which is synced",__FILE__,__func__);
+                        if (foreign().descriptors[j].readLock)
+                            throw SFA::util::logic_error("Found a transfer object which is readLocked",__FILE__,__func__);
+                        if (writeOriginPos != 0){
+                            std::cout<<typeid(*this).name()<<" Item: "<<j<<";send_lock: "<<send_lock<<";writeOrigin: "<<writeOrigin<<";writeOriginPos: "<<writeOriginPos<<std::endl;
+                            throw SFA::util::logic_error("Previous object write has not been completed",__FILE__,__func__);
                         }
+                        send_lock = true;
+                        writeOrigin = j;
+                        return true;
                     }
-                return gotOne;
+                }
+                return false;
             }
             bool write_hook(){
-                bool send_complete = false;
-                bool got_a_transfer = !sent_com_shutdown? getFirstTransfer() : false;
-                if (got_a_transfer) {
-                    send_complete = true;
+                if (!sent_com_shutdown? getFirstTransfer() : false) {
+                    return true;
                 } else {
                     if (incoming_shutdown_query() && !sent_com_shutdown){
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
@@ -542,23 +535,24 @@ namespace SOS
                                 foreign().descriptors[j].synced = true;
                         }
                         send_comshutdownRequest();
-                        send_complete = true;
+                        return true;
                     } else {
                         if (!send_lock)
-                            getFirstSyncObject();
+                            if (getFirstSyncObject())
+                                return false;
                         if (!send_lock){
                             if (outgoing_sighup_query() && !sent_sighup){
                                 send_sighupRequest();
-                                send_complete = true;
+                                return true;
                             } else {
                                 // read in handshake -> set wire to valid state
                                 send_idleRequest();
-                                send_complete = true;
+                                return true;
                             }
                         }
                     }
                 }
-                return send_complete;
+                return false;
             }
             void write_object(int &write3plus1)
             {
