@@ -1,7 +1,7 @@
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
-#include <iostream>
 
 typedef char SAMPLE_SIZE;
 #define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,33>

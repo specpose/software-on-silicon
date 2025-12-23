@@ -1,7 +1,7 @@
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/memorycontroller_helpers.hpp"
-#include <iostream>
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>

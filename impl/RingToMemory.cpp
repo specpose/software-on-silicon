@@ -9,11 +9,11 @@
     ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
 */
 
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/memorycontroller_helpers.hpp"
-#include <iostream>
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/simulation_helpers.hpp"
