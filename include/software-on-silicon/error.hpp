@@ -93,25 +93,17 @@ namespace SFA {
 			return "No error was supplied after initialization of static SFA::util::error";
 		}
 		static error_code error = error_code::noerror;
-		struct logic_error : std::logic_error {
-		logic_error(const char* modname, error_code what, std::string file_name, std::string function_name) : std::logic_error(std::to_string(what)),fi_name(file_name), fu_name(function_name) {
+		void logic_error(const char* modname, error_code what, std::string file_name, std::string function_name) {
 			if (error == error_code::noerror)
 				error = what;
-			std::cout << modname << " Logic Error: " << error_message(error) << ". " << fi_name << "::" << fu_name << std::endl;
+			std::cout << modname << " Logic Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
 			abort();
-		}
-		std::string fi_name;
-		std::string fu_name;
-	    };
-        struct runtime_error : std::runtime_error {
-		runtime_error(const char* modname, error_code what, std::string file_name, std::string function_name) : std::runtime_error(std::to_string(what)),fi_name(file_name), fu_name(function_name) {
+		};
+		void runtime_error(const char* modname, error_code what, std::string file_name, std::string function_name) {
 			if (error == error_code::noerror)
 				error = what;
-			std::cout << modname << " Runtime Error: " << error_message(error) << ". " << fi_name << "::" << fu_name  << std::endl;
+			std::cout << modname << " Runtime Error: " << error_message(error) << ". " << file_name << "::" << function_name  << std::endl;
 			abort();
-		}
-		std::string fi_name;
-		std::string fu_name;
-	    };
+		};
     }
 }

@@ -17,7 +17,7 @@ public:
     FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
-            throw SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__);
+            SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~FPGAProcessingSwitch()
@@ -44,7 +44,7 @@ public:
                     }
                 }
             } else {
-                throw SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::FPGAProcessingSwitchThreadIsTooSlow,__FILE__,__func__);
+                SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::FPGAProcessingSwitchThreadIsTooSlow,__FILE__,__func__);
             }
             break;
         case 1:
@@ -91,7 +91,7 @@ public:
     MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
-            throw SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__);
+            SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__);
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~MCUProcessingSwitch()
@@ -99,7 +99,7 @@ public:
         SOS::Behavior::Stoppable::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    virtual void restart() final { throw SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction, __FILE__, __func__);}
+    virtual void restart() final { SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction, __FILE__, __func__);}
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
@@ -118,7 +118,7 @@ public:
                     }
                 }
             } else {
-                throw SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::MCUProcessingSwitchThreadIsTooSlow,__FILE__,__func__);
+                SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::MCUProcessingSwitchThreadIsTooSlow,__FILE__,__func__);
             }
             break;
         case 1:
