@@ -30,10 +30,10 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         const auto end = _size.getReadBufferAfterLastRef();
         const auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
-            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
+            SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
         <(std::distance(current,end)+readOffset))
-            throw SFA::util::runtime_error("Read index out of bounds",__FILE__,__func__);
+            SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
         auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
         while (current!=end){
             if (!wait()) {

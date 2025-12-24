@@ -22,7 +22,7 @@ namespace SOS {
             )
             {
                 if(std::distance(begin,afterlast)<2)
-                    throw SFA::util::logic_error("Requested RingBuffer size not big enough.",__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough,__FILE__,__func__);
                 //=>explicitly initialize wires
                 std::get<0>(cables).getThreadCurrentRef().store(begin);
                 auto next = begin;

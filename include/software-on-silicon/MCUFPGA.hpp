@@ -27,11 +27,11 @@ namespace SOS
                                                                                                                                                                                                                            std::tuple<ComSize<typename ComBufferType::iterator>>{ComSize<typename ComBufferType::iterator>(inStart, inEnd, outStart, outEnd)})
             {
                 if (std::distance(inStart, inEnd) < 1)
-                    SFA::util::logic_error(typeid(*this).name(), SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
                 if (std::distance(outStart, outEnd) < 1)
-                    SFA::util::logic_error(typeid(*this).name(), SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
                 if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
-                    SFA::util::logic_error(typeid(*this).name(), SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
             }
             cables_type cables;
             const_cables_type const_cables;
@@ -52,7 +52,7 @@ namespace SOS
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
                 if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load() > bufferLength)
-                    SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__);
+                    SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef() + next);
                 next++;
@@ -66,7 +66,7 @@ namespace SOS
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
                 if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load() > bufferLength)
-                    SFA::util::runtime_error(typeid(*this).name(), SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__);
+                    SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef() + next) = byte;
                 next++;
@@ -132,7 +132,7 @@ namespace SOS
                     SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
                     SOS::Protocol::Serial<Objects...>::written_byte_once = true;
                 } else {
-                    SFA::util::logic_error(typeid(*this).name(), SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__, typeid(*this).name());
                 }
             }
         };
@@ -185,7 +185,7 @@ namespace SOS
                     SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
                     SOS::Protocol::Serial<Objects...>::written_byte_once = true;
                 } else {
-                    SFA::util::logic_error(typeid(*this).name(), SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__, typeid(*this).name());
                 }
             }
         };

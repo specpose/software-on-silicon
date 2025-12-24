@@ -22,7 +22,7 @@ namespace SOS {
                 )
             {
                 if (std::distance(begin,end)<0)
-                    throw SFA::util::runtime_error("Invalid Read Destination",__FILE__,__func__);
+                    SFA::util::runtime_error(SFA::util::error_code::InvalidReadDestination,__FILE__,__func__);
                 setOffset(0);
             }
             //FIFO requires BusShaker
@@ -157,7 +157,7 @@ namespace SOS {
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
                     *(writerPos++)=character;
                 } else {
-                    throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
