@@ -188,6 +188,8 @@ namespace SOS
                                 read_object(read4minus1,data);
                             if (!write_hook())
                                 write_object(write3plus1);
+                            if (!written_byte_once)
+                                send_idleRequest();
                             idle_everAfter_action();
                         }
                         handshake_ack();
@@ -287,7 +289,6 @@ namespace SOS
             bool received_sighup = false;
             bool sent_sighup = false;
             bool acknowledgeRequested = false;
-            bool updateRequestReceived = false;
         private:
             bool first_run = true;
             std::size_t acknowledgeId = 255;
@@ -295,7 +296,6 @@ namespace SOS
             bool send_lock = false;
             void read_hook(unsigned char &data)
             {
-                    updateRequestReceived = false;
                     std::bitset<8> obj_id = static_cast<unsigned long>(data);
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
@@ -307,7 +307,7 @@ namespace SOS
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__, typeid(*this).name());
                             }
                         }
-                        if (acknowledgeRequested || updateRequestReceived)
+                        if (acknowledgeRequested)
                             SFA::util::logic_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
                         finished_com_shutdown = false;
                         assume_reads_finished = false;
@@ -352,12 +352,11 @@ namespace SOS
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                         {
                             if (foreign().descriptors[j].id == id){
-                                if (foreign().descriptors[j].readLock)
+                                if (foreign().descriptors[j].readLock && foreign().descriptors[j].queued)
                                     SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,__FILE__,__func__, typeid(*this).name());
                                 if (foreign().descriptors[j].synced)
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
-                                        updateRequestReceived = true;
                                         foreign().descriptors[j].readLock = true;
                                         std::cout<<typeid(*this).name();
                                         std::cout<<"_"<<j<<std::endl;
@@ -369,20 +368,11 @@ namespace SOS
                                     }
                                 } else
                                 {
-                                    if (!foreign().descriptors[j].transfer){//OVERRIDE
-                                        //throw SFA::util::runtime_error("Incoming readLock is canceling local write operation",__FILE__,__func__);
-                                        updateRequestReceived = true;
-                                        foreign().descriptors[j].readLock = true;
-                                        std::cout<<typeid(*this).name();
-                                        std::cout<<"_"<<j<<std::endl;
-                                        if (receive_lock)
-                                            foreign().descriptors[j].queued = true;
-                                        foreign().descriptors[j].synced = true;
-                                        send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
-                                    } else {//VALID STATE
+                                    if (!foreign().descriptors[j].transfer) //OVERRIDE
+                                        SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation,__FILE__,__func__, typeid(*this).name());
+                                    else //VALID STATE
                                         //do not acknowledge
-                                        //throw SFA::util::logic_error("Incoming readLock is rejected/omitted.",__FILE__,__func__);//The other side has to cope with it
-                                    }
+                                        SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
                                 }
                             }
                         }
@@ -544,10 +534,6 @@ namespace SOS
                             if (outgoing_sighup_query() && !sent_sighup){
                                 send_sighupRequest();
                                 return true;
-                            } else {
-                                // read in handshake -> set wire to valid state
-                                send_idleRequest();
-                                return true;
                             }
                         }
                     }
@@ -587,7 +573,8 @@ namespace SOS
                 if (!receive_lock){
                     bool gotOne = false;
                     for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
-                        if (foreign().descriptors[j].readLock && !foreign().descriptors[j].queued){
+                        foreign().descriptors[j].queued = false;
+                        if (foreign().descriptors[j].readLock){
                             if (readDestinationPos != 0){
                                 std::cout<<typeid(*this).name()<<" Item: "<<j<<";receive_lock: "<<receive_lock<<";readDestination: "<<readDestination<<";readDestinationPos: "<<readDestinationPos<<std::endl;
                                 SFA::util::logic_error(SFA::util::error_code::PreviousReadobjectHasNotFinished,__FILE__,__func__, typeid(*this).name());
@@ -624,9 +611,6 @@ namespace SOS
                         //std::cout<<"#";
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
-                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                            foreign().descriptors[j].queued = false;
-                        }
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG

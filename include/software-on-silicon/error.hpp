@@ -20,6 +20,8 @@ namespace SFA {
 			DuplicateSighup,
 			DuplicateReadlockRequest,
 			SyncedObjectsAreNotSupposedToHaveaTransfer,
+			IncomingReadlockIsCancelingLocalWriteOperation,
+			IncomingReadlockIsRejectedOrOmitted,
 			AcknowledgeReceivedWithoutAnyRequest,
 			ReceivedATransferAcknowledgeOnSyncedObject,
 			ReceivedATransferAcknowledgeOnReadlockedObject,
@@ -76,6 +78,8 @@ namespace SFA {
 				case error_code::DuplicateSighup : return std::string("Duplicate sighup");
 				case error_code::DuplicateReadlockRequest : return std::string("Duplicate readLock request");
 				case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer : return std::string("Synced objects are not supposed to have a transfer");
+				case error_code::IncomingReadlockIsCancelingLocalWriteOperation : std::string("Incoming readLock is canceling local write operation");
+				case error_code::IncomingReadlockIsRejectedOrOmitted : std::string("Incoming readLock is rejected or omitted");
 				case error_code::AcknowledgeReceivedWithoutAnyRequest : return std::string("Acknowledge received without any request");
 				case error_code::ReceivedATransferAcknowledgeOnSyncedObject: return std::string("Received a transfer acknowledge on synced object");
 				case error_code::ReceivedATransferAcknowledgeOnReadlockedObject : return std::string("Received a transfer acknowledge on readLocked object");
