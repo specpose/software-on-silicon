@@ -181,17 +181,17 @@ namespace SOS
                         } else {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
-                            acknowledge_hook();
                             if (receive_request())
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
+                            acknowledge_hook();
                             if (!write_hook())
                                 write_object(write3plus1);
-                            if (!written_byte_once)
-                                send_idleRequest();
                             idle_everAfter_action();
                         }
+                        if (!written_byte_once)
+                            send_idleRequest();
                         handshake_ack();
                     }
                     if (loop_shutdown && (finished_com_shutdown || exit))
@@ -321,11 +321,9 @@ namespace SOS
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (!assume_reads_finished){
+                        if (!assume_reads_finished)
                             assume_reads_finished = com_idle_query();
-                        } else {
-                            std::cout<<"!";
-                        }
+                        std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
@@ -352,16 +350,16 @@ namespace SOS
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                         {
                             if (foreign().descriptors[j].id == id){
-                                if (foreign().descriptors[j].readLock && foreign().descriptors[j].queued)
-                                    SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,__FILE__,__func__, typeid(*this).name());
+                                if (foreign().descriptors[j].readLock)
+                                    std::cout<<typeid(*this).name()<<"."<<"&"<<j<<std::endl;
                                 if (foreign().descriptors[j].synced)
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
                                         foreign().descriptors[j].readLock = true;
-                                        std::cout<<typeid(*this).name();
-                                        std::cout<<"_"<<j<<std::endl;
+                                        std::cout<<typeid(*this).name()<<"."<<"L"<<j<<std::endl;
                                         if (receive_lock)
                                             foreign().descriptors[j].queued = true;
+                                        //acknowledge sets a transfer
                                         send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                                     } else {
                                         SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer,__FILE__,__func__, typeid(*this).name());
@@ -382,8 +380,7 @@ namespace SOS
                 auto id = poweronState();
                 send_request();
                 write_bits(id);
-                std::cout<<typeid(*this).name();
-                std::cout<<"P";
+                std::cout<<typeid(*this).name()<<":"<<"P"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 first_run=false;
             }
@@ -391,8 +388,7 @@ namespace SOS
                 auto id = shutdownState();
                 send_request();
                 write_bits(id);
-                std::cout << typeid(*this).name();
-                std::cout << "X";
+                std::cout << typeid(*this).name()<<":"<<"X"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_com_shutdown = true;
             }
@@ -400,8 +396,7 @@ namespace SOS
                 auto id = idleState();
                 send_request();
                 write_bits(id);
-                // std::cout<<typeid(*this).name();
-                // std::cout<<"!";
+                std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
             void send_transferRequest(decltype(DMADescriptor::id) unsynced){
@@ -410,16 +405,14 @@ namespace SOS
                 write_bits(id);
                 std::bitset<8> obj_id = static_cast<unsigned long>(unsynced); // DANGER: overflow check
                 id = id ^ obj_id;
-                std::cout<<typeid(*this).name();
-                std::cout<<":"<<(unsigned int)unsynced<<std::endl;//why not ID?!
+                std::cout<<typeid(*this).name()<<":"<<"T"<<(unsigned int)unsynced<<std::endl;//why not ID?!
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
             void send_sighupRequest() {
                 auto id = sighupState();
                 send_request();
                 write_bits(id);
-                std::cout << typeid(*this).name();
-                std::cout << "I";
+                std::cout << typeid(*this).name()<<":"<<"I"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_sighup = true;
             }
@@ -440,8 +433,7 @@ namespace SOS
                                     SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer,__FILE__,__func__, typeid(*this).name());
                                 if (!foreign().descriptors[j].readLock){
                                     foreign().descriptors[j].transfer = true;
-                                    std::cout<<typeid(*this).name();
-                                    std::cout<<"."<<acknowledgeId<<std::endl;
+                                    std::cout<<typeid(*this).name()<<"."<<"A"<<acknowledgeId<<std::endl;
                                     gotOne = true;
                                 } else {
                                     SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge,__FILE__,__func__, typeid(*this).name());
@@ -454,19 +446,6 @@ namespace SOS
                 } else {
                     if (acknowledgeRequested){
                         SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
-                        bool gotOne = false;
-                        for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
-                            if (j == acknowledgeId){
-                                if (foreign().descriptors[j].synced)
-                                    SFA::util::logic_error(SFA::util::error_code::InvalidAcknowledgeId,__FILE__,__func__, typeid(*this).name());
-                                //throw SFA::util::runtime_error("The other side has overridden sync priority",__FILE__,__func__);
-                                foreign().descriptors[j].synced = true;//OVERRIDE
-                                //The readLock on the other side is expected to be cleared
-                                gotOne = true;
-                            }
-                        }
-                        if (!gotOne)
-                            SFA::util::logic_error(SFA::util::error_code::AcknowledgeIdDoesNotReferenceAValidObject, __FILE__, __func__, typeid(*this).name());
                     }
                 }
                 acknowledgeId = 255;//overridden at half baud rate
@@ -505,7 +484,6 @@ namespace SOS
                         if (foreign().descriptors[j].readLock)
                             SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsReadlocked,__FILE__,__func__, typeid(*this).name());
                         if (writeOriginPos != 0){
-                            std::cout<<typeid(*this).name()<<" Item: "<<j<<";send_lock: "<<send_lock<<";writeOrigin: "<<writeOrigin<<";writeOriginPos: "<<writeOriginPos<<std::endl;
                             SFA::util::logic_error(SFA::util::error_code::PreviousObjectWriteHasNotBeenCompleted,__FILE__,__func__, typeid(*this).name());
                         }
                         send_lock = true;
@@ -560,7 +538,7 @@ namespace SOS
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
-                        std::cout<<typeid(*this).name()<<"WO"<<writeOrigin<<std::endl;
+                        std::cout<<typeid(*this).name()<<":"<<"W"<<writeOrigin<<std::endl;
                         writeOriginPos = 0;
                     }
                     write(63); //'?' empty write
@@ -576,7 +554,6 @@ namespace SOS
                         foreign().descriptors[j].queued = false;
                         if (foreign().descriptors[j].readLock){
                             if (readDestinationPos != 0){
-                                std::cout<<typeid(*this).name()<<" Item: "<<j<<";receive_lock: "<<receive_lock<<";readDestination: "<<readDestination<<";readDestinationPos: "<<readDestinationPos<<std::endl;
                                 SFA::util::logic_error(SFA::util::error_code::PreviousReadobjectHasNotFinished,__FILE__,__func__, typeid(*this).name());
                             }
                             receive_lock = true;
@@ -600,7 +577,6 @@ namespace SOS
                     auto read3bytes = read_flush();
                     if (readDestinationPos < foreign().descriptors[readDestination].obj_size)
                     {
-                        //std::cout<<"*"<<readDestinationPos;
                         for (std::size_t i = 0; i < 3; i++)
                         {
                             reinterpret_cast<char *>(foreign().descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
@@ -608,13 +584,12 @@ namespace SOS
                     }
                     if (readDestinationPos == foreign().descriptors[readDestination].obj_size)
                     {
-                        //std::cout<<"#";
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG
-                        std::cout<<typeid(*this).name()<<"RD"<<readDestination<<std::endl;
+                        std::cout<<typeid(*this).name()<<"."<<"R"<<readDestination<<std::endl;
                         readDestinationPos = 0;
                     }
                     read4minus1 = 0;
@@ -645,7 +620,6 @@ namespace SOS
                 case 3: // recover 3 2bit from call 3 only
                     write_bits(out);
                     out = write_recover(writeAssembly, writeCount, out);
-                    ;
                     writeCount = 0;
                     break;
                 }

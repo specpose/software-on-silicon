@@ -18,7 +18,6 @@ namespace SFA {
 			PreviousTransferRequestsWereNotCleared,
 			DuplicateComShutdown,
 			DuplicateSighup,
-			DuplicateReadlockRequest,
 			SyncedObjectsAreNotSupposedToHaveaTransfer,
 			IncomingReadlockIsCancelingLocalWriteOperation,
 			IncomingReadlockIsRejectedOrOmitted,
@@ -76,7 +75,6 @@ namespace SFA {
 				case error_code::PreviousTransferRequestsWereNotCleared : return std::string("Previous transfer requests were not cleared");
 				case error_code::DuplicateComShutdown : return std::string("Duplicate comShutdown");
 				case error_code::DuplicateSighup : return std::string("Duplicate sighup");
-				case error_code::DuplicateReadlockRequest : return std::string("Duplicate readLock request");
 				case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer : return std::string("Synced objects are not supposed to have a transfer");
 				case error_code::IncomingReadlockIsCancelingLocalWriteOperation : std::string("Incoming readLock is canceling local write operation");
 				case error_code::IncomingReadlockIsRejectedOrOmitted : std::string("Incoming readLock is rejected or omitted");

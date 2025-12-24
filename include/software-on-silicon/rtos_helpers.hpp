@@ -15,7 +15,7 @@ namespace SOS
                 destroyme.join();
             }
             virtual void request_stop() final { Loop::request_stop(); }
-            virtual bool stop() final { bool result = Loop::stop(); std::cout<<typeid(*this).name()<<"SN"; return result; }
+            virtual bool stop() final { bool result = Loop::stop(); std::cout<<typeid(*this).name()<<"SN"<<std::endl; return result; }
             virtual void restart() = 0;//Do not change memory of thread object in here, assume persistent
         };
         //BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
