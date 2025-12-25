@@ -14,7 +14,6 @@ namespace SFA {
 			PoweronAfterUnexpectedShutdown,
 			HotplugAfterUnexpectedShutdown,
 			ObjectCouldBeOutdated,
-			PowerOnWithPendingComShutdown,
 			PreviousTransferRequestsWereNotCleared,
 			DuplicateComShutdown,
 			DuplicateSighup,
@@ -48,6 +47,7 @@ namespace SFA {
 			AttemptedReadAfterEndOfBuffer,
 			AttemptedWriteAfterEndOfBuffer,
 			WritebyteCanOnlyBeCalledOnceInSerialeventloop, //2x
+			NotIdleAfterSighup,
 //RingBuffer.hpp
 			RequestedRingbufferSizeNotBigEnough,
 //ringbuffer_hellpers.hpp
@@ -72,7 +72,6 @@ namespace SFA {
 				case error_code::PoweronAfterUnexpectedShutdown : return std::string("Poweron after unexpected shutdown");
 				case error_code::HotplugAfterUnexpectedShutdown : return std::string("Hotplug after unexpected shutdown");
 				case error_code::ObjectCouldBeOutdated : return std::string("Object could be outdated. Corrupted unless resend_current_object is called from the other side");
-				case error_code::PowerOnWithPendingComShutdown : return std::string("Power on with pending com_shutdown");
 				case error_code::PreviousTransferRequestsWereNotCleared : return std::string("Previous transfer requests were not cleared");
 				case error_code::DuplicateComShutdown : return std::string("Duplicate comShutdown");
 				case error_code::DuplicateSighup : return std::string("Duplicate sighup");
@@ -113,6 +112,7 @@ namespace SFA {
 				case error_code::ReadindexOutOfBounds : return std::string("Read index out of bounds");
 				case error_code::InvalidReadDestination : return std::string("Invalid Read Destination");
 				case error_code::WriterBufferFull : return std::string("Writer Buffer full");
+				case error_code::NotIdleAfterSighup : return std::string("Only idle or poweron state is allowed after sighup received");
 			}
 			return std::string("No error was supplied after initialization of static SFA::util::error");
 		}

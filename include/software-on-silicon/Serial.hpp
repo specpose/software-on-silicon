@@ -181,11 +181,11 @@ namespace SOS
                         } else {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
+                            acknowledge_hook();
                             if (receive_request())
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
-                            acknowledge_hook();
                             if (!write_hook())
                                 write_object(write3plus1);
                         }
@@ -297,13 +297,6 @@ namespace SOS
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
-                        if (received_com_shutdown){
-                            if (!exit_query()){
-                                SFA::util::logic_error(SFA::util::error_code::PowerOnWithPendingComShutdown, __FILE__, __func__, typeid(*this).name());
-                            } else {
-                                //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__, typeid(*this).name());
-                            }
-                        }
                         if (acknowledgeRequested)
                             SFA::util::logic_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
                         assume_reads_finished = false;
@@ -324,6 +317,8 @@ namespace SOS
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
+                        if (received_sighup)
+                            SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
                         if (!received_com_shutdown){
                             com_shutdown_action();
                             received_com_shutdown = true;
@@ -344,6 +339,8 @@ namespace SOS
                     }
                     else
                     {
+                        if (received_sighup)
+                            SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
                         auto id = static_cast<unsigned char>(obj_id.to_ulong());
                         for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
                         {
