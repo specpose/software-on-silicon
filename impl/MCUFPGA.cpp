@@ -248,12 +248,14 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (loop_shutdown && !transfers_pending() && !acknowledgeRequested)
+        if (loop_shutdown && !transfers_pending() && !acknowledgeRequested && !received_acknowledge)
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
+        if (received_sighup && assume_reads_finished && !writes_pending())
+            return true;
         return false;
     }
 
@@ -341,7 +343,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (received_com_shutdown && !transfers_pending() && !acknowledgeRequested)
+        if (received_com_shutdown && !transfers_pending() && !acknowledgeRequested && !received_acknowledge)
             return true;
         return false;
     }

@@ -181,11 +181,15 @@ namespace SOS
                         } else {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
-                            acknowledge_hook();
-                            if (receive_request())
+                            received_acknowledge = receive_acknowledge();
+                            received_request = receive_request();
+                            if (received_request)
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
+                            acknowledge_hook();
+                            if (received_request)
+                                transfer_hook();
                             if (!write_hook())
                                 write_object(write3plus1);
                         }
@@ -286,8 +290,11 @@ namespace SOS
             bool received_sighup = false;
             bool sent_sighup = false;
             bool acknowledgeRequested = false;
+            bool received_acknowledge = false;
         private:
             bool first_run = true;
+            bool received_request = false;
+            unsigned char request_id = 255;
             std::size_t acknowledgeId = 255;
             bool receive_lock = false;
             bool send_lock = false;
@@ -342,32 +349,12 @@ namespace SOS
                         if (received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
                         auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
-                        {
-                            if (foreign().descriptors[j].id == id){
-                                if (foreign().descriptors[j].readLock)
-                                    SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,__FILE__,__func__, typeid(*this).name());
-                                if (foreign().descriptors[j].synced)
-                                {//acknowledge override case can be omitted: 2 cycles
-                                    if (!foreign().descriptors[j].transfer){
-                                        foreign().descriptors[j].readLock = true;
-                                        std::cout<<typeid(*this).name()<<"."<<"L"<<j<<std::endl;
-                                        if (receive_lock)
-                                            foreign().descriptors[j].queued = true;
-                                        //acknowledge sets a transfer
-                                        send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
-                                    } else {
-                                        SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer,__FILE__,__func__, typeid(*this).name());
-                                    }
-                                } else
-                                {
-                                    if (!foreign().descriptors[j].transfer) //OVERRIDE
-                                        SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation,__FILE__,__func__, typeid(*this).name());
-                                    else //VALID STATE
-                                        //do not acknowledge
-                                        SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
-                                }
-                            }
+                        if (!(received_acknowledge && acknowledgeId == id)) {
+                            request_id = id;
+                        } else {//VALID STATE
+                            //SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
+                            request_id = 255;
+                            received_request = false;
                         }
                     }
             }
@@ -411,8 +398,9 @@ namespace SOS
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
                 sent_sighup = true;
             }
+            //acknowledge has priority over request, but requires last read_object byte
             void acknowledge_hook() {
-                if (receive_acknowledge())
+                if (received_acknowledge)
                 {
                     if (!acknowledgeRequested){
                         SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
@@ -445,6 +433,32 @@ namespace SOS
                 }
                 acknowledgeId = 255;//overridden at half baud rate
                 acknowledgeRequested = false;//overridden at half baud rate
+            }
+            void transfer_hook() {
+                for (std::size_t j = 0; j < foreign().descriptors.size(); j++) {
+                    if (foreign().descriptors[j].id == request_id){
+                        if (foreign().descriptors[j].readLock)
+                            SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,std::to_string(request_id),__func__, typeid(*this).name());
+                        if (foreign().descriptors[j].synced)
+                        {//acknowledge override case can be omitted: 2 cycles
+                            if (!foreign().descriptors[j].transfer){
+                                foreign().descriptors[j].readLock = true;
+                                std::cout<<typeid(*this).name()<<"."<<"L"<<j<<std::endl;
+                                if (receive_lock)
+                                    foreign().descriptors[j].queued = true;
+                                //acknowledge sets a transfer
+                                send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
+                            } else {
+                                SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer,__FILE__,__func__, typeid(*this).name());
+                            }
+                        } else {
+                            if (!foreign().descriptors[j].transfer) //OVERRIDE
+                                SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation,__FILE__,__func__, typeid(*this).name());
+                        }
+                    }
+                }
+                request_id = 255;
+                received_request = false;
             }
             unsigned int writeCount = 0; // write3plus1
             std::size_t writeOrigin = 255;
@@ -489,24 +503,23 @@ namespace SOS
                 return false;
             }
             bool write_hook(){
-                if (!sent_com_shutdown? getFirstTransfer() : false) {
-                    return true;
-                } else {
+                if (!send_lock)
+                    if (!sent_com_shutdown? getFirstTransfer() : false) {
+                        return true;
+                    }
+                if (!send_lock)
                     if (incoming_shutdown_query() && !sent_com_shutdown){
                         send_comshutdownRequest();
                         return true;
-                    } else {
-                        if (!send_lock)
-                            if (getFirstSyncObject())
-                                return false;
-                        if (!send_lock){
-                            if (outgoing_sighup_query() && !sent_sighup){
-                                send_sighupRequest();
-                                return true;
-                            }
-                        }
                     }
-                }
+                if (!send_lock)
+                    if (getFirstSyncObject())
+                        return false;
+                if (!send_lock)
+                    if (outgoing_sighup_query() && !sent_sighup){
+                        send_sighupRequest();
+                        return true;
+                    }
                 return false;
             }
             void write_object(int &write3plus1)
