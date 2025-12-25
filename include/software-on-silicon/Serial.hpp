@@ -263,7 +263,7 @@ namespace SOS
             }
             bool writes_pending(){
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                    if (!foreign().descriptors[j].synced && foreign().descriptors[j].transfer)
+                    if (foreign().descriptors[j].transfer)
                         return true;
                 }
                 return false;
@@ -323,13 +323,15 @@ namespace SOS
                     {
                         if (!assume_reads_finished)
                             assume_reads_finished = com_idle_query();
-                        std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
+                        if (assume_reads_finished)
+                            std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
                         if (!received_com_shutdown){
                             com_shutdown_action();
                             received_com_shutdown = true;
+                            std::cout<<typeid(*this).name()<<"."<<"X"<<std::endl;
                         } else {
                             SFA::util::logic_error(SFA::util::error_code::DuplicateComShutdown,__FILE__,__func__, typeid(*this).name());
                         }
@@ -351,7 +353,7 @@ namespace SOS
                         {
                             if (foreign().descriptors[j].id == id){
                                 if (foreign().descriptors[j].readLock)
-                                    std::cout<<typeid(*this).name()<<"."<<"&"<<j<<std::endl;
+                                    SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,__FILE__,__func__, typeid(*this).name());
                                 if (foreign().descriptors[j].synced)
                                 {//acknowledge override case can be omitted: 2 cycles
                                     if (!foreign().descriptors[j].transfer){
@@ -396,7 +398,7 @@ namespace SOS
                 auto id = idleState();
                 send_request();
                 write_bits(id);
-                std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
+                //std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
             }
             void send_transferRequest(decltype(DMADescriptor::id) unsynced){
@@ -498,10 +500,6 @@ namespace SOS
                     return true;
                 } else {
                     if (incoming_shutdown_query() && !sent_com_shutdown){
-                        for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
-                            if (!foreign().descriptors[j].transfer)
-                                foreign().descriptors[j].synced = true;
-                        }
                         send_comshutdownRequest();
                         return true;
                     } else {

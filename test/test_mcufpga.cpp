@@ -14,10 +14,7 @@ void client_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUF
     if (!fpgabus.signal.getAcknowledgeRef().test_and_set()){
         //transfer fpga_out_buffer to mcu_in_buffer
         for (std::size_t n=0;n<mcu_in_buffer.size();n++){
-            if (!stopped)
-                mcu_in_buffer[n]=fpga_out_buffer[n];
-            else
-                mcu_in_buffer[n]=SOS::Protocol::idleState().to_ulong();
+            mcu_in_buffer[n]=fpga_out_buffer[n];
         }
         mcubus.signal.getUpdatedRef().clear();
     }
@@ -28,10 +25,7 @@ void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFE
     if (!mcubus.signal.getAcknowledgeRef().test_and_set()){
         //transfer mcu_out_buffer to fpga_in_buffer
         for (std::size_t n=0;n<fpga_in_buffer.size();n++){
-            if (!stopped)
-                fpga_in_buffer[n]=mcu_out_buffer[n];
-            else
-                fpga_in_buffer[n]=SOS::Protocol::idleState().to_ulong();
+            fpga_in_buffer[n]=mcu_out_buffer[n];
         }
         fpgabus.signal.getUpdatedRef().clear();
     }
