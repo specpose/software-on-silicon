@@ -224,10 +224,11 @@ public:
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
         SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
     }
-    virtual void idle_everAfter_action() final
+    virtual bool exit_query() final
     {
         if (received_sighup)
-            exit = true;
+            return true;
+        return false;
     }
     virtual void com_shutdown_action() final
     {
@@ -315,10 +316,11 @@ public:
         //    _foreign.descriptors[0].synced = false;
         //}
     }
-    virtual void idle_everAfter_action() final
+    virtual bool exit_query() final
     {
         if (sent_sighup)
-            finished_com_shutdown = true;
+            return true;
+        return false;
     }
     virtual void com_shutdown_action() final
     {

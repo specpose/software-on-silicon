@@ -188,13 +188,12 @@ namespace SOS
                             acknowledge_hook();
                             if (!write_hook())
                                 write_object(write3plus1);
-                            idle_everAfter_action();
                         }
                         if (!written_byte_once)
                             send_idleRequest();
                         handshake_ack();
                     }
-                    if (loop_shutdown && (finished_com_shutdown || exit))
+                    if (exit_query() && loop_shutdown)
                         shutdown_action();
                 }
                 finished();
@@ -220,9 +219,9 @@ namespace SOS
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
-            virtual void idle_everAfter_action() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void com_sighup_action() = 0;
+            virtual bool exit_query() = 0;
             virtual bool com_idle_query() = 0;
             virtual bool incoming_shutdown_query() = 0;
             virtual bool outgoing_sighup_query() = 0;
@@ -281,8 +280,6 @@ namespace SOS
             bool mcu_acknowledge = false;  // mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
             bool loop_shutdown = false;
-            bool finished_com_shutdown = false;
-            bool exit = false;
             bool assume_reads_finished = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
@@ -301,7 +298,7 @@ namespace SOS
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
                         if (received_com_shutdown){
-                            if (!finished_com_shutdown){
+                            if (!exit_query()){
                                 SFA::util::logic_error(SFA::util::error_code::PowerOnWithPendingComShutdown, __FILE__, __func__, typeid(*this).name());
                             } else {
                                 //throw SFA::util::logic_error("Power on with completed com_shutdown.", __FILE__, __func__, typeid(*this).name());
@@ -309,7 +306,6 @@ namespace SOS
                         }
                         if (acknowledgeRequested)
                             SFA::util::logic_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
-                        finished_com_shutdown = false;
                         assume_reads_finished = false;
                         received_com_shutdown = false;
                         sent_com_shutdown = false;
