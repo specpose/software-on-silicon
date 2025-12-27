@@ -128,12 +128,7 @@ namespace SOS
             }
             virtual void write_byte(unsigned char byte) final
             {
-                if (!SOS::Protocol::Serial<Objects...>::written_byte_once){
                     SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
-                    SOS::Protocol::Serial<Objects...>::written_byte_once = true;
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__, typeid(*this).name());
-                }
             }
         };
         template <typename ControllerType, typename... Objects>
@@ -181,12 +176,7 @@ namespace SOS
             }
             virtual void write_byte(unsigned char byte) final
             {
-                if (!SOS::Protocol::Serial<Objects...>::written_byte_once) {
                     SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
-                    SOS::Protocol::Serial<Objects...>::written_byte_once = true;
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop, __FILE__, __func__, typeid(*this).name());
-                }
             }
         };
     }

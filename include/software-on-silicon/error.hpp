@@ -46,8 +46,8 @@ namespace SFA {
 			CombufferInAndOutSizeNotEqual,
 			AttemptedReadAfterEndOfBuffer,
 			AttemptedWriteAfterEndOfBuffer,
-			WritebyteCanOnlyBeCalledOnceInSerialeventloop, //2x
 			NotIdleAfterSighup,
+			ReadsPendingAfterComthreadDestruction,
 //RingBuffer.hpp
 			RequestedRingbufferSizeNotBigEnough,
 //ringbuffer_hellpers.hpp
@@ -104,7 +104,6 @@ namespace SFA {
 				case error_code::CombufferInAndOutSizeNotEqual : return std::string("ComBuffer in and out size not equal");
 				case error_code::AttemptedReadAfterEndOfBuffer : return std::string("Attempted read after end of buffer");
 				case error_code::AttemptedWriteAfterEndOfBuffer : return std::string("Attempted write after end of buffer");
-				case error_code::WritebyteCanOnlyBeCalledOnceInSerialeventloop : return std::string("write_byte can only be called once in Serial event_loop");
 				case error_code::RequestedRingbufferSizeNotBigEnough : return std::string("Requested RingBuffer size not big enough.");
 				case error_code::IndividualWritelengthTooBigOrRingBufferTooSmall : return std::string("Individual write length too big or RingBuffer too small");
 				case error_code::RingbufferTooSlowOrNotBigEnough : return std::string("RingBuffer too slow or not big enough");
@@ -113,6 +112,7 @@ namespace SFA {
 				case error_code::InvalidReadDestination : return std::string("Invalid Read Destination");
 				case error_code::WriterBufferFull : return std::string("Writer Buffer full");
 				case error_code::NotIdleAfterSighup : return std::string("Only idle or poweron state is allowed after sighup received");
+				case error_code::ReadsPendingAfterComthreadDestruction : return std::string("Reads pending after Comthread destruction");
 			}
 			return std::string("No error was supplied after initialization of static SFA::util::error");
 		}

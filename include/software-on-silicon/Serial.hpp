@@ -52,6 +52,16 @@ namespace SOS
             id.set(0, 0);
             return id; //-> "10111100"
         }
+        struct com_vars {
+            bool loop_shutdown = false;
+            bool received_idle = false;
+            bool received_com_shutdown = false;
+            bool sent_com_shutdown = false;
+            bool received_sighup = false;
+            bool sent_sighup = false;
+            bool acknowledgeRequested = false;
+            bool received_acknowledge = false;
+        };
         struct DMADescriptor
         {
             DMADescriptor() {} // DANGER
@@ -174,30 +184,27 @@ namespace SOS
                     std::this_thread::yield();
                     if (handshake())
                     {
-                        written_byte_once = false;
-                        if (first_run){
-                            //if both are sending a poweron at the same time, only the second is read by the other party.
-                            send_poweronRequest();
-                        } else {
+                        //IN
+                            if (!first_run) {
                             unsigned char data = read_byte();
                             read_bits(static_cast<unsigned long>(data));
-                            received_acknowledge = receive_acknowledge();
+                            _vars.received_acknowledge = receive_acknowledge();
                             received_request = receive_request();
+                            _vars.received_idle = false;
                             if (received_request)
                                 read_hook(data);
                             else
                                 read_object(read4minus1,data);
+                            transfer_hook();
                             acknowledge_hook();
-                            if (received_request)
-                                transfer_hook();
+                            }
+                        //OUT
                             if (!write_hook())
-                                write_object(write3plus1);
-                        }
-                        if (!written_byte_once)
-                            send_idleRequest();
+                                if (!write_object(write3plus1))
+                                    send_idleRequest();
                         handshake_ack();
                     }
-                    if (exit_query() && loop_shutdown)
+                    if (exit_query() && _vars.loop_shutdown)
                         shutdown_action();
                 }
                 finished();
@@ -219,14 +226,12 @@ namespace SOS
             virtual bool receive_acknowledge() = 0; // 4
             virtual unsigned char read_byte() = 0;
             virtual void write_byte(unsigned char) = 0;
-            bool written_byte_once = false;//DEBUG
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void com_sighup_action() = 0;
             virtual bool exit_query() = 0;
-            virtual bool com_idle_query() = 0;
             virtual bool incoming_shutdown_query() = 0;
             virtual bool outgoing_sighup_query() = 0;
             virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
@@ -283,19 +288,12 @@ namespace SOS
             bool fpga_updated = false;     // mcu_read,fpga_write bit 7
             bool mcu_acknowledge = false;  // mcu_read,fpga_write bit 6
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() = 0;
-            bool loop_shutdown = false;
-            bool assume_reads_finished = false;
-            bool received_com_shutdown = false;
-            bool sent_com_shutdown = false;
-            bool received_sighup = false;
-            bool sent_sighup = false;
-            bool acknowledgeRequested = false;
-            bool received_acknowledge = false;
+            com_vars _vars = com_vars{};
         private:
             bool first_run = true;
             bool received_request = false;
-            unsigned char request_id = 255;
-            std::size_t acknowledgeId = 255;
+            unsigned char requestId = 255;
+            unsigned char acknowledgeId = 255;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(unsigned char &data)
@@ -304,31 +302,28 @@ namespace SOS
                     obj_id = (obj_id << 2) >> 2;
                     if (obj_id == ((poweronState() << 2) >> 2))
                     {
-                        if (acknowledgeRequested)
-                            SFA::util::logic_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
-                        assume_reads_finished = false;
-                        received_com_shutdown = false;
-                        sent_com_shutdown = false;
-                        received_sighup = false;
-                        sent_sighup = false;
+                        //if (!_vars.received_sighup)
+                        //    SFA::util::runtime_error(SFA::util::error_code::PreviousCommunicationNotSighupTerminated, __FILE__, __func__, typeid(*this).name());
+                        if (_vars.acknowledgeRequested || _vars.received_acknowledge)
+                            SFA::util::runtime_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
+                        _vars = com_vars{};
                         com_hotplug_action();//NO send_request() or send_acknowledge() in here
                         //start_calc_thread
                         //start notifier
                     }
                     else if (obj_id == ((idleState() << 2) >> 2))
                     {
-                        if (!assume_reads_finished)
-                            assume_reads_finished = com_idle_query();
-                        if (assume_reads_finished)
+                        _vars.received_idle = true;
+                        if (_vars.received_com_shutdown)
                             std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
                     }
                     else if (obj_id == ((shutdownState() << 2) >> 2))
                     {
-                        if (received_sighup)
+                        if (_vars.received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                        if (!received_com_shutdown){
+                        if (!_vars.received_com_shutdown){
                             com_shutdown_action();
-                            received_com_shutdown = true;
+                            _vars.received_com_shutdown = true;
                             std::cout<<typeid(*this).name()<<"."<<"X"<<std::endl;
                         } else {
                             SFA::util::logic_error(SFA::util::error_code::DuplicateComShutdown,__FILE__,__func__, typeid(*this).name());
@@ -336,26 +331,19 @@ namespace SOS
                     }
                     else if (obj_id == ((sighupState() << 2) >> 2))
                     {
-                        if (!received_sighup)
+                        if (!_vars.received_sighup)
                         {
                             com_sighup_action();
-                            received_sighup = true;
+                            _vars.received_sighup = true;
                         } else {
                             SFA::util::logic_error(SFA::util::error_code::DuplicateSighup,__FILE__,__func__, typeid(*this).name());
                         }
                     }
                     else
                     {
-                        if (received_sighup)
+                        if (_vars.received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                        auto id = static_cast<unsigned char>(obj_id.to_ulong());
-                        if (!(received_acknowledge && acknowledgeId == id)) {
-                            request_id = id;
-                        } else {//VALID STATE
-                            //SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
-                            request_id = 255;
-                            received_request = false;
-                        }
+                        requestId = static_cast<unsigned char>(obj_id.to_ulong());
                     }
             }
             void send_poweronRequest() {
@@ -372,7 +360,7 @@ namespace SOS
                 write_bits(id);
                 std::cout << typeid(*this).name()<<":"<<"X"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
-                sent_com_shutdown = true;
+                _vars.sent_com_shutdown = true;
             }
             void send_idleRequest() {
                 auto id = idleState();
@@ -396,13 +384,13 @@ namespace SOS
                 write_bits(id);
                 std::cout << typeid(*this).name()<<":"<<"I"<<std::endl;
                 write_byte(static_cast<unsigned char>(id.to_ulong()));
-                sent_sighup = true;
+                _vars.sent_sighup = true;
             }
             //acknowledge has priority over request, but requires last read_object byte
             void acknowledge_hook() {
-                if (received_acknowledge)
+                if (_vars.received_acknowledge)
                 {
-                    if (!acknowledgeRequested){
+                    if (!_vars.acknowledgeRequested){
                         SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
                     } else {
                         bool gotOne = false;
@@ -427,18 +415,19 @@ namespace SOS
                             SFA::util::logic_error(SFA::util::error_code::AcknowledgeIdDoesNotReferenceAValidObject, __FILE__, __func__, typeid(*this).name());
                     }
                 } else {
-                    if (acknowledgeRequested){
+                    if (_vars.acknowledgeRequested){
                         SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
                     }
                 }
                 acknowledgeId = 255;//overridden at half baud rate
-                acknowledgeRequested = false;//overridden at half baud rate
+                _vars.acknowledgeRequested = false;//overridden at half baud rate
             }
             void transfer_hook() {
+                if (received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
                 for (std::size_t j = 0; j < foreign().descriptors.size(); j++) {
-                    if (foreign().descriptors[j].id == request_id){
+                    if (foreign().descriptors[j].id == requestId){
                         if (foreign().descriptors[j].readLock)
-                            SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,std::to_string(request_id),__func__, typeid(*this).name());
+                            SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,std::to_string(requestId),__func__, typeid(*this).name());
                         if (foreign().descriptors[j].synced)
                         {//acknowledge override case can be omitted: 2 cycles
                             if (!foreign().descriptors[j].transfer){
@@ -457,8 +446,10 @@ namespace SOS
                         }
                     }
                 }
-                request_id = 255;
-                received_request = false;
+                } else {//VALID STATE
+                    //SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
+                }
+                requestId = 255;
             }
             unsigned int writeCount = 0; // write3plus1
             std::size_t writeOrigin = 255;
@@ -473,7 +464,7 @@ namespace SOS
                         if (foreign().descriptors[j].readLock)
                             SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                         acknowledgeId = j;//overridden when synced is set to false
-                        acknowledgeRequested = true;
+                        _vars.acknowledgeRequested = true;
                         send_transferRequest(foreign().descriptors[j].id);
                         return true;
                     }
@@ -503,12 +494,16 @@ namespace SOS
                 return false;
             }
             bool write_hook(){
+                if (first_run){
+                    send_poweronRequest();
+                    return true;
+                }
                 if (!send_lock)
-                    if (!sent_com_shutdown? getFirstTransfer() : false) {
+                    if (!_vars.sent_com_shutdown? getFirstTransfer() : false) {
                         return true;
                     }
                 if (!send_lock)
-                    if (incoming_shutdown_query() && !sent_com_shutdown){
+                    if (incoming_shutdown_query() && !_vars.sent_com_shutdown){
                         send_comshutdownRequest();
                         return true;
                     }
@@ -516,21 +511,22 @@ namespace SOS
                     if (getFirstSyncObject())
                         return false;
                 if (!send_lock)
-                    if (outgoing_sighup_query() && !sent_sighup){
+                    if (outgoing_sighup_query() && !_vars.sent_sighup){
                         send_sighupRequest();
                         return true;
                     }
                 return false;
             }
-            void write_object(int &write3plus1)
+            bool write_object(int &write3plus1)
             {
                 if (send_lock){
                 if (write3plus1 < 3)
                 {
                     unsigned char data;
                     data = reinterpret_cast<char *>(foreign().descriptors[writeOrigin].obj)[writeOriginPos++];
-                    write(data);
                     write3plus1++;
+                    write(data);
+                    return true;
                 }
                 else
                 { // write3plus1==3
@@ -545,10 +541,12 @@ namespace SOS
                         std::cout<<typeid(*this).name()<<":"<<"W"<<writeOrigin<<std::endl;
                         writeOriginPos = 0;
                     }
-                    write(63); //'?' empty write
                     write3plus1 = 0;
+                    write(63); //'?' empty write
+                    return true;
                 }
                 }
+                return false;
             }
             void read_object(int &read4minus1, unsigned char &data)
             {

@@ -200,12 +200,12 @@ public:
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-            std::cout<<typeid(*this).name()<<" Reads Pending!";
+            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
     }
     void requestStop()//Only from Ctrl-C
     {
         stop_notifier();
-        loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
+        _vars.loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
     void restart() {
         _thread = SOS::Behavior::Loop::start(this);
@@ -226,7 +226,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (received_sighup)
+        if (_vars.received_sighup)
             return true;
         return false;
     }
@@ -236,25 +236,19 @@ public:
     virtual void com_sighup_action() final
     {
     }
-    virtual bool com_idle_query() final
-    {
-        if (received_com_shutdown)
-            return true;
-        return false;
-    }
     virtual void shutdown_action() final
     {
         SOS::Behavior::Stoppable::request_stop();
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (loop_shutdown && !transfers_pending() && !acknowledgeRequested && !received_acknowledge)
+        if (_vars.loop_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge)
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
-        if (received_sighup && assume_reads_finished && !writes_pending())
+        if (_vars.received_sighup && (_vars.received_com_shutdown && _vars.received_idle) && !writes_pending())
             return true;
         return false;
     }
@@ -291,11 +285,11 @@ public:
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-            std::cout<<typeid(*this).name()<<" Reads Pending!";
+            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
     }
     void requestStop()//Only from Ctrl-C
     {
-        loop_shutdown = true;
+        _vars.loop_shutdown = true;
     }
     void restart() {
         _thread = SOS::Behavior::Loop::start(this);
@@ -320,7 +314,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (sent_sighup)
+        if (_vars.sent_sighup)
             return true;
         return false;
     }
@@ -331,25 +325,19 @@ public:
     virtual void com_sighup_action() final
     {
     }
-    virtual bool com_idle_query() final
-    {
-        if (received_com_shutdown)
-            return true;
-        return false;
-    }
     virtual void shutdown_action() final
     {
         SOS::Behavior::Stoppable::request_stop();
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (received_com_shutdown && !transfers_pending() && !acknowledgeRequested && !received_acknowledge)
+        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge)
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
-        if (sent_com_shutdown && assume_reads_finished && !writes_pending())
+        if (_vars.sent_com_shutdown && (_vars.received_com_shutdown && _vars.received_idle) && !writes_pending())
             return true;
         return false;
     }
