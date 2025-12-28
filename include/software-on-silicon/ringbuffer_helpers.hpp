@@ -58,7 +58,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         }
         //do not advance -> current invalid
         std::cout<<std::endl;
-        throw SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
+        SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
     }
 }
 }
