@@ -8,6 +8,12 @@ project(software-on-silicon)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads QUIET)
 
+if (WIN32)
+    if (NOT CMAKE_MSVC_RUNTIME_LIBRARY)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif ()
+endif ()
+
 add_executable(test_EventLoop)
 target_include_directories(test_EventLoop
     PRIVATE
