@@ -75,6 +75,7 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         destroy(_thread);
     }
+    virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     private:
     virtual void read() final {
         //if (is_running()) {
