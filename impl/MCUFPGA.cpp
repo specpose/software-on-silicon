@@ -2,6 +2,8 @@
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
+#include "software-on-silicon/SerialNotifier.hpp"
+#include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/rtos_helpers.hpp"
@@ -221,8 +223,8 @@ public:
     }
     virtual void com_hotplug_action() final
     {
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        this->clear_read_receive();
+        this->resend_current_object();
     }
     virtual bool exit_query() final
     {
@@ -305,8 +307,8 @@ public:
     };
     virtual void com_hotplug_action() final
     {
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::clear_read_receive();
-        SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::resend_current_object();
+        this->clear_read_receive();
+        this->resend_current_object();
         //if (!std::get<0>(_foreign.objects).mcu_owned()){
         //    std::get<0>(_foreign.objects).set_mcu_owned(false);
         //    _foreign.descriptors[0].synced = false;
