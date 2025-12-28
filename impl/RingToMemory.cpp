@@ -1,10 +1,21 @@
+/*
+    This class is for reading from a driver or gpio on a ControllerHost into a RingBuffer and providing random
+    memory access from either the ControllerHost, or a fpga SubController propped onto the Reader
+
+    ControllerHost<Writer<Reader<SubController>>>
+
+    It is not suitable for reading from a FPGA gpio when the processing needs immediate, timed pre-processing because of the signaling
+
+    ControllerHost<Reader<SigmaDelta<Writer(GPIO)>>>
+*/
+
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/memorycontroller_helpers.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include <iostream>
 #include "software-on-silicon/simulation_helpers.hpp"
 
 namespace SOSFloat {
@@ -41,7 +52,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         //memorycontroller
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
-            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
+            SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
                 auto readerStart = _memorycontroller_size.getBKStartRef().load();
@@ -109,7 +120,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         ara_sampleCount = memorycontroller.size();
         for(auto& sample : memorycontroller)
             if (sample->size()!=_vst_numInputs)
-                throw SFA::util::logic_error("Memorycontroller resize error",__FILE__,__func__);
+                SFA::util::logic_error(SFA::util::error_code::MemorycontrollerResizeError,__FILE__,__func__);
     };
     //not inherited: overload
     void write(const RING_BUFFER::value_type character) {
@@ -118,7 +129,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getUpdatedRef().test_and_set();
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<2>(character)+std::get<1>(character))
-            throw SFA::util::runtime_error("Writer tried to write beyond memorycontroller bounds",__FILE__,__func__);
+            SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++){
             _blocker.signal.getUpdatedRef().clear();
@@ -136,7 +147,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
                 memorycontroller[i] = nullptr;
             }
             else {
-                throw SFA::util::logic_error("MemoryController corrupted",__FILE__,__func__);
+                SFA::util::logic_error(SFA::util::error_code::MemorycontrollerCorrupted,__FILE__,__func__);
             }
         memorycontroller.clear();
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());

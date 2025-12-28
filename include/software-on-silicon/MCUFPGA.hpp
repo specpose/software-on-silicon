@@ -27,11 +27,11 @@ namespace SOS
                                                                                                                                                                                                                            std::tuple<ComSize<typename ComBufferType::iterator>>{ComSize<typename ComBufferType::iterator>(inStart, inEnd, outStart, outEnd)})
             {
                 if (std::distance(inStart, inEnd) < 1)
-                    throw SFA::util::logic_error("ComBuffer size is minimum WORD_SIZE.", __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
                 if (std::distance(outStart, outEnd) < 1)
-                    throw SFA::util::logic_error("ComBuffer size is minimum WORD_SIZE.", __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
                 if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
-                    throw SFA::util::logic_error("ComBuffer in and out size not equal.", __FILE__, __func__);
+                    SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
             }
             cables_type cables;
             const_cables_type const_cables;
@@ -52,7 +52,7 @@ namespace SOS
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
                 if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load() > bufferLength)
-                    throw SFA::util::runtime_error("Attempted read after end of buffer.", __FILE__, __func__);
+                    SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef() + next);
                 next++;
@@ -66,7 +66,7 @@ namespace SOS
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
                 if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load() > bufferLength)
-                    throw SFA::util::runtime_error("Attempted write after end of buffer.", __FILE__, __func__);
+                    SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
                 auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef() + next) = byte;
                 next++;
@@ -105,7 +105,10 @@ namespace SOS
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
             }
-
+            virtual void stop_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+            }
         private:
             virtual bool handshake() final
             {
@@ -125,7 +128,7 @@ namespace SOS
             }
             virtual void write_byte(unsigned char byte) final
             {
-                SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
+                    SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
         };
         template <typename ControllerType, typename... Objects>
@@ -150,7 +153,10 @@ namespace SOS
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
             }
-
+            virtual void stop_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+            }
         private:
             virtual bool handshake() final
             {
@@ -170,7 +176,7 @@ namespace SOS
             }
             virtual void write_byte(unsigned char byte) final
             {
-                SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
+                    SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
             }
         };
     }

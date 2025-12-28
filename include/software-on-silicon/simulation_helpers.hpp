@@ -27,6 +27,7 @@ template<typename DurationType,
         ).count()
         <<"ns more on average per "<<Period<<" duration units."<<std::endl;
     }
+    void restart() { _thread = start(this); }
     void event_loop(){
         while(is_running()){
         if (!_intrinsic.getUpdatedRef().test_and_set()){

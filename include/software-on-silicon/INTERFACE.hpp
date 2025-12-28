@@ -75,7 +75,7 @@ namespace SOS{
             Contiguous() = delete;
             Contiguous(const std::size_t size) : std::vector<T>(size) {
                 if (this->size()!=size)
-                    throw SFA::util::logic_error("Contiguous initialized incorrectly",__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::ContiguousInitializedIncorrectly,__FILE__,__func__);
                 std::fill(this->begin(),this->end(),0.0);
             }
             ~Contiguous(){

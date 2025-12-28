@@ -1,3 +1,4 @@
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/memorycontroller_helpers.hpp"
@@ -37,12 +38,12 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         const auto end = _size[channel].getReadBufferAfterLastRef().load();
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
-            throw SFA::util::runtime_error("Negative read offset supplied",__FILE__,__func__);
+            SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
                 if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
                     < (std::distance(start, end) + readOffset))
-                    throw SFA::util::runtime_error("Read index out of bounds", __FILE__, __func__);
+                    SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                 //readOffset stays valid with resize (grow), but not clearMemoryController
                 auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
                 *current = (**readerPos)[channel];

@@ -27,7 +27,7 @@ namespace SOS {
             }
             void setReadBuffer(OutputBuffer& buffer){
                 if (buffer.size()!=std::get<1>(cables).size())
-                    throw SFA::util::logic_error("Illegal ReadBuffer size encountered",__FILE__,__func__);
+                    throw SFA::util::logic_error(SFA::util::error_code::IllegalReadbufferSizeEncountered,__FILE__,__func__);
                 for (int channel=0;channel<buffer.size();channel++){
                 std::get<1>(cables)[channel].getReadBufferStartRef().store(buffer[channel].begin());
                 std::get<1>(cables)[channel].getReadBufferAfterLastRef().store(buffer[channel].end());
@@ -62,13 +62,13 @@ namespace SOS {
                 if (p)
                     return p;
                 else
-                    throw SFA::util::logic_error("ARAChannel initialization error",__FILE__,__func__);
+                    throw SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
             }
             T* end(){
                 if (p)
                     return p+size;
                 else
-                    throw SFA::util::logic_error("ARAChannel initialization error",__FILE__,__func__);
+                    throw SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
             }
             private:
             T* p = nullptr;
@@ -185,14 +185,14 @@ namespace SOS {
             virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
                     if (!(*writerPos))
-                        throw SFA::util::logic_error("memorycontroller has not been initialized",__FILE__,__func__);
+                        throw SFA::util::logic_error(SFA::util::MemorycontrollerHasNotBeenInitialized,__FILE__,__func__);
                     if ((**writerPos).size()!=(*character).size())
-                        throw SFA::util::logic_error("Illegal character size encountered",__FILE__,__func__);
+                        throw SFA::util::logic_error(SFA::util::IllegalCharactersizeEncountered,__FILE__,__func__);
                     for(std::size_t channel=0;channel<(**writerPos).size();channel++)
                         (**writerPos)[channel]=(*character)[channel];
                     writerPos++;
                 } else {
-                    throw SFA::util::logic_error("Writer Buffer full",__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());

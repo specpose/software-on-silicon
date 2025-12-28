@@ -28,10 +28,10 @@ class Functor1 {
     }
     void operator()(const SAMPLE_SIZE* channel_ptrs[], const std::size_t vst_numSamples, const std::size_t actualSamplePosition){
         if (!channel_ptrs)
-            throw SFA::util::logic_error("Supplied VST buffer not initialised",__FILE__,__func__);
+            SFA::util::logic_error(SFA::util::error_code::SuppliedVstBufferNotInitialised,__FILE__,__func__);
         for (std::size_t channel=0;channel<_vst_numInputs;channel++)
             if (!channel_ptrs[channel])
-                throw SFA::util::logic_error("Supplied VST buffer channels not initialised",__FILE__,__func__);
+                SFA::util::logic_error(SFA::util::error_code::SuppliedVstBufferChannelsNotInitialised,__FILE__,__func__);
         PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,_vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void startTestLoop(){
@@ -117,12 +117,12 @@ class Functor2 {
     };
     void setReadBuffer(SOSFloat::SAMPLE_SIZE** buffers,const std::size_t ara_samplesPerChannel){
         if (randomread)
-            throw SFA::util::logic_error("operator()() call has not finished",__FILE__,__func__);
+            SFA::util::logic_error(SFA::util::error_code::ExecoperatorcallHasNotFinished,__FILE__,__func__);
         if (!buffers)
-            throw SFA::util::logic_error("Supplied ARA buffer not initialised",__FILE__,__func__);
+            SFA::util::logic_error(SFA::util::error_code::SuppliedAraBufferNotInitialised,__FILE__,__func__);
         for (std::size_t channel=0;channel<vst_numChannels;channel++)
             if (!buffers[channel])
-                throw SFA::util::logic_error("Supplied ARA buffer channels not initialised",__FILE__,__func__);
+                SFA::util::logic_error(SFA::util::error_code::SuppliedAraBufferChannelsNotInitialised,__FILE__,__func__);
         randomread = new SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type{};
         for (int i=0;i<vst_numChannels;i++){
             randomread->push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
@@ -135,11 +135,11 @@ class Functor2 {
     }
     void triggerReadStart(){
         if (trigger)
-            throw SFA::util::logic_error("FIFO read call already in progress",__FILE__,__func__);
+            SFA::util::logic_error(SFA::util::error_code::FifoReadcallAlreadyInProgress,__FILE__,__func__);
         else
             trigger = true;
         if (!randomread)
-            throw SFA::util::logic_error("No ReadBuffer supplied",__FILE__,__func__);
+            SFA::util::logic_error(SFA::util::error_code::NoReadbufferSupplied,__FILE__,__func__);
         readerBus.signal.getUpdatedRef().clear();
     }
     bool operator()() {

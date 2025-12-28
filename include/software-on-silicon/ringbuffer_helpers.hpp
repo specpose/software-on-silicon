@@ -23,7 +23,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         PieceWriter_write<Piece>(current,buffer,channels,i);
         //do not advance -> current invalid  
         std::cout<<std::endl;
-        throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
+        SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough, __FILE__, __func__);
     }
     }
 }
@@ -58,7 +58,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         }
         //do not advance -> current invalid
         std::cout<<std::endl;
-        throw SFA::util::runtime_error("RingBuffer too slow or not big enough",__FILE__,__func__);
+        throw SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
     }
 }
 }

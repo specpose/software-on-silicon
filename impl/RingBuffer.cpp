@@ -1,3 +1,4 @@
+#include <iostream>
 #include "software-on-silicon/error.hpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
