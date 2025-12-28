@@ -2,56 +2,14 @@ namespace SOS
 {
     namespace Protocol
     {
-        static std::bitset<8> idleState()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            return id;    //-> "10111111"
-        }
-        static std::bitset<8> shutdownState()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            id.set(0, 0);
-            return id; //-> "10111110"
-        }
-        // EMULATION: long sync times and instant poweroff
-        static std::bitset<8> poweronState()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            id.set(1, 0);
-            id.set(0, 1);
-            return id; //-> "10111101"
-        }
-        static std::bitset<8> sighupState()
-        { // constexpr
-            std::bitset<8> id;
-            for (std::size_t i = 0; i < id.size(); i++)
-            {
-                id.set(i, 1);
-            }
-            id.set(7, 1); // updated==true
-            id.set(6, 0); // acknowledge==false
-            id.set(1, 0);
-            id.set(0, 0);
-            return id; //-> "10111100"
-        }
+        enum state : unsigned char {
+            idle = 0xBF,
+            poweron = 0xBE,
+            shutdown = 0xBD,
+            sighup = 0xBC
+        };
+        const unsigned char NUM_STATES = 4;
+        const unsigned char NUM_IDS = 64 - NUM_STATES;
         struct com_vars {
             bool loop_shutdown = false;
             bool received_idle = false;
@@ -69,20 +27,20 @@ namespace SOS
             {
                 if (obj_size % 3 != 0)
                     SFA::util::logic_error(SFA::util::error_code::InvalidDMAObjectSize, __FILE__, __func__, typeid(*this).name());
-                const auto idleId = static_cast<unsigned long>(((idleState() << 2) >> 2).to_ulong());
+                const auto idleId = static_cast<unsigned char>((state::idle << 2) >> 2);
                 if (id == idleId)
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheSerialLineIdleState, __FILE__, __func__, typeid(*this).name());
-                const auto shutdownId = static_cast<unsigned long>(((shutdownState() << 2) >> 2).to_ulong());
+                const auto shutdownId = static_cast<unsigned long>((state::shutdown << 2) >> 2);
                 if (id == shutdownId)
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheComShutdownRequestOnIdle, __FILE__, __func__, typeid(*this).name());
-                const auto poweronId = static_cast<unsigned long>(((poweronState() << 2) >> 2).to_ulong());
+                const auto poweronId = static_cast<unsigned long>((state::poweron << 2) >> 2);
                 if (id == poweronId)
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForThePoweronNotification, __FILE__, __func__, typeid(*this).name());
-                const auto sighupId = static_cast<unsigned long>(((sighupState() << 2) >> 2).to_ulong());
+                const auto sighupId = static_cast<unsigned long>((state::sighup << 2) >> 2);
                 if (id == sighupId)
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheReadsFinishedNotification, __FILE__, __func__, typeid(*this).name());
             }
-            unsigned char id = 0xFF;
+            unsigned char id = NUM_IDS;
             void *obj = nullptr;
             std::size_t obj_size = 0;
             volatile bool readLock = false; // SerialProcessing thread
@@ -187,7 +145,7 @@ namespace SOS
                         //IN
                             if (!first_run) {
                             unsigned char data = read_byte();
-                            read_bits(static_cast<unsigned long>(data));
+                            read_bits(data);
                             _vars.received_acknowledge = receive_acknowledge();
                             received_request = receive_request();
                             _vars.received_idle = false;
@@ -208,7 +166,7 @@ namespace SOS
                         shutdown_action();
                 }
                 finished();
-                /*for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                /*for (unsigned char j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].readLock)
                         throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
                 }*/
@@ -250,7 +208,7 @@ namespace SOS
             {
                 if (receive_lock || readCount != 0){
                     SFA::util::runtime_error(SFA::util::error_code::HotplugAfterUnexpectedShutdown, __FILE__, __func__, typeid(*this).name());
-                    for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
+                    for (unsigned char j = 0; j < foreign().descriptors.size(); j++)
                     {
                         if (foreign().descriptors[j].readLock)
                         {
@@ -263,21 +221,21 @@ namespace SOS
                 }
             };
             bool transfers_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer)
                         return true;
                 }
                 return false;
             }
             bool writes_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].transfer)
                         return true;
                 }
                 return false;
             }
             bool reads_pending(){
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++){
                     if (foreign().descriptors[j].readLock)
                         return true;
                 }
@@ -292,15 +250,14 @@ namespace SOS
         private:
             bool first_run = true;
             bool received_request = false;
-            unsigned char requestId = 255;
-            unsigned char acknowledgeId = 255;
+            unsigned char requestId = NUM_IDS;
+            unsigned char acknowledgeId = NUM_IDS;
             bool receive_lock = false;
             bool send_lock = false;
             void read_hook(unsigned char &data)
             {
-                    std::bitset<8> obj_id = static_cast<unsigned long>(data);
-                    obj_id = (obj_id << 2) >> 2;
-                    if (obj_id == ((poweronState() << 2) >> 2))
+                    auto state_code = (std::bitset<8>{data} << 2) >> 2;
+                    if (state_code == ((std::bitset<8>{state::poweron} << 2) >> 2))
                     {
                         //if (!_vars.received_sighup)
                         //    SFA::util::runtime_error(SFA::util::error_code::PreviousCommunicationNotSighupTerminated, __FILE__, __func__, typeid(*this).name());
@@ -311,13 +268,13 @@ namespace SOS
                         //start_calc_thread
                         //start notifier
                     }
-                    else if (obj_id == ((idleState() << 2) >> 2))
+                    else if (state_code == ((std::bitset<8>{state::idle} << 2) >> 2))
                     {
                         _vars.received_idle = true;
                         if (_vars.received_com_shutdown)
                             std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
                     }
-                    else if (obj_id == ((shutdownState() << 2) >> 2))
+                    else if (state_code == ((std::bitset<8>{state::shutdown} << 2) >> 2))
                     {
                         if (_vars.received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
@@ -329,7 +286,7 @@ namespace SOS
                             SFA::util::logic_error(SFA::util::error_code::DuplicateComShutdown,__FILE__,__func__, typeid(*this).name());
                         }
                     }
-                    else if (obj_id == ((sighupState() << 2) >> 2))
+                    else if (state_code == ((std::bitset<8>{state::sighup} << 2) >> 2))
                     {
                         if (!_vars.received_sighup)
                         {
@@ -343,47 +300,47 @@ namespace SOS
                     {
                         if (_vars.received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                        requestId = static_cast<unsigned char>(obj_id.to_ulong());
+                        requestId = state_code.to_ulong();
                     }
             }
             void send_poweronRequest() {
-                auto id = poweronState();
                 send_request();
-                write_bits(id);
+                auto id_bits = std::bitset<8>{state::poweron};
+                write_bits(id_bits);
                 std::cout<<typeid(*this).name()<<":"<<"P"<<std::endl;
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
                 first_run=false;
             }
             void send_comshutdownRequest() {
-                auto id = shutdownState();
                 send_request();
-                write_bits(id);
+                auto id_bits = std::bitset<8>{state::shutdown};
+                write_bits(id_bits);
                 std::cout << typeid(*this).name()<<":"<<"X"<<std::endl;
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
                 _vars.sent_com_shutdown = true;
             }
             void send_idleRequest() {
-                auto id = idleState();
                 send_request();
-                write_bits(id);
+                auto id_bits = std::bitset<8>{state::idle};
+                write_bits(id_bits);
                 //std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             }
             void send_transferRequest(decltype(DMADescriptor::id) unsynced){
-                std::bitset<8> id;
                 send_request();
-                write_bits(id);
-                std::bitset<8> obj_id = static_cast<unsigned long>(unsynced); // DANGER: overflow check
-                id = id ^ obj_id;
+                auto id_bits = std::bitset<8>{0x00};
+                write_bits(id_bits);
+                auto obj_id = std::bitset<8>{unsynced}; // DANGER: overflow check
+                id_bits = id_bits ^ obj_id;
                 std::cout<<typeid(*this).name()<<":"<<"T"<<(unsigned int)unsynced<<std::endl;//why not ID?!
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             }
             void send_sighupRequest() {
-                auto id = sighupState();
                 send_request();
-                write_bits(id);
+                auto id_bits = std::bitset<8>{state::sighup};
+                write_bits(id_bits);
                 std::cout << typeid(*this).name()<<":"<<"I"<<std::endl;
-                write_byte(static_cast<unsigned char>(id.to_ulong()));
+                write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
                 _vars.sent_sighup = true;
             }
             //acknowledge has priority over request, but requires last read_object byte
@@ -394,7 +351,7 @@ namespace SOS
                         SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
                     } else {
                         bool gotOne = false;
-                        for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                        for (unsigned char j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                             if (j == acknowledgeId){
                                 if (foreign().descriptors[j].synced)
                                     SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnSyncedObject,__FILE__,__func__, typeid(*this).name());
@@ -419,12 +376,12 @@ namespace SOS
                         SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
                     }
                 }
-                acknowledgeId = 255;//overridden at half baud rate
+                acknowledgeId = NUM_IDS;//overridden at half baud rate
                 _vars.acknowledgeRequested = false;//overridden at half baud rate
             }
             void transfer_hook() {
                 if (received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++) {
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++) {
                     if (foreign().descriptors[j].id == requestId){
                         if (foreign().descriptors[j].readLock)
                             SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,std::to_string(requestId),__func__, typeid(*this).name());
@@ -449,17 +406,17 @@ namespace SOS
                 } else {//VALID STATE
                     //SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
                 }
-                requestId = 255;
+                requestId = NUM_IDS;
             }
             unsigned int writeCount = 0; // write3plus1
-            std::size_t writeOrigin = 255;
+            unsigned char writeOrigin = NUM_IDS;
             std::size_t writeOriginPos = 0;
             unsigned int readCount = 0; // read4minus1
-            std::size_t readDestination = 255;
+            unsigned char readDestination = NUM_IDS;
             std::size_t readDestinationPos = 0;
             bool getFirstTransfer()
             {
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++){
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++){
                     if (!foreign().descriptors[j].synced && !foreign().descriptors[j].transfer){
                         if (foreign().descriptors[j].readLock)
                             SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
@@ -473,7 +430,7 @@ namespace SOS
             }
             bool getFirstSyncObject()
             {
-                for (std::size_t j = 0; j < foreign().descriptors.size(); j++)
+                for (unsigned char j = 0; j < foreign().descriptors.size(); j++)
                 {
                     if (foreign().descriptors[j].readLock && !foreign().descriptors[j].synced)
                         SFA::util::logic_error(SFA::util::error_code::DMAObjectHasEnteredAnIllegalSyncState, __FILE__, __func__, typeid(*this).name());
@@ -552,7 +509,7 @@ namespace SOS
             {
                 if (!receive_lock){
                     bool gotOne = false;
-                    for (std::size_t j = 0; j < foreign().descriptors.size() && !gotOne; j++){
+                    for (unsigned char j = 0; j < foreign().descriptors.size() && !gotOne; j++){
                         foreign().descriptors[j].queued = false;
                         if (foreign().descriptors[j].readLock){
                             if (readDestinationPos != 0){
