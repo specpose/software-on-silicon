@@ -27,7 +27,7 @@ namespace SOS {
             }
             void setReadBuffer(OutputBuffer& buffer){
                 if (buffer.size()!=std::get<1>(cables).size())
-                    throw SFA::util::logic_error(SFA::util::error_code::IllegalReadbufferSizeEncountered,__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::IllegalReadbufferSizeEncountered,__FILE__,__func__);
                 for (int channel=0;channel<buffer.size();channel++){
                 std::get<1>(cables)[channel].getReadBufferStartRef().store(buffer[channel].begin());
                 std::get<1>(cables)[channel].getReadBufferAfterLastRef().store(buffer[channel].end());
@@ -62,13 +62,13 @@ namespace SOS {
                 if (p)
                     return p;
                 else
-                    throw SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
             }
             T* end(){
                 if (p)
                     return p+size;
                 else
-                    throw SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
+                    SFA::util::logic_error(SFA::util::error_code::ArachannelInitializationError,__FILE__,__func__);
             }
             private:
             T* p = nullptr;
@@ -185,9 +185,9 @@ namespace SOS {
             virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
                     if (!(*writerPos))
-                        throw SFA::util::logic_error(SFA::util::MemorycontrollerHasNotBeenInitialized,__FILE__,__func__);
+                        SFA::util::logic_error(SFA::util::MemorycontrollerHasNotBeenInitialized,__FILE__,__func__);
                     if ((**writerPos).size()!=(*character).size())
-                        throw SFA::util::logic_error(SFA::util::IllegalCharactersizeEncountered,__FILE__,__func__);
+                        SFA::util::logic_error(SFA::util::IllegalCharactersizeEncountered,__FILE__,__func__);
                     for(std::size_t channel=0;channel<(**writerPos).size();channel++)
                         (**writerPos)[channel]=(*character)[channel];
                     writerPos++;
