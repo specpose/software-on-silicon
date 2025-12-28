@@ -7,10 +7,6 @@ namespace SFA {
 			noerror,
 //SerialDMA
 			InvalidDMAObjectSize,
-			DMADescriptorIdIsReservedForTheSerialLineIdleState,
-			DMADescriptorIdIsReservedForTheComShutdownRequestOnIdle,
-			DMADescriptorIdIsReservedForThePoweronNotification,
-			DMADescriptorIdIsReservedForTheReadsFinishedNotification,
 			PoweronAfterUnexpectedShutdown,
 			HotplugAfterUnexpectedShutdown,
 			ObjectCouldBeOutdated,
@@ -48,6 +44,7 @@ namespace SFA {
 			AttemptedWriteAfterEndOfBuffer,
 			NotIdleAfterSighup,
 			ReadsPendingAfterComthreadDestruction,
+			InvalidDMAObjectId,
 //RingBuffer.hpp
 			RequestedRingbufferSizeNotBigEnough,
 //ringbuffer_hellpers.hpp
@@ -65,10 +62,6 @@ namespace SFA {
 			switch (what){
 				case error_code::noerror: return std::string("No error was supplied after initialization of static error variable");
 				case error_code::InvalidDMAObjectSize : return std::string("Invalid DMAObject size");
-				case error_code::DMADescriptorIdIsReservedForTheSerialLineIdleState :return std::string("DMADescriptor id is reserved for the serial line idle state");
-				case error_code::DMADescriptorIdIsReservedForTheComShutdownRequestOnIdle : return std::string("DMADescriptor id is reserved for the com_shutdown request on idle");
-				case error_code::DMADescriptorIdIsReservedForThePoweronNotification : return std::string("DMADescriptor id is reserved for the poweron notification");
-				case error_code::DMADescriptorIdIsReservedForTheReadsFinishedNotification : return std::string("DMADescriptor id is reserved for the readsFinished notification");
 				case error_code::PoweronAfterUnexpectedShutdown : return std::string("Poweron after unexpected shutdown");
 				case error_code::HotplugAfterUnexpectedShutdown : return std::string("Hotplug after unexpected shutdown");
 				case error_code::ObjectCouldBeOutdated : return std::string("Object could be outdated. Corrupted unless resend_current_object is called from the other side");
@@ -113,6 +106,7 @@ namespace SFA {
 				case error_code::WriterBufferFull : return std::string("Writer Buffer full");
 				case error_code::NotIdleAfterSighup : return std::string("Only idle or poweron state is allowed after sighup received");
 				case error_code::ReadsPendingAfterComthreadDestruction : return std::string("Reads pending after Comthread destruction");
+				case error_code::InvalidDMAObjectId : return std::string("Invalid DMA Object Id");
 			}
 			return std::string("No error was supplied after initialization of static SFA::util::error");
 		}

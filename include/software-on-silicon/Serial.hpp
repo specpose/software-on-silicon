@@ -3,10 +3,10 @@ namespace SOS
     namespace Protocol
     {
         enum state : unsigned char {
-            idle = 0xBF,
-            poweron = 0xBE,
-            shutdown = 0xBD,
-            sighup = 0xBC
+            idle = 0x00,
+            poweron = 0x01,
+            sighup = 0x02,
+            shutdown = 0x03
         };
         const unsigned char NUM_STATES = 4;
         const unsigned char NUM_IDS = 64 - NUM_STATES;
@@ -27,7 +27,7 @@ namespace SOS
             {
                 if (obj_size % 3 != 0)
                     SFA::util::logic_error(SFA::util::error_code::InvalidDMAObjectSize, __FILE__, __func__, typeid(*this).name());
-                const auto idleId = static_cast<unsigned char>((state::idle << 2) >> 2);
+                /*const auto idleId = static_cast<unsigned char>((state::idle << 2) >> 2);
                 if (id == idleId)
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheSerialLineIdleState, __FILE__, __func__, typeid(*this).name());
                 const auto shutdownId = static_cast<unsigned long>((state::shutdown << 2) >> 2);
@@ -38,7 +38,7 @@ namespace SOS
                     SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForThePoweronNotification, __FILE__, __func__, typeid(*this).name());
                 const auto sighupId = static_cast<unsigned long>((state::sighup << 2) >> 2);
                 if (id == sighupId)
-                    SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheReadsFinishedNotification, __FILE__, __func__, typeid(*this).name());
+                    SFA::util::logic_error(SFA::util::error_code::DMADescriptorIdIsReservedForTheReadsFinishedNotification, __FILE__, __func__, typeid(*this).name());*/
             }
             unsigned char id = NUM_IDS;
             void *obj = nullptr;
@@ -300,7 +300,7 @@ namespace SOS
                     {
                         if (_vars.received_sighup)
                             SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                        requestId = state_code.to_ulong();
+                        requestId = state_code.to_ulong() - NUM_STATES;
                     }
             }
             void send_poweronRequest() {
@@ -327,13 +327,17 @@ namespace SOS
                 write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             }
             void send_transferRequest(decltype(DMADescriptor::id) unsynced){
+                if (unsynced < NUM_IDS){
                 send_request();
                 auto id_bits = std::bitset<8>{0x00};
                 write_bits(id_bits);
                 auto obj_id = std::bitset<8>{unsynced}; // DANGER: overflow check
                 id_bits = id_bits ^ obj_id;
-                std::cout<<typeid(*this).name()<<":"<<"T"<<(unsigned int)unsynced<<std::endl;//why not ID?!
+                std::cout<<typeid(*this).name()<<":"<<"T"<<std::to_string(unsynced-NUM_STATES)<<std::endl;//why not ID?!
                 write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
+                } else {
+                    SFA::util::runtime_error(SFA::util::error_code::InvalidDMAObjectId, __FILE__, __func__, typeid(*this).name());
+                }
             }
             void send_sighupRequest() {
                 send_request();
@@ -361,7 +365,7 @@ namespace SOS
                                     SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer,__FILE__,__func__, typeid(*this).name());
                                 if (!foreign().descriptors[j].readLock){
                                     foreign().descriptors[j].transfer = true;
-                                    std::cout<<typeid(*this).name()<<"."<<"A"<<acknowledgeId<<std::endl;
+                                    std::cout<<typeid(*this).name()<<"."<<"A"<<std::to_string(acknowledgeId)<<std::endl;
                                     gotOne = true;
                                 } else {
                                     SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge,__FILE__,__func__, typeid(*this).name());
@@ -389,7 +393,7 @@ namespace SOS
                         {//acknowledge override case can be omitted: 2 cycles
                             if (!foreign().descriptors[j].transfer){
                                 foreign().descriptors[j].readLock = true;
-                                std::cout<<typeid(*this).name()<<"."<<"L"<<j<<std::endl;
+                                std::cout<<typeid(*this).name()<<"."<<"L"<<std::to_string(j)<<std::endl;
                                 if (receive_lock)
                                     foreign().descriptors[j].queued = true;
                                 //acknowledge sets a transfer
@@ -422,7 +426,7 @@ namespace SOS
                             SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                         acknowledgeId = j;//overridden when synced is set to false
                         _vars.acknowledgeRequested = true;
-                        send_transferRequest(foreign().descriptors[j].id);
+                        send_transferRequest(foreign().descriptors[j].id + NUM_STATES);
                         return true;
                     }
                 }
@@ -495,7 +499,7 @@ namespace SOS
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
-                        std::cout<<typeid(*this).name()<<":"<<"W"<<writeOrigin<<std::endl;
+                        std::cout<<typeid(*this).name()<<":"<<"W"<<std::to_string(writeOrigin)<<std::endl;
                         writeOriginPos = 0;
                     }
                     write3plus1 = 0;
@@ -548,7 +552,7 @@ namespace SOS
                         foreign().receiveNotificationId().store(readDestination);
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG
-                        std::cout<<typeid(*this).name()<<"."<<"R"<<readDestination<<std::endl;
+                        std::cout<<typeid(*this).name()<<"."<<"R"<<std::to_string(readDestination)<<std::endl;
                         readDestinationPos = 0;
                     }
                     read4minus1 = 0;
@@ -639,16 +643,16 @@ namespace SOS
         private:
             virtual void read_bits(std::bitset<8> temp) final
             {
-                Serial<Objects...>::mcu_updated = temp[7];
+                Serial<Objects...>::mcu_updated = !temp[7];
                 Serial<Objects...>::fpga_acknowledge = temp[6];
                 Serial<Objects...>::mcu_acknowledge = false;
             }
             virtual void write_bits(std::bitset<8> &out) final
             {
                 if (Serial<Objects...>::fpga_updated)
-                    out.set(7, 1);
-                else
                     out.set(7, 0);
+                else
+                    out.set(7, 1);
                 if (Serial<Objects...>::mcu_acknowledge)
                     out.set(6, 1);
                 else
@@ -688,16 +692,16 @@ namespace SOS
         private:
             virtual void read_bits(std::bitset<8> temp) final
             {
-                Serial<Objects...>::fpga_updated = temp[7];
+                Serial<Objects...>::fpga_updated = !temp[7];
                 Serial<Objects...>::mcu_acknowledge = temp[6];
                 Serial<Objects...>::fpga_acknowledge = false;
             }
             virtual void write_bits(std::bitset<8> &out) final
             {
                 if (Serial<Objects...>::mcu_updated)
-                    out.set(7, 1);
-                else
                     out.set(7, 0);
+                else
+                    out.set(7, 1);
                 if (Serial<Objects...>::fpga_acknowledge)
                     out.set(6, 1);
                 else
