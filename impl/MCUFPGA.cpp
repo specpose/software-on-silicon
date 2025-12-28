@@ -3,6 +3,7 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
+#include <string>
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
