@@ -22,7 +22,7 @@ namespace SOS {
                         foreign().descriptors[writeOrigin].transfer = false;
                         foreign().descriptors[writeOrigin].synced = true;
                         send_lock = false;
-                        foreign().sendNotificationId().store(writeOrigin);
+                        foreign().sendNotificationId() = writeOrigin;
                         foreign().signal.getAcknowledgeRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
                         std::cout<<typeid(*this).name()<<":"<<"W"<<std::to_string(writeOrigin)<<std::endl;
@@ -75,7 +75,7 @@ namespace SOS {
                     {
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
-                        foreign().receiveNotificationId().store(readDestination);
+                        foreign().receiveNotificationId() = readDestination;
                         foreign().signal.getUpdatedRef().clear();//Used as separate signals, not a handshake
                         foreign().descriptors[readDestination].rx_counter++; // DEBUG
                         std::cout<<typeid(*this).name()<<"."<<"R"<<std::to_string(readDestination)<<std::endl;

@@ -27,18 +27,18 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
     protected:
     virtual void read(){
         for (std::size_t channel=0;channel<_size.size();channel++){
-        const auto start = _size[channel].getReadBufferStartRef().load();
+        const auto start = _size[channel].getReadBufferStartRef();
         auto current = start;
-        const auto end = _size[channel].getReadBufferAfterLastRef().load();
-        auto readOffset = _offset.getReadOffsetRef().load();
+        const auto end = _size[channel].getReadBufferAfterLastRef();
+        auto readOffset = _offset.getReadOffsetRef();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
+                if (std::distance(_memorycontroller_size.getBKStartRef(), _memorycontroller_size.getBKEndRef())
                     < (std::distance(start, end) + readOffset))
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
-                const auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
+                const auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
                 *current = (**readerPos)[channel];
                 readOffset++;
                 ++current;

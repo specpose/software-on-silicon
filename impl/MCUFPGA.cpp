@@ -31,7 +31,7 @@ public:
     virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     void read_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef();
         switch (object_id)
         {
         case 0:
@@ -58,7 +58,7 @@ public:
     }
     void write_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef();
         switch (object_id)
         {
         // just been transfered, can now process further
@@ -105,7 +105,7 @@ public:
     virtual void restart() final { SFA::util::runtime_error(SFA::util::error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction, __FILE__, __func__, typeid(*this).name());}
     void read_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef();
         switch (object_id)
         {
         case 0:
@@ -132,7 +132,7 @@ public:
     }
     void write_notify_hook()
     {
-        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
+        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef();
         switch (object_id)
         {
         // just been transfered, can now process further

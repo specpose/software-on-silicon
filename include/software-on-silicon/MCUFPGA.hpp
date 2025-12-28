@@ -51,29 +51,29 @@ namespace SOS
             virtual unsigned char read_byte()
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load() > bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef() > bufferLength)
                     SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getReadOffsetRef();
                 auto byte = *(SimulationBuffers<COM_BUFFER>::comcable.getInBufferStartRef() + next);
                 next++;
                 if (next >= bufferLength)
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getReadOffsetRef() = next;
                 return byte;
             }
             virtual void write_byte(unsigned char byte)
             {
                 const auto bufferLength = std::distance(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef(), SimulationBuffers<COM_BUFFER>::comcable.getOutBufferEndRef());
-                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load() > bufferLength)
+                if (SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef() > bufferLength)
                     SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
-                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef().load();
+                auto next = SimulationBuffers<COM_BUFFER>::itercable.getWriteOffsetRef();
                 *(SimulationBuffers<COM_BUFFER>::comcable.getOutBufferStartRef() + next) = byte;
                 next++;
                 if (next >= bufferLength)
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(0);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = 0;
                 else
-                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef().store(next);
+                    SimulationBuffers<ComBufferType>::itercable.getWriteOffsetRef() = next;
             }
             buffers_ct &comcable;
             iterators_ct &itercable;

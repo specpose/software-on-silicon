@@ -1,6 +1,3 @@
-#define OLD_ITERATOR_DEBUG_LEVEL _ITERATOR_DEBUG_LEVEL//DISABLE
-#define _ITERATOR_DEBUG_LEVEL 0//DISABLE
-
 #include <iostream>
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
@@ -32,7 +29,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         const auto start = _size[channel].getReadBufferStartRef();
         auto current = start;
         const auto end = _size[channel].getReadBufferAfterLastRef();
-        auto readOffset = _offset.getReadOffsetRef().load();
+        auto readOffset = _offset.getReadOffsetRef();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
@@ -149,8 +146,8 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
                 SFA::util::logic_error(SFA::util::error_code::MemorycontrollerCorrupted,__FILE__,__func__);
             }
         memorycontroller.clear();
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        std::get<0>(_blocker.cables).getBKStartRef() = memorycontroller.begin();
+        std::get<0>(_blocker.cables).getBKEndRef() = memorycontroller.end();
         _blocker.signal.getWritingRef().test_and_set();
     }
     private:
@@ -216,8 +213,8 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
             }
             if (clear_memorycontroller) {
                 //stop and omit the pending transfer writes
-                auto previous = std::get<0>(rB.cables).getCurrentRef().load();
-                std::get<0>(rB.cables).getThreadCurrentRef().store(--previous);
+                auto previous = std::get<0>(rB.cables).getCurrentRef();
+                std::get<0>(rB.cables).getThreadCurrentRef() = --previous;
                 while(!_blocker.signal.getReadingRef().test_and_set()){
                     _blocker.signal.getReadingRef().clear();
                     std::this_thread::yield();
@@ -238,6 +235,3 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     std::thread _thread = std::thread{};
 };
 }
-
-#define _ITERATOR_DEBUG_LEVEL OLD_ITERATOR_DEBUG_LEVEL//DISABLE
-#undef OLD_ITERATOR_DEBUG_LEVEL//DISABLE
