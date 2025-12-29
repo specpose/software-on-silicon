@@ -223,5 +223,3 @@ void SFA::util::runtime_error(error_code what, std::string file_name, std::strin
     std::cerr << std::endl << "Runtime" << modname << "Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
     abort();
 };
-}
-}
