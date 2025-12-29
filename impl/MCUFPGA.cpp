@@ -1,5 +1,5 @@
 #include <iostream>
-#include "software-on-silicon/error.hpp"
+#include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
