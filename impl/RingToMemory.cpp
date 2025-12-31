@@ -177,8 +177,8 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
-        Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds,
-        const std::size_t& vst_numInputs
+        Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
+        ,const std::size_t& vst_numInputs
         ) : WriteTaskImpl(vst_numInputs), SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
     protected:
 //main branch: Copy Start from MemoryController.cpp

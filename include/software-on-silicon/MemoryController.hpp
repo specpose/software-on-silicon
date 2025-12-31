@@ -187,7 +187,6 @@ namespace SOS {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
             using SOS::Behavior::MemoryControllerWrite<MemoryControllerType>::MemoryControllerWrite;
-            WriteTask() {}
             protected:
             virtual void write(const typename MemoryControllerType::value_type character) {
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
@@ -204,7 +203,6 @@ namespace SOS {
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
-            private:
         };
     }
 }
