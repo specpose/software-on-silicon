@@ -105,6 +105,23 @@ class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBu
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
         ) : WriteTaskImpl{}, SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
+    protected:
+    virtual void read_loop() final {
+        auto threadcurrent = _item.getThreadCurrentRef().load();
+        auto current = _item.getCurrentRef().load();
+        bool stop = false;
+        while(!stop){//if: possible less writes than reads
+            ++threadcurrent;
+            if (threadcurrent==_bounds.getWriterEndRef())
+                threadcurrent=_bounds.getWriterStartRef();
+            if (threadcurrent!=current) {
+                write(*threadcurrent);
+                _item.getThreadCurrentRef().store(threadcurrent);
+            } else {
+                stop = true;
+            }
+        }
+    }
     private:
     //multiple inheritance: overrides RingBufferTask
     virtual void write(const MEMORY_CONTROLLER::value_type character) final {
@@ -130,7 +147,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     void event_loop(){
         while(is_running()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
-                RingBufferTask::read_loop();
+                this->read_loop();
             }
             std::this_thread::yield();
         }
