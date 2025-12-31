@@ -28,10 +28,6 @@ using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
 namespace SOS {
     namespace MemoryView {
         template<> struct reader_traits<SOSFloat::MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::vector<SOS::MemoryView::ARAChannel<typename std::remove_pointer<typename SOSFloat::MEMORY_CONTROLLER::value_type>::type::value_type>>> {};
-        //template<> struct reader_traits<SOSFloat::MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>> {};
-        //template<> struct reader_traits<SOSFloat::MEMORY_CONTROLLER> {
-        //using input_container_type = std::vector<SOS::MemoryView::ARAChannel<typename std::remove_pointer<typename SOSFloat::MEMORY_CONTROLLER::value_type>::type::value_type>>;
-        //};
     }
 }
 
