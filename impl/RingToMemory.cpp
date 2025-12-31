@@ -164,8 +164,8 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     protected:
 //main branch: Copy Start from RingBuffer.cpp
     virtual void read_loop() final {
-        auto threadcurrent = _item.getThreadCurrentRef().load();
-        auto current = _item.getCurrentRef().load();
+        auto threadcurrent = _item.getThreadCurrentRef();
+        auto current = _item.getCurrentRef();
         bool stop = false;
         while(!stop){//if: possible less writes than reads
             ++threadcurrent;
@@ -173,7 +173,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
                 threadcurrent=_bounds.getWriterStartRef();
             if (threadcurrent!=current) {
                 write(*threadcurrent);
-                _item.getThreadCurrentRef().store(threadcurrent);
+                _item.getThreadCurrentRef() = threadcurrent;
             } else {
                 stop = true;
             }

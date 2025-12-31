@@ -16,8 +16,8 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     protected:
     virtual void read_loop() final {
-        auto threadcurrent = _item.getThreadCurrentRef().load();
-        auto current = _item.getCurrentRef().load();
+        auto threadcurrent = _item.getThreadCurrentRef();
+        auto current = _item.getCurrentRef();
         bool stop = false;
         while(!stop){//if: possible less writes than reads
             ++threadcurrent;
@@ -25,7 +25,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
                 threadcurrent=_bounds.getWriterStartRef();
             if (threadcurrent!=current) {
                 write(*threadcurrent);
-                _item.getThreadCurrentRef().store(threadcurrent);
+                _item.getThreadCurrentRef() = threadcurrent;
             } else {
                 stop = true;
             }
