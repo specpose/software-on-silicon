@@ -91,6 +91,19 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         destroy(_thread);
     }
+//main branch: Copy Start from MemoryController.cpp
+    virtual void event_loop() final {
+    while(Stoppable::is_running()){
+        if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
+            //                        std::cout << "S";
+            read();//FIFO whole buffer with intermittent waits when write
+            //                        std::cout << "F";
+            _intrinsic.getAcknowledgeRef().clear();
+        }
+    }
+    Stoppable::finished();
+    }
+//main branch: Copy End from MemoryController.cpp
     virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     private:
     virtual void read() final {
@@ -168,6 +181,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
         const std::size_t& vst_numInputs
         ) : WriteTaskImpl(vst_numInputs), SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
     protected:
+//main branch: Copy Start from MemoryController.cpp
     virtual void read_loop() final {
         auto threadcurrent = _item.getThreadCurrentRef().load();
         auto current = _item.getCurrentRef().load();
@@ -184,6 +198,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
             }
         }
     }
+//main branch: Copy End from MemoryController.cpp
     private:
     //multiple inheritance: overrides RingBufferTask
     virtual void write(const RING_BUFFER::value_type character) final {

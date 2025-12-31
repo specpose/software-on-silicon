@@ -141,17 +141,8 @@ namespace SOS {
             SOS::Behavior::BootstrapDummyEventController<>(outside.signal)
             {}
             ~Reader(){}
-            void event_loop() final {
-                while(Stoppable::is_running()){
-                    if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
-        //                        std::cout << "S";
-                    read();//FIFO whole buffer with intermittent waits when write
-        //                        std::cout << "F";
-                    _intrinsic.getAcknowledgeRef().clear();
-                    }
-                }
-                Stoppable::finished();
-            }
+            public:
+            virtual void event_loop() = 0;
             private:
             virtual void read()=0;
             virtual bool wait() {
