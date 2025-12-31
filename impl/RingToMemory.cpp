@@ -112,7 +112,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
 };
 //multiple inheritance: destruction order
-class TransferRingToMemory : protected WriteTaskImpl, protected Behavior::RingBufferTask<RING_BUFFER> {
+class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBufferTask<RING_BUFFER> {
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
