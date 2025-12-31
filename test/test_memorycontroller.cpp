@@ -10,7 +10,6 @@ namespace SOSFloat {
 class Functor {
     public:
     Functor(const std::size_t& vst_numInputs) : readerBus(vst_numInputs), controller(readerBus,vst_numInputs) {}
-    ~Functor(){}
     void setReadBuffer(SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type* buffer){
         randomread=buffer;
         readerBus.setReadBuffer(*randomread);

@@ -5,7 +5,7 @@
 
 namespace SOSFloat {
 using SAMPLE_SIZE = float;
-using RING_BUFFER=std::array< SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,10 >;
+using RING_BUFFER=std::array<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*,10 >;
 
 using namespace SOS::MemoryView;
 

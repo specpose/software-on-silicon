@@ -66,15 +66,6 @@ class Functor1 {
             const SOSFloat::SAMPLE_SIZE** channelBuffers32 = static_cast<const SOSFloat::SAMPLE_SIZE**>(channel_ptrs);//notconst Sample32(=float) **   channelBuffers32
             operator()(channelBuffers32,numSamples,actualSamplePosition);//lock free write
             actualSamplePosition += numSamples;//vst actualSamplePosition
-            //deallocating source not needed: Owned by vst
-            //error: free(): invalid pointer
-            //for (size_t i=0;i<vst_numInputs;i++)
-            //    delete channelBuffers32[i];
-            //    delete channel_ptrs[i];
-            //error: free(): invalid size
-            //delete channelBuffers32;
-            //delete channel_ptrs;
-            //delete blink;
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
@@ -127,7 +118,6 @@ class Functor2 {
         for (int i=0;i<vst_numChannels;i++){
             randomread->push_back(SOS::MemoryView::ARAChannel(buffers[i],ara_samplesPerChannel));
         }
-        //randomread=buffer;
         readerBus.setReadBuffer(*randomread);
     }
     void setMemoryControllerOffset(const std::size_t offset) {

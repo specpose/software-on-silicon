@@ -10,21 +10,21 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
     //std::cout<<"=";
     std::cout<<length;
     for (std::size_t i=0;i<length;i++){
-    if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
-        //write directly to HOSTmemory
-        PieceWriter_write<Piece>(current,buffer,channels,i);
-        ++current;
-        if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
-            current = std::get<0>(myBus.const_cables).getWriterStartRef();
-        std::get<0>(myBus.cables).getCurrentRef().store(current);
-        myBus.signal.getNotifyRef().clear();
-    } else {
-        //write last bit
-        PieceWriter_write<Piece>(current,buffer,channels,i);
-        //do not advance -> current invalid  
-        std::cout<<std::endl;
-        SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough, __FILE__, __func__);
-    }
+        if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
+            //write directly to HOSTmemory
+            PieceWriter_write<Piece>(current,buffer,channels,i);
+            ++current;
+            if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
+                current = std::get<0>(myBus.const_cables).getWriterStartRef();
+            std::get<0>(myBus.cables).getCurrentRef().store(current);
+            myBus.signal.getNotifyRef().clear();
+        } else {
+            //write last bit
+            PieceWriter_write<Piece>(current,buffer,channels,i);
+            //do not advance -> current invalid
+            std::cout<<std::endl;
+            SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough, __FILE__, __func__);
+        }
     }
 }
 //has different for{for{}}

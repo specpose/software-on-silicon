@@ -22,7 +22,6 @@ namespace SOSFloat {
 using SAMPLE_SIZE = float;
 using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
-//using READ_BUFFER=std::vector<SOS::MemoryView::ARAChannel<SOSFloat::SAMPLE_SIZE>>;
 }
 //main branch: Copy Start from MemoryController.cpp
 namespace SOS {
@@ -132,7 +131,9 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             if (sample->size()!=_vst_numInputs)
                 SFA::util::logic_error(SFA::util::error_code::MemorycontrollerResizeError,__FILE__,__func__);
     };
+    MEMORY_CONTROLLER::difference_type ara_sampleCount;
     //not inherited: overload
+    protected:
     void write(const RING_BUFFER::value_type character) {
         _blocker.signal.getWritingRef().clear();
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
@@ -164,7 +165,6 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
         _blocker.signal.getWritingRef().test_and_set();
     }
-    MEMORY_CONTROLLER::difference_type ara_sampleCount;
     private:
     const std::size_t& _vst_numInputs;
 };
