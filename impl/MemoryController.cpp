@@ -90,9 +90,9 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
-        _blocker.signal.getUpdatedRef().clear();
+        _blocker.signal.getWritingRef().clear();
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
-        _blocker.signal.getUpdatedRef().test_and_set();
+        _blocker.signal.getWritingRef().test_and_set();
     }
 };
 using namespace std::chrono;
