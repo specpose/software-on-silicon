@@ -41,7 +41,23 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        template<typename MemoryControllerType> struct BlockerBus : public SOS::MemoryView::BusShaker {
+        class DoubleNotify : private std::array<std::atomic_flag,2> {
+            public:
+            DoubleNotify() : std::array<std::atomic_flag,2>{} {
+                std::get<0>(*this).test_and_set();
+                std::get<1>(*this).test_and_set();
+            }
+            auto& getWritingRef(){return std::get<0>(*this);}
+            auto& getReadingRef(){return std::get<1>(*this);}
+        };
+        struct bus_double_notifier_tag{};
+        template<typename MemoryControllerType> struct BlockerBus : public bus <
+            bus_double_notifier_tag,
+            SOS::MemoryView::DoubleNotify,
+            bus_traits<Bus>::cables_type,
+            bus_traits<Bus>::const_cables_type
+        >{
+            signal_type signal;
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
@@ -146,16 +162,16 @@ namespace SOS {
             private:
             virtual void read()=0;
             virtual bool wait() {
-                if (!_blocked_signal.getUpdatedRef().test_and_set()) {//intermittent wait when write
-                    _blocked_signal.getUpdatedRef().clear();
+                if (!_blocked_signal.getWritingRef().test_and_set()) {//intermittent wait when write
+                    _blocked_signal.getWritingRef().clear();
                     return true;
                 } else {
-                    _blocked_signal.getAcknowledgeRef().clear();//started individual read
+                    _blocked_signal.getReadingRef().clear();//started individual read
                     return false;
                 }
             }
             virtual void wait_acknowledge() {
-                _blocked_signal.getAcknowledgeRef().test_and_set();//ended individual read
+                _blocked_signal.getReadingRef().test_and_set();//ended individual read
             }
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };

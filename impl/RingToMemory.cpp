@@ -138,22 +138,22 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     };
     //not inherited: overload
     void write(const RING_BUFFER::value_type character) {
-        _blocker.signal.getUpdatedRef().clear();
+        _blocker.signal.getWritingRef().clear();
         resize(std::get<2>(character)+std::get<1>(character));//offset + length
-        _blocker.signal.getUpdatedRef().test_and_set();
+        _blocker.signal.getWritingRef().test_and_set();
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<2>(character)+std::get<1>(character))
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
         writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<2>(character);
         for(std::size_t i=0;i<std::get<1>(character);i++){
-            _blocker.signal.getUpdatedRef().clear();
+            _blocker.signal.getWritingRef().clear();
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write((std::get<0>(character))[i]);
-            _blocker.signal.getUpdatedRef().test_and_set();
+            _blocker.signal.getWritingRef().test_and_set();
         }
     }
     //not inherited
     void clearMemoryController() {
-        _blocker.signal.getUpdatedRef().clear();
+        _blocker.signal.getWritingRef().clear();
         ara_sampleCount = 0;
         for(std::size_t i = 0;i<memorycontroller.size();i++)
             if (memorycontroller[i]){
@@ -166,7 +166,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         memorycontroller.clear();
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
-        _blocker.signal.getUpdatedRef().test_and_set();
+        _blocker.signal.getWritingRef().test_and_set();
     }
     MEMORY_CONTROLLER::difference_type ara_sampleCount;
     private:
@@ -234,8 +234,8 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
                 //stop and omit the pending transfer writes
                 auto previous = std::get<0>(rB.cables).getCurrentRef().load();
                 std::get<0>(rB.cables).getThreadCurrentRef().store(--previous);
-                while(!_blocker.signal.getAcknowledgeRef().test_and_set()){
-                    _blocker.signal.getAcknowledgeRef().clear();
+                while(!_blocker.signal.getReadingRef().test_and_set()){
+                    _blocker.signal.getReadingRef().clear();
                     std::this_thread::yield();
                 }//acknowledge => finished a pending read
                 clearMemoryController();
