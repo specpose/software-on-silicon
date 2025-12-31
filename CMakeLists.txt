@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.23)
+cmake_minimum_required (VERSION 3.20)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -63,12 +63,14 @@ target_include_directories(test_MCUFPGA
 target_sources(test_MCUFPGA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_mcufpga.cpp)
 target_link_libraries(test_MCUFPGA PRIVATE Threads::Threads)
 
-add_library(${PROJECT_NAME} INTERFACE)
+add_library(${PROJECT_NAME} STATIC)
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        impl
+        include
+)
 target_sources(${PROJECT_NAME}
     PUBLIC
-      FILE_SET public_headers
-      TYPE HEADERS
-      FILES
-        $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+        test/test_ringtomemory.cpp
 )
-install(TARGETS ${PROJECT_NAME} FILE_SET public_headers)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
