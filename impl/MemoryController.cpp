@@ -8,11 +8,10 @@
 #include "software-on-silicon/simulation_helpers.hpp"
 #include <chrono>
 
-typedef char SAMPLE_SIZE;
+using SAMPLE_SIZE = char;
 #define STORAGE_SIZE 10000
-#define MEMORY_CONTROLLER std::array<std::array<SAMPLE_SIZE,1>,STORAGE_SIZE>
+using MEMORY_CONTROLLER=std::array<std::array<SAMPLE_SIZE,1>,STORAGE_SIZE>;
 #define READ_SIZE 1000
-//#define READ_BUFFER std::array<std::array<SAMPLE_SIZE,1>,READ_SIZE>
 namespace SOS {
     namespace MemoryView {
         template<> struct reader_traits<MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::array<MEMORY_CONTROLLER::value_type,READ_SIZE>> {};
@@ -75,11 +74,7 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
     }
     private:
     virtual void read() final {
-        //if (is_running()) {
             ReadTaskImpl::read();
-        //} else {
-        //    request_stop();
-        //}
     };
     std::thread _thread;
 };
@@ -88,6 +83,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         this->memorycontroller.fill(std::array<SAMPLE_SIZE,1>{'-'});
     }
+    ~WriteTaskImpl(){}
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type character) override {
         _blocker.signal.getWritingRef().clear();

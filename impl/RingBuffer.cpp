@@ -3,8 +3,8 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 
-typedef char SAMPLE_SIZE;
-#define RING_BUFFER std::array<std::array<SAMPLE_SIZE,1>,33>
+using SAMPLE_SIZE = char;
+using RING_BUFFER=std::array<std::array<SAMPLE_SIZE,1>,33>;
 
 using namespace SOS::MemoryView;
 

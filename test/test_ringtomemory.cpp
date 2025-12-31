@@ -54,7 +54,7 @@ class Functor1 {
 };
 class Functor2 {
     public:
-    Functor2(bool start=false, int readOffset=0) : _readOffset(readOffset) {
+    Functor2(bool start=false, std::size_t readOffset=0) : _readOffset(readOffset) {
         if (start) {
             readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
             readerBus.signal.getUpdatedRef().clear();
@@ -84,7 +84,7 @@ class Functor2 {
     public:
     MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     private:
-    int _readOffset = 0;
+    std::size_t _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread = std::thread{};
 };
@@ -92,7 +92,7 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const int offset = 2996;
+    const std::size_t offset = 2996;
     std::cout << "Reader reading 1000 characters per second at position " << offset << "..." << std::endl;
     //read
     auto functor2 = Functor2(true, offset);
