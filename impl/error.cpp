@@ -1,4 +1,5 @@
 #include <software-on-silicon/error.hpp>
+//#include <iostream>//ENABLE
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
