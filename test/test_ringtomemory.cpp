@@ -17,7 +17,7 @@ class Functor1 {
             startTestLoop();
     }
     ~Functor1(){
-        _thread.join();
+        _thread.join();//DISABLE
         delete buffer;
         for(std::size_t ring_entry=0;ring_entry<hostmemory.size();ring_entry++){
             for(std::size_t sample=0;sample<vst_maxSamplesPerProcess;sample++)
@@ -35,7 +35,7 @@ class Functor1 {
         PieceWriter<decltype(hostmemory)>(ringbufferbus,channel_ptrs,_vst_numInputs, vst_numSamples, actualSamplePosition);
     }
     void startTestLoop(){
-        _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
+        _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};//DISABLE
     }
     void reset() {//only call after last Piecewriter.write
         buffer->resetAndRestart();
@@ -91,7 +91,7 @@ class Functor1 {
     const std::size_t& _vst_numInputs;//vst numInputs
     const std::size_t vst_maxSamplesPerProcess;//vst maxSamplesPerProcess
     //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread;
+    std::thread _thread;//DISABLE
 };
 class Functor2 {
     public:
@@ -159,7 +159,7 @@ class Functor2 {
 
 using namespace std::chrono;
 
-int main (){
+int main (){//DISABLE
     const std::size_t _vst_maxSamplesPerChannel=500;//333 perProcess
     const std::size_t _vst_numInputs = 5;
     const std::size_t ara_offset=2996;
