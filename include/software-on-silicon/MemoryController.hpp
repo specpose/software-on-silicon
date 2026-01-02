@@ -139,6 +139,7 @@ namespace SOS {
                     _blocked_signal.getWritingRef().clear();
                     return true;
                 } else {
+                    _blocked_signal.getReadingRef().clear();//started individual read
                     return false;
                 }
             }
