@@ -20,7 +20,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
-            *current=character;
+            PieceWriter_write<Piece>(current, character);
             //current invalid => do not advance
             std::cout<<std::endl;
             SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
