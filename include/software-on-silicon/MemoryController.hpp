@@ -156,7 +156,9 @@ namespace SOS {
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::BootstrapDummyEventController<>(outside.signal)
             {}
-            ~Reader(){}
+            ~Reader(){
+                _blocked_signal.getReadingRef().test_and_set();
+            }
             public:
             virtual void event_loop() = 0;
             private:

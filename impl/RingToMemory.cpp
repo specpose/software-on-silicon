@@ -150,6 +150,10 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
     //not inherited
     void clearMemoryController() {
+        while (!_blocker.signal.getReadingRef().test_and_set()) {
+            _blocker.signal.getReadingRef().clear();
+            std::this_thread::yield();
+        }
         _blocker.signal.getWritingRef().clear();
         ara_sampleCount = 0;
         for(std::size_t i = 0;i<memorycontroller.size();i++)
