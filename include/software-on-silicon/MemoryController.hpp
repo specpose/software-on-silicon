@@ -140,7 +140,7 @@ namespace SOS {
             //not variadic, needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
-            virtual void read() = 0;
+            virtual void read()=0;
             virtual bool wait()=0;
             virtual void wait_acknowledge()=0;
             //virtual bool exit_loop()=0;
