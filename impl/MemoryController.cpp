@@ -38,8 +38,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
                 if (std::distance(_memorycontroller_size.getBKStartRef().load(), _memorycontroller_size.getBKEndRef().load())
                     < (std::distance(start, end) + readOffset))
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
-                //readOffset stays valid with resize (grow), but not clearMemoryController
-                auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
+                const auto readerPos = _memorycontroller_size.getBKStartRef().load()+readOffset;
                 *current = (**readerPos)[channel];
                 readOffset++;
                 ++current;

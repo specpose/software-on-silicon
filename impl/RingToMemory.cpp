@@ -23,13 +23,11 @@ using SAMPLE_SIZE = float;
 using RING_BUFFER = std::array<std::tuple<SOS::MemoryView::Contiguous<SAMPLE_SIZE>**,unsigned int,unsigned int>,2>;//400//0:[maxSamplesPerProcess][vst_numInputs], 1: vst_processSamples, 2: ara_samplePosition
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::Contiguous<SAMPLE_SIZE>*>;
 }
-//main branch: Copy Start from MemoryController.cpp
 namespace SOS {
     namespace MemoryView {
         template<> struct reader_traits<SOSFloat::MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::vector<SOS::MemoryView::ARAChannel<typename std::remove_pointer<typename SOSFloat::MEMORY_CONTROLLER::value_type>::type::value_type>>> {};
     }
 }
-
 using namespace SOS;
 namespace SOSFloat {
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
@@ -39,27 +37,23 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
     protected:
     void read(){
         for (std::size_t channel=0;channel<_size.size();channel++){
-        //readbuffer
         const auto start = _size[channel].getReadBufferStartRef().load();
         auto current = start;
         const auto end = _size[channel].getReadBufferAfterLastRef().load();
-        //memorycontroller
         auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                auto readerStart = _memorycontroller_size.getBKStartRef().load();
-                readerStart += readOffset;
+                const auto readerStart = _memorycontroller_size.getBKStartRef().load() + readOffset;
                 const auto readerEnd = _memorycontroller_size.getBKEndRef().load();
-                //if the distance of the lval from its start is bigger than
-                //the (the rval offset to rval end)
                 if (std::distance(start,current)>=std::distance(readerStart,readerEnd)){
+                    //SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                     *current = 0.0;
                 } else {
-                    *current = (**(readerStart))[channel];
-                    readOffset++;
+                    *current = (**readerStart)[channel];
                 }
+                readOffset++;
                 ++current;
                 wait_acknowledge();
             }
@@ -68,7 +62,6 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         }
     }
 };
-//main branch: Copy End from MemoryController.cpp
 
 class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
