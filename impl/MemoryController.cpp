@@ -18,8 +18,7 @@ namespace SOS {
         template<> struct reader_traits<SOSFloat::MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::vector<SOS::MemoryView::ARAChannel<typename std::remove_pointer<typename SOSFloat::MEMORY_CONTROLLER::value_type>::type::value_type>>> {};
     }
 }
-
-using namespace SOS::MemoryView;
+using namespace SOS;
 namespace SOSFloat {
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
     public:
@@ -51,6 +50,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         }
     }
 };
+
 class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:

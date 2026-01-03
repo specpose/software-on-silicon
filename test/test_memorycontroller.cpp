@@ -28,7 +28,7 @@ class Functor {
     }
     private:
     typename SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type* randomread;
-    ReaderBus<typename SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type> readerBus;
+    SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<SOSFloat::MEMORY_CONTROLLER>::input_container_type> readerBus;
     WritePriorityImpl controller;
 };
 }
