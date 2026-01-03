@@ -34,7 +34,6 @@ using namespace SOS;
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
-    //: SOS::Behavior::ReadTask<MEMORY_CONTROLLER,READ_SIZE>(Length, Offset, blockercable)
     {}
     protected:
     void read(){
@@ -74,7 +73,7 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         destroy(_thread);
     }
-//main branch: Copy Start from MemoryController.cpp
+//main branch: Copy Start from RingBuffer.cpp
     virtual void event_loop() final {
     while(Loop::is_running()){
         if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
@@ -86,7 +85,7 @@ class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
     }
     Loop::finished();
     }
-//main branch: Copy End from MemoryController.cpp
+//main branch: Copy End from RingBuffer.cpp
     virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     private:
     virtual void read() final {
@@ -115,7 +114,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
         ) : WriteTaskImpl{}, SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
     protected:
-//main branch: Copy Start from MemoryController.cpp
+//main branch: Copy Start from RingBuffer.cpp
     virtual void read_loop() final {
         auto threadcurrent = _item.getThreadCurrentRef().load();
         auto current = _item.getCurrentRef().load();
@@ -132,7 +131,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
             }
         }
     }
-//main branch: Copy End from MemoryController.cpp
+//main branch: Copy End from RingBuffer.cpp
     private:
     //multiple inheritance: overrides RingBufferTask
     virtual void write(const MEMORY_CONTROLLER::value_type character) final {
@@ -143,7 +142,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
 class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public TransferRingToMemory {
     public:
     //multiple inheritance: construction order
-    RingBufferImpl(MemoryView::RingBufferBus<RING_BUFFER>& rB,MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& rd) :
+    RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& rd) :
     TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {

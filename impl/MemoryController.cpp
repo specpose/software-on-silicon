@@ -17,8 +17,7 @@ namespace SOS {
         template<> struct reader_traits<MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::array<MEMORY_CONTROLLER::value_type,READ_SIZE>> {};
     }
 }
-
-using namespace SOS::MemoryView;
+using namespace SOS;
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
@@ -44,6 +43,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
         }
     }
 };
+
 class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:

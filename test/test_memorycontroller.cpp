@@ -20,7 +20,7 @@ class Functor {
     }
     private:
     typename SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
-    ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
+    SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     WritePriorityImpl controller{readerBus};
 };
 
