@@ -21,9 +21,9 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         } else {
             //write last bit
             PieceWriter_write<Piece>(current,buffer,channels,i);
-            //do not advance -> current invalid
+            //current invalid => do not advance
             std::cout<<std::endl;
-            SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough, __FILE__, __func__);
+            SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
         }
     }
 }
