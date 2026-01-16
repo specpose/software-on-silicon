@@ -7,7 +7,7 @@ class Functor {
     void operator()(){
         RING_BUFFER::value_type piece{};
         std::fill(std::begin(piece),std::end(piece),'+');
-        PieceWriter<decltype(hostmemory)>(bus,piece,32);
+        WriteInterleaved<decltype(hostmemory)>(bus,piece,32);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};

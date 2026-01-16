@@ -1,7 +1,4 @@
-template<typename Piece> void PieceWriter_write(typename Piece::iterator current, const typename Piece::value_type character){
-    *current=character;
-}
-template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>& myBus, const typename Piece::value_type character, std::size_t length){
+template<typename Piece> void WriteInterleaved(SOS::MemoryView::RingBufferBus<Piece>& myBus, const typename Piece::value_type character, std::size_t length){
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
@@ -12,7 +9,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             std::cout<<"=";
             //write directly to HOSTmemory
-            PieceWriter_write<Piece>(current,character);
+            *current=character;
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
                 current = std::get<0>(myBus.const_cables).getWriterStartRef();
@@ -20,7 +17,7 @@ template<typename Piece> void PieceWriter(SOS::MemoryView::RingBufferBus<Piece>&
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
-            PieceWriter_write<Piece>(current, character);
+            *current=character;
             //current invalid => do not advance
             std::cout<<std::endl;
             SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);

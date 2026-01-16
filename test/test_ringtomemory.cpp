@@ -32,7 +32,7 @@ class Functor1 {
                     count=0;
                     break;
             }
-            PieceWriter<decltype(hostmemory)>(ringbufferbus,blink,333);
+            WriteInterleaved<decltype(hostmemory)>(ringbufferbus,blink,333);
             std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
         }
         //} catch (std::exception& e) {
