@@ -14,12 +14,12 @@ class Functor {
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
-                std::cout << (*print++).at(0);
+                std::cout << (*print++)[0];
             std::cout << std::endl;
         }
     }
     private:
-    typename SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
+    typename SOS::MemoryView::reader_traits<CHANNELS_DATA>::input_container_type randomread{};
     SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     WritePriorityImpl controller{readerBus};
 };

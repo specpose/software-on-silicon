@@ -4,7 +4,7 @@
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& readerBus, bool start=false) : _readerBus(readerBus){
+    Functor1(MemoryView::ReaderBus<SOS::MemoryView::reader_traits<CHANNELS_DATA>::input_container_type>& readerBus, bool start=false) : _readerBus(readerBus){
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -20,15 +20,15 @@ class Functor1 {
             RING_BUFFER::value_type blink{};
             switch(count){
                 case 0:
-                    std::fill(std::begin(blink),std::end(blink),'*');
+                    blink={'*'};
                     count++;
                     break;
                 case 1:
-                    std::fill(std::begin(blink),std::end(blink),'_');
+                    blink={'_'};
                     count++;
                     break;
                 case 2:
-                    std::fill(std::begin(blink),std::end(blink),'_');
+                    blink={'_'};
                     count=0;
                     break;
             }
@@ -40,7 +40,7 @@ class Functor1 {
         //}
     }
     private:
-    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& _readerBus;
+    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<CHANNELS_DATA>::input_container_type>& _readerBus;
 
     RING_BUFFER hostmemory = RING_BUFFER{};
     MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
@@ -80,7 +80,7 @@ class Functor2 {
         }
     }
     private:
-    SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
+    SOS::MemoryView::reader_traits<CHANNELS_DATA>::input_container_type randomread{};
     public:
     MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     private:

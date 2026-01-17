@@ -3,8 +3,8 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/RingBuffer.hpp"
 
-using SAMPLE_SIZE = char;
-using RING_BUFFER=std::array<std::array<SAMPLE_SIZE,1>,33>;
+#include "Sample.cpp"
+using RING_BUFFER=std::array<SOS::MemoryView::sample<char,1>,33>;//INTERLEAVED
 
 using namespace SOS::MemoryView;
 
@@ -31,7 +31,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
         }
     }
     private:
-    virtual void write(const RING_BUFFER::value_type character) final {std::cout<<character.at(0);}
+    virtual void write(RING_BUFFER::value_type& character) final {std::cout<<character.channels[0];}//HACK: hard coded channel 0
 };
 class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private RingBufferTaskImpl {
     public:

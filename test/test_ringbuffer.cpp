@@ -5,8 +5,7 @@ class Functor {
     public:
     Functor() {}
     void operator()(){
-        RING_BUFFER::value_type piece{};
-        std::fill(std::begin(piece),std::end(piece),'+');
+        auto piece = RING_BUFFER::value_type{{'+'}};//HACK: hard coded channel 0
         WriteInterleaved<decltype(hostmemory)>(bus,piece,32);
     }
     private:

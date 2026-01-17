@@ -153,7 +153,7 @@ namespace SOS {
             MemoryControllerWrite() {}
             virtual ~MemoryControllerWrite(){};
             protected:
-            virtual void write(const typename MemoryControllerType::value_type WORD)=0;
+            virtual void write(typename MemoryControllerType::value_type& WORD)=0;
             MemoryControllerType memorycontroller = MemoryControllerType{};
         };
         template<typename MemoryControllerType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<MemoryControllerType> {
@@ -161,7 +161,7 @@ namespace SOS {
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
             using SOS::Behavior::MemoryControllerWrite<MemoryControllerType>::MemoryControllerWrite;
             protected:
-            virtual void write(const typename MemoryControllerType::value_type character) {
+            virtual void write(typename MemoryControllerType::value_type& character) {
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
                     *(writerPos++)=character;
                 } else {

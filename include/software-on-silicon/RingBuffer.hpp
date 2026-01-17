@@ -43,7 +43,7 @@ namespace SOS {
             {}
             protected:
             virtual void read_loop() = 0;
-            virtual void write(const typename RingBufferType::value_type character)=0;
+            virtual void write(typename RingBufferType::value_type& character)=0;
             cable_type& _item;
             const_cable_type& _bounds;
         };
