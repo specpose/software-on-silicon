@@ -10,7 +10,7 @@
 
 #include "Sample.cpp"
 #define STORAGE_SIZE 10000
-using CHANNELS_DATA=std::array<decltype(SOS::MemoryView::sample<char,1>::channels),STORAGE_SIZE>;//NONINTERLEAVED
+using CHANNELS_DATA=std::array<SOS::MemoryView::sample<char,1>,STORAGE_SIZE>;//INTERLEAVED
 #define READ_SIZE 1000
 namespace SOS {
     namespace MemoryView {

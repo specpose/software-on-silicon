@@ -73,7 +73,7 @@ class Functor2 {
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
-                std::cout << (*print++).at(0);
+                std::cout << (print++)->channels[0];
             std::cout << std::endl;
         }
         std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));

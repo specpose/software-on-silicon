@@ -14,7 +14,7 @@ class Functor {
             readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
-                std::cout << (*print++)[0];
+                std::cout << (print++)->channels[0];//HACK: hard coded channel 0
             std::cout << std::endl;
         }
     }

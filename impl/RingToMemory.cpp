@@ -21,7 +21,7 @@
 #include "Sample.cpp"
 using RING_BUFFER=std::array<SOS::MemoryView::sample<char,1>,334>;//INTERLEAVED
 #define STORAGE_SIZE 10000
-using CHANNELS_DATA=std::array<decltype(SOS::MemoryView::sample<char,1>::channels),STORAGE_SIZE>;//NONINTERLEAVED
+using CHANNELS_DATA=std::array<SOS::MemoryView::sample<char,1>,STORAGE_SIZE>;//INTERLEAVED
 #define READ_SIZE 1000
 
 //main branch: Copy Start from MemoryController.cpp
@@ -106,13 +106,20 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<CHANNELS_DATA> {
         _blocker.signal.getWritingRef().test_and_set();
     }
 };
+class RingBufferTaskImpl : protected Behavior::RingBufferTask<RING_BUFFER> {
+    public:
+    using Behavior::RingBufferTask<RING_BUFFER>::RingBufferTask;
+    protected:
+    virtual void rb_write(RING_BUFFER::value_type& character) = 0;
+    virtual void write(RING_BUFFER::value_type& character) final {};
+};
 //multiple inheritance: destruction order
-class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBufferTask<RING_BUFFER> {
+class TransferRingToMemory : protected WriteTaskImpl, protected RingBufferTaskImpl {
     public:
     TransferRingToMemory(
         Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : WriteTaskImpl{}, SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds) {}
+        ) : WriteTaskImpl{}, RingBufferTaskImpl(indices, bounds) {}
     protected:
 //main branch: Copy Start from RingBuffer.cpp
     virtual void read_loop() final {
@@ -124,7 +131,7 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
             if (threadcurrent==_bounds.getWriterEndRef())
                 threadcurrent=_bounds.getWriterStartRef();
             if (threadcurrent!=current) {
-                write(*threadcurrent);
+                rb_write(*threadcurrent);
                 _item.getThreadCurrentRef().store(threadcurrent);
             } else {
                 stop = true;
@@ -133,9 +140,8 @@ class TransferRingToMemory : public WriteTaskImpl, protected Behavior::RingBuffe
     }
 //main branch: Copy End from RingBuffer.cpp
     private:
-    //multiple inheritance: overrides RingBufferTask
-    virtual void write(RING_BUFFER::value_type& character) final {
-        WriteTaskImpl::write(character.channels);
+    virtual void rb_write(RING_BUFFER::value_type& character) final {
+        WriteTaskImpl::write(character);
     }
 };
 //multiple inheritance: destruction order
