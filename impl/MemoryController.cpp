@@ -1,7 +1,6 @@
 #include <iostream>
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
-#include "software-on-silicon/memorycontroller_helpers.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
@@ -11,14 +10,9 @@
 #include "Sample.cpp"
 #define STORAGE_SIZE 10000
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<char,1>,STORAGE_SIZE>;//INTERLEAVED
-#define READ_SIZE 1000
-namespace SOS {
-    namespace MemoryView {
-        template<> struct reader_traits<MEMORY_CONTROLLER> : public SFA::DeductionGuide<std::array<MEMORY_CONTROLLER::value_type,READ_SIZE>> {};
-    }
-}
-using namespace SOS;
-class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> {
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;
+
+class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
     {}
@@ -44,13 +38,13 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<MEMORY_CONTROLLER> 
     }
 };
 
-class ReaderImpl : public SOS::Behavior::Reader<MEMORY_CONTROLLER>,
+class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside, blockerbus),
     ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)),
-    SOS::Behavior::ReadTask<MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
     {
         //multiple inheritance: not ambiguous
         //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER>::start(this);
@@ -98,7 +92,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
-        SOS::MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& passThruHostMem
+        SOS::MemoryView::ReaderBus<BLOCK>& passThruHostMem
         ) :
         WriteTaskImpl(),
         PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)

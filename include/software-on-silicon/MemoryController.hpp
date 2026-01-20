@@ -63,8 +63,6 @@ namespace SOS {
             ){}
             const_cables_type const_cables;
         };
-        template<typename DG> struct reader_traits : public SFA::DeductionGuide<DG> {
-        };
     }
     namespace Behavior {
         template<typename S, typename... Others> class PassthruAsyncController : public Controller<S>, public Loop {
@@ -105,10 +103,10 @@ namespace SOS {
             private:
             S _child;
         };
-        template<typename MemoryControllerType> class ReadTask {
+        template<typename OutputBuffer, typename MemoryControllerType> class ReadTask {
             public:
-            using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>::const_cables_type>::type;
-            using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>::cables_type>::type;
+            using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::const_cables_type>::type;
+            using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
             //only use cables in Tasks
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
@@ -121,15 +119,17 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
-        public virtual SOS::Behavior::ReadTask<MemoryControllerType> {
+        template<typename OutputBuffer, typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
+        public virtual SOS::Behavior::ReadTask<OutputBuffer, MemoryControllerType> {
             public:
-            using bus_type = typename SOS::MemoryView::ReaderBus<typename SOS::MemoryView::reader_traits<MemoryControllerType>::input_container_type>;
+            using bus_type = typename SOS::MemoryView::ReaderBus<OutputBuffer>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
             SOS::Behavior::DummyEventController<>(outside.signal)
             {}
-            ~Reader(){}
+            ~Reader(){
+                _blocked_signal.getReadingRef().test_and_set();
+            }
             public:
             virtual void event_loop() = 0;
             private:

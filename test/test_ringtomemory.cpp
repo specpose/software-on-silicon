@@ -4,7 +4,7 @@
 //Helper classes
 class Functor1 {
     public:
-    Functor1(MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& readerBus, bool start=false) : _readerBus(readerBus){
+    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus, bool start=false) : _readerBus(readerBus){
         if (start)
             _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
@@ -32,18 +32,19 @@ class Functor1 {
                     count=0;
                     break;
             }
-            WriteInterleaved<decltype(hostmemory)>(ringbufferbus,blink,333);
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{333}));
+            for (std::size_t i=0;i<std::tuple_size<RING_BUFFER>{}-1;i++)
+                WriteInterleaved<decltype(hostmemory)>(ringbufferbus,blink);
+            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{std::tuple_size<RING_BUFFER>{}-1}));
         }
         //} catch (std::exception& e) {
         //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
         //}
     }
     private:
-    MemoryView::ReaderBus<SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type>& _readerBus;
+    SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
     RING_BUFFER hostmemory = RING_BUFFER{};
-    MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
+    SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
     RingBufferImpl buffer{ringbufferbus,_readerBus};
@@ -80,9 +81,9 @@ class Functor2 {
         }
     }
     private:
-    SOS::MemoryView::reader_traits<MEMORY_CONTROLLER>::input_container_type randomread{};
+    BLOCK randomread{};
     public:
-    MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
+    SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     private:
     std::size_t _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario

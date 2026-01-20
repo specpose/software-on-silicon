@@ -1,4 +1,5 @@
 #include <software-on-silicon/error.hpp>
+//#include <iostream>//ENABLE
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
@@ -45,7 +46,6 @@ enum SFA::util::error_code : unsigned char {
     //RingBuffer.hpp
     RequestedRingbufferSizeNotBigEnough,
     //ringbuffer_hellpers.hpp
-    IndividualWritelengthTooBigOrRingBufferTooSmall,
     RingbufferTooSlowOrNotBigEnough, //2x
     //MemoryController.cpp
     NegativeReadoffsetSupplied, //3x
@@ -53,23 +53,13 @@ enum SFA::util::error_code : unsigned char {
     //MemoryController.hpp
     InvalidReadDestination,
     WriterBufferFull,
-    IllegalReadbufferSizeEncountered,
     ArachannelInitializationError, //2x
-    MemorycontrollerHasNotBeenInitialized,
-    IllegalCharactersizeEncountered,
     //RingToMemory.cpp
-    MemorycontrollerCorrupted,
-    MemorycontrollerResizeError,
     WriterTriedToWriteBeyondMemorycontrollerBounds,
     //test_ringtomemory.cpp
     NoReadbufferSupplied,
-    SuppliedVstBufferNotInitialised,
-    SuppliedVstBufferChannelsNotInitialised,
     ContiguousInitializedIncorrectly,
     AssignmentOperatorUsedIncorrectly,
-    ExecoperatorcallHasNotFinished,
-    SuppliedAraBufferNotInitialised,
-    SuppliedAraBufferChannelsNotInitialised,
     FifoReadcallAlreadyInProgress
 };
 const std::string SFA::util::error_message(error_code what)
@@ -151,8 +141,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Attempted write after end of buffer");
     case error_code::RequestedRingbufferSizeNotBigEnough:
         return std::string("Requested RingBuffer size not big enough.");
-    case error_code::IndividualWritelengthTooBigOrRingBufferTooSmall:
-        return std::string("Individual write length too big or RingBuffer too small");
     case error_code::RingbufferTooSlowOrNotBigEnough:
         return std::string("RingBuffer too slow or not big enough");
     case error_code::NegativeReadoffsetSupplied:
@@ -169,38 +157,18 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Reads pending after Comthread destruction");
     case error_code::InvalidDMAObjectId:
         return std::string("Invalid DMA Object Id");
-    case error_code::MemorycontrollerCorrupted:
-        return std::string("MemoryController corrupted");
     case error_code::NoReadbufferSupplied:
         return std::string("No ReadBuffer supplied");
-    case error_code::SuppliedVstBufferNotInitialised:
-        return std::string("Supplied VST buffer not initialised");
-    case error_code::SuppliedVstBufferChannelsNotInitialised:
-        return std::string("Supplied VST buffer channels not initialised");
     case error_code::ContiguousInitializedIncorrectly:
         return std::string("Contiguous initialized incorrectly");
     case error_code::AssignmentOperatorUsedIncorrectly:
         return std::string("operator=() used incorrectly");
-    case error_code::ExecoperatorcallHasNotFinished:
-        return std::string("operator()() call has not finished");
-    case error_code::SuppliedAraBufferNotInitialised:
-        return std::string("Supplied ARA buffer not initialised");
-    case error_code::SuppliedAraBufferChannelsNotInitialised:
-        return std::string("Supplied ARA buffer channels not initialised");
     case error_code::FifoReadcallAlreadyInProgress:
         return std::string("FIFO read call already in progress");
-    case error_code::MemorycontrollerResizeError:
-        return std::string("Memorycontroller resize error");
     case error_code::WriterTriedToWriteBeyondMemorycontrollerBounds:
         return std::string("Writer tried to write beyond memorycontroller bounds");
-    case error_code::IllegalReadbufferSizeEncountered:
-        return std::string("Illegal ReadBuffer size encountered");
     case error_code::ArachannelInitializationError:
         return std::string("ARAChannel initialization error");
-    case error_code::MemorycontrollerHasNotBeenInitialized:
-        return std::string("memorycontroller has not been initialized");
-    case error_code::IllegalCharactersizeEncountered:
-        return std::string("Illegal character size encountered");
     }
     return std::string("No error was supplied after initialization of static SFA::util::error");
 }
