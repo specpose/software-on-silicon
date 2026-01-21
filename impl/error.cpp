@@ -58,7 +58,6 @@ enum SFA::util::error_code : unsigned char {
     InvalidReadDestination,
     WriterBufferFull,
     ArachannelInitializationError, //2x
-    //RingToMemory.cpp
     WriterTriedToWriteBeyondMemorycontrollerBounds,
     //test_ringtomemory.cpp
     NoReadbufferSupplied,

@@ -2,36 +2,45 @@
 
 class Functor {
     public:
-    Functor(const std::size_t readOffset=0) : _readOffset(readOffset) {
-        _readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+    Functor(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), controller(readerBus) {}
+    void asyncRead(BLOCK& buffer, const std::size_t offset){
+        _readerBus.setReadBuffer(buffer);
+        _readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear();
         _readerBus.signal.getUpdatedRef().clear();
     }
-    void operator()(){
+    bool operator()(){
         if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
-            _readerBus.signal.getUpdatedRef().clear();//offset change omitted
-            auto print = randomread.begin();
-            while (print!=randomread.end())
-                std::cout << (print++)->channels[0];//HACK: hard coded channel 0
-            std::cout << std::endl;
+            return false;
+        } else {
+            return true;
         }
     }
     private:
-    const std::size_t _readOffset;
-    BLOCK randomread{};
-    SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus{randomread.begin(),randomread.end()};
-    WritePriorityImpl controller{_readerBus};
+    SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
+    WritePriorityImpl controller;
 };
 
 using namespace std::chrono;
 
 int main(){
-    std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
-    auto functor = Functor(6992);
-    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
+    const std::size_t ara_offset=6992;
+    BLOCK randomread{{{0},{0},{0},{0},{0}}};
+    SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
+    std::cout << "Writer writing "<<STORAGE_SIZE<<" times from start at rate 1/ms..." << std::endl;
+    auto functor = Functor(readerBus);
+    std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" times at position "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
+    functor.asyncRead(randomread,ara_offset);
+
     auto loopstart = high_resolution_clock::now();
+    auto start_tp = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
-        const auto start_tp = high_resolution_clock::now();
-        functor();
-        std::this_thread::sleep_until(start_tp + duration_cast<high_resolution_clock::duration>(seconds{1}));
+        if (functor() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_tp).count() > 0)) {
+            start_tp = high_resolution_clock::now();
+            for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
+                std::cout<< randomread[i].channels[4];
+            std::cout<<std::endl;
+            functor.asyncRead(randomread,ara_offset);
+        }
+        std::this_thread::yield();
     }
 }

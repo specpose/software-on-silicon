@@ -4,9 +4,9 @@
 #include "software-on-silicon/RingBuffer.hpp"
 
 #include "Sample.cpp"
-#define SAMPLE_TYPE char
+#define SAMPLE_TYPE float
 #define MAX_BLINK 1
-using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,34>;//INTERLEAVED
+using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;//INTERLEAVED
 
 using namespace SOS::MemoryView;
 

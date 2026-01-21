@@ -2,8 +2,8 @@
 #include <array>
 namespace SOS {
     namespace MemoryView {
-        template<typename ArithmeticType> struct ReadSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            ReadSize(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
+        template<typename ArithmeticType> struct ReadSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
+            using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
             auto& getReadBufferStartRef(){return std::get<0>(*this);}
             auto& getReadBufferAfterLastRef(){return std::get<1>(*this);}
         };
@@ -14,24 +14,25 @@ namespace SOS {
         template<typename OutputBuffer> struct ReaderBus : public SOS::MemoryView::BusShaker {
             using _pointer_type = typename OutputBuffer::iterator;
             using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< ReadOffset<_difference_type> >;
-            using const_cables_type = std::tuple< ReadSize<_pointer_type> >;
-            ReaderBus(const _pointer_type begin, const _pointer_type end)
-            : const_cables{ReadSize<_pointer_type>(begin,end)}
+            using cables_type = std::tuple< ReadOffset<_difference_type>,ReadSize<_pointer_type> >;
+            using const_cables_type = std::tuple< >;
+            ReaderBus()
             {
-                if (std::distance(begin,end)<0)
-                    SFA::util::runtime_error(SFA::util::error_code::InvalidReadDestination,__FILE__,__func__);
                 setOffset(0);
             }
             //FIFO requires BusShaker
             void setOffset(_difference_type offset){
                 std::get<0>(cables).getReadOffsetRef().store(offset);
             }
+            void setReadBuffer(OutputBuffer& buffer){
+                std::get<1>(cables).getReadBufferStartRef().store(buffer.begin());
+                std::get<1>(cables).getReadBufferAfterLastRef().store(buffer.end());
+            }
             cables_type cables;
             const_cables_type const_cables;
         };
-        template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            MemoryControllerBufferSize(const ArithmeticType& start, const ArithmeticType& end): SOS::MemoryView::ConstCable<ArithmeticType,2>{start,end} {}
+        template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
+            using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
@@ -49,12 +50,12 @@ namespace SOS {
         >{
             signal_type signal;
             using _arithmetic_type = typename MemoryControllerType::iterator;
-            using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
-            BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
-            //tuple requires copy constructor for any tuple that isn't default constructed
-            const_cables{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
-            {}
-            const_cables_type const_cables;
+            using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
+            BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
+                std::get<0>(cables).getBKStartRef().store(start);
+                std::get<0>(cables).getBKEndRef().store(start);
+            }
+            cables_type cables;
         };
     }
     namespace Behavior {
@@ -98,10 +99,10 @@ namespace SOS {
         };
         template<typename OutputBuffer, typename MemoryControllerType> class ReadTask {
             public:
-            using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::const_cables_type>::type;
+            using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
-            using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
-            //only use cables in Tasks
+            using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
+            //needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             virtual void read()=0;
@@ -157,7 +158,7 @@ namespace SOS {
             protected:
             virtual void write(typename MemoryControllerType::value_type& character) {
                 _blocker.signal.getWritingRef().clear();
-                if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
+                if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
                     *writerPos=character;
                     writerPos++;
                 } else {
@@ -166,7 +167,7 @@ namespace SOS {
                 _blocker.signal.getWritingRef().test_and_set();
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
-            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
+            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
             MemoryControllerType memorycontroller = MemoryControllerType{};
         };
     }
