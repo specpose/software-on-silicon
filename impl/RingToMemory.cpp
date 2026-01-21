@@ -127,6 +127,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<BLOCK>& rd) :
     rB(rB),
     RingBufferTaskImpl(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    rB(rB),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl
