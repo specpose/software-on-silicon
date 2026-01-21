@@ -12,7 +12,7 @@
 #define SAMPLE_TYPE char
 #define NUM_CHANNELS 1
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;//INTERLEAVED
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:

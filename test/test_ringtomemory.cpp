@@ -14,7 +14,7 @@ class Functor1 {
     void operator()(){
         auto loopstart = high_resolution_clock::now();
         //try {
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<4) {
             const auto beginning = high_resolution_clock::now();
             RING_BUFFER::value_type blink{};
             switch(count){
@@ -54,7 +54,7 @@ class Functor1 {
 };
 class Functor2 {
     public:
-    Functor2(std::size_t readOffset=0) : _readOffset(readOffset) {
+    Functor2(const std::size_t readOffset=0) : _readOffset(readOffset) {
         readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
         readerBus.signal.getUpdatedRef().clear();
         _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
@@ -67,8 +67,7 @@ class Functor2 {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
         const auto beginning = high_resolution_clock::now();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
+            readerBus.signal.getUpdatedRef().clear();//offset change omitted
             auto print = randomread.begin();
             while (print!=randomread.end())
                 std::cout << (print++)->channels[0];
@@ -82,7 +81,7 @@ class Functor2 {
     public:
     SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     private:
-    std::size_t _readOffset = 0;
+    const std::size_t _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
@@ -93,6 +92,6 @@ int main (){
     const std::size_t ara_offset = 2996;
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
     auto functor2 = Functor2(ara_offset);
-    std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
+    std::cout << "Writer writing 4995 times (5s) from start at rate 1/ms..." << std::endl;
     auto functor1 = Functor1(functor2.readerBus);
 }

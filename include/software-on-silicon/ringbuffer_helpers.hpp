@@ -2,8 +2,8 @@ template<typename Target, typename InputBlock> void WriteInterleaved(SOS::Memory
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
     const auto end = std::get<0>(myBus.const_cables).getWriterEndRef();
+    std::cout<<"=";
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
-            std::cout<<"=";
             //write directly to HOSTmemory
             *current=buffer;
             ++current;

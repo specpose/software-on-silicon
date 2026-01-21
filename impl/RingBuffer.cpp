@@ -5,7 +5,8 @@
 
 #include "Sample.cpp"
 #define SAMPLE_TYPE char
-using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,1>,33>;//INTERLEAVED
+#define MAX_BLINK 1
+using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,34>;//INTERLEAVED
 
 using namespace SOS::MemoryView;
 
@@ -57,5 +58,5 @@ class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private Ri
     private:
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
