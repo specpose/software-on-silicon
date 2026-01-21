@@ -4,13 +4,12 @@
 //Helper classes
 class Functor1 {
     public:
-    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus, bool start=false) : _readerBus(readerBus){
-        if (start)
-            _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
+    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus){
+        _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
     ~Functor1(){
         _thread.join();
-        _readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
+        //_readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
     void operator()(){
         auto loopstart = high_resolution_clock::now();
@@ -43,7 +42,7 @@ class Functor1 {
     private:
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
-    RING_BUFFER hostmemory = RING_BUFFER{};
+    RING_BUFFER hostmemory = RING_BUFFER{{0}};
     SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
@@ -51,16 +50,14 @@ class Functor1 {
 
     unsigned int count = 0;
     //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
 class Functor2 {
     public:
-    Functor2(bool start=false, std::size_t readOffset=0) : _readOffset(readOffset) {
-        if (start) {
-            readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
-            _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
-        }
+    Functor2(std::size_t readOffset=0) : _readOffset(readOffset) {
+        readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+        readerBus.signal.getUpdatedRef().clear();
+        _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
     }
     ~Functor2(){
         _thread.join();
@@ -87,17 +84,15 @@ class Functor2 {
     private:
     std::size_t _readOffset = 0;
     //not strictly necessary, simulate real-world use-scenario
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
 
 using namespace std::chrono;
 
 int main (){
-    const std::size_t offset = 2996;
-    std::cout << "Reader reading 1000 characters per second at position " << offset << "..." << std::endl;
-    //read
-    auto functor2 = Functor2(true, offset);
+    const std::size_t ara_offset = 2996;
+    std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
+    auto functor2 = Functor2(ara_offset);
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
-    //write
-    auto functor1 = Functor1(functor2.readerBus, true);
+    auto functor1 = Functor1(functor2.readerBus);
 }

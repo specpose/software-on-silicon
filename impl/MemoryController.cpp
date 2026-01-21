@@ -9,7 +9,9 @@
 
 #include "Sample.cpp"
 #define STORAGE_SIZE 10000
-using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<char,1>,STORAGE_SIZE>;//INTERLEAVED
+#define SAMPLE_TYPE char
+#define NUM_CHANNELS 1
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;//INTERLEAVED
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
@@ -29,7 +31,8 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
         auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
         while (current!=end){
             if (!wait()) {
-                *current = *(readerPos++);
+                *current = *readerPos;
+                readerPos++;
                 ++current;
                 wait_acknowledge();
             }

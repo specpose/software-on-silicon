@@ -163,7 +163,8 @@ namespace SOS {
             protected:
             virtual void write(typename MemoryControllerType::value_type& character) {
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
-                    *(writerPos++)=character;
+                    *writerPos=character;
+                    writerPos++;
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }

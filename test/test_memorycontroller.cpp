@@ -4,14 +4,14 @@ class Functor {
     public:
     Functor(bool start = false){
         if (start) {
-            readerBus.setOffset(8000);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
+            _readerBus.setOffset(8000);//FIFO has to be called before each getUpdatedRef().clear()
+            _readerBus.signal.getUpdatedRef().clear();
         }
     }
     void operator()(const std::size_t offset){
-        if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
-            readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
-            readerBus.signal.getUpdatedRef().clear();
+        if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
+            _readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear()
+            _readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
                 std::cout << (print++)->channels[0];//HACK: hard coded channel 0
@@ -20,8 +20,8 @@ class Functor {
     }
     private:
     BLOCK randomread{};
-    SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
-    WritePriorityImpl controller{readerBus};
+    SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus{randomread.begin(),randomread.end()};
+    WritePriorityImpl controller{_readerBus};
 };
 
 using namespace std::chrono;
