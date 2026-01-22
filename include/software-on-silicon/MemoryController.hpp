@@ -158,18 +158,10 @@ namespace SOS {
             }
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
-        template<typename MemoryControllerType> class MemoryControllerWrite {
-            public:
-            MemoryControllerWrite() {}
-            virtual ~MemoryControllerWrite(){};
-            protected:
-            virtual void write(typename MemoryControllerType::value_type& WORD)=0;
-            MemoryControllerType memorycontroller = MemoryControllerType{};
-        };
-        template<typename MemoryControllerType> class WriteTask : public SOS::Behavior::MemoryControllerWrite<MemoryControllerType> {
+        template<typename MemoryControllerType> class WriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            using SOS::Behavior::MemoryControllerWrite<MemoryControllerType>::MemoryControllerWrite;
+            WriteTask(){};
             protected:
             virtual void write(typename MemoryControllerType::value_type& character) {
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
@@ -181,6 +173,7 @@ namespace SOS {
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
+            MemoryControllerType memorycontroller = MemoryControllerType{};
         };
     }
 }
