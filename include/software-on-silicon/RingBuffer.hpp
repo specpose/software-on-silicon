@@ -16,10 +16,7 @@ namespace SOS {
             using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type> >;
             using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
             RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
-            //tuple requires copy constructor for any tuple that isn't default constructed
-            const_cables(
-            std::tuple< WriteBufferSize<_pointer_type> >{WriteBufferSize<_pointer_type>(begin,afterlast)}
-            )
+            const_cables{WriteBufferSize<_pointer_type>(begin,afterlast)}
             {
                 if(std::distance(begin,afterlast)<2)
                     SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough,__FILE__,__func__);

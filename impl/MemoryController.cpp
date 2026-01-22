@@ -31,9 +31,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
         auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
         while (current!=end){
             if (!wait()) {
-                *current = *readerPos;
-                readerPos++;
-                ++current;
+                *(current++) = *(readerPos++);
                 wait_acknowledge();
             }
             std::this_thread::yield();

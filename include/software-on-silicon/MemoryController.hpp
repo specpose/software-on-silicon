@@ -17,9 +17,7 @@ namespace SOS {
             using cables_type = std::tuple< ReadOffset<_difference_type> >;
             using const_cables_type = std::tuple< ReadSize<_pointer_type> >;
             ReaderBus(const _pointer_type begin, const _pointer_type end)
-            : const_cables(
-                std::tuple< ReadSize<_pointer_type> >{ReadSize<_pointer_type>(begin,end)}
-                )
+            : const_cables{ReadSize<_pointer_type>(begin,end)}
             {
                 if (std::distance(begin,end)<0)
                     SFA::util::runtime_error(SFA::util::error_code::InvalidReadDestination,__FILE__,__func__);
@@ -58,9 +56,8 @@ namespace SOS {
             using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
             //tuple requires copy constructor for any tuple that isn't default constructed
-            const_cables(
-            std::tuple< MemoryControllerBufferSize<_arithmetic_type> >{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
-            ){}
+            const_cables{MemoryControllerBufferSize<_arithmetic_type>(start,end)}
+            {}
             const_cables_type const_cables;
         };
     }
