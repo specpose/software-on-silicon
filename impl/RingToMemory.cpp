@@ -77,50 +77,25 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getWritingRef().test_and_set();
     }
 };
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> {
-    public:
-    using SOS::Behavior::RingBufferTask<RING_BUFFER>::RingBufferTask;
-    protected:
-    virtual void rb_write(RING_BUFFER::value_type& character) = 0;
-    virtual void write(RING_BUFFER::value_type& character) final {};
-};
 //multiple inheritance: destruction order
-class TransferRingToMemory : protected WriteTaskImpl, protected RingBufferTaskImpl {
+class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
     public:
-    TransferRingToMemory(
+    RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : WriteTaskImpl{}, RingBufferTaskImpl(indices, bounds) {}
-    protected:
-//main branch: Copy Start from RingBuffer.cpp
-    virtual void read_loop() final {
-        auto threadcurrent = _item.getThreadCurrentRef().load();
-        auto current = _item.getCurrentRef().load();
-        bool stop = false;
-        while(!stop){//if: possible less writes than reads
-            ++threadcurrent;
-            if (threadcurrent==_bounds.getWriterEndRef())
-                threadcurrent=_bounds.getWriterStartRef();
-            if (threadcurrent!=current) {
-                rb_write(*threadcurrent);
-                _item.getThreadCurrentRef().store(threadcurrent);
-            } else {
-                stop = true;
-            }
-        }
-    }
-//main branch: Copy End from RingBuffer.cpp
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     private:
-    virtual void rb_write(RING_BUFFER::value_type& character) final {
+    //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
+    virtual void transfer(RING_BUFFER::value_type& character) final {
         WriteTaskImpl::write(character);
     }
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public TransferRingToMemory {
+class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public RingBufferTaskImpl {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<BLOCK>& rd) :
-    TransferRingToMemory(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    RingBufferTaskImpl(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl

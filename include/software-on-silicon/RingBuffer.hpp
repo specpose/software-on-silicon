@@ -42,8 +42,23 @@ namespace SOS {
             _bounds(bounds)
             {}
             protected:
-            virtual void read_loop() = 0;
-            virtual void write(typename RingBufferType::value_type& character)=0;
+            virtual void read_loop() final {
+                auto threadcurrent = _item.getThreadCurrentRef().load();
+                auto current = _item.getCurrentRef().load();
+                bool stop = false;
+                while(!stop){//if: possible less writes than reads
+                    ++threadcurrent;
+                    if (threadcurrent==_bounds.getWriterEndRef())
+                        threadcurrent=_bounds.getWriterStartRef();
+                    if (threadcurrent!=current) {
+                        transfer(*threadcurrent);
+                        _item.getThreadCurrentRef().store(threadcurrent);
+                    } else {
+                        stop = true;
+                    }
+                }
+            }
+            virtual void transfer(typename RingBufferType::value_type& character)=0;
             cable_type& _item;
             const_cable_type& _bounds;
         };
