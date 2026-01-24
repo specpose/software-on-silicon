@@ -93,8 +93,6 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     };
     //multiple inheritance: Overriding PassThru not ReaderImpl
     void event_loop(){
-        int counter = 0;
-        bool blink = true;
         while(is_running()){
         const auto start = high_resolution_clock::now();
         MEMORY_CONTROLLER::value_type data;
@@ -116,5 +114,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
         finished();
     }
     private:
+    int counter = 0;
+    bool blink = true;
     std::thread _thread;
 };

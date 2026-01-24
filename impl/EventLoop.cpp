@@ -19,7 +19,9 @@ class MyFunctor {
 class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
     public:
     BlinkLoop(SOS::MemoryView::Notify& bussignal) :
-    SOS::Behavior::DummySimpleController<>(bussignal) {
+    SOS::Behavior::DummySimpleController<>(bussignal)
+    ,start_tp(high_resolution_clock::now())
+    {
         _thread=start(this);
     }
     ~BlinkLoop() final {
@@ -27,7 +29,6 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
         std::cout<<"Thread has ended normally."<<std::endl;
     }
     void event_loop(){
-        const auto start = high_resolution_clock::now();
         while(is_running()){
             //would: acquire new data through a wire
             //blink on
@@ -45,6 +46,7 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
         predicate();
     }
     private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_tp;
     MyFunctor predicate = MyFunctor();
 
     //ALWAYS has to be private

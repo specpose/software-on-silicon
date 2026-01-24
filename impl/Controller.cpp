@@ -44,32 +44,30 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl> {
+class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubControllerImpl> {
     public:
-    ControllerImpl(bus_type& bus) : SimpleController<SubControllerImpl>(bus.signal) {
+    ControllerImpl(bus_type& bus) : BootstrapSimpleController<SubControllerImpl>(bus.signal)
+    , waiter(Timer<milliseconds,100>(waiterBus.signal))
+    {
         _thread=start(this);
     }
     ~ControllerImpl() {
         destroy(_thread);
+        std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
+        waiter.requestStop();
     }
     void event_loop(){
-        auto waiterBus = SOS::MemoryView::BusShaker{};
-        auto waiter = Timer<milliseconds,100>(waiterBus.signal);
-
-        bool stopme = false;
-        while(is_running() && !stopme){
+        while(is_running()){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 if (!_intrinsic.getNotifyRef().test_and_set())
-                    stopme = true;
+                    request_stop();
                 else
                     operator()();
             }
             std::this_thread::yield();
         }
         finished();
-        std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
-        waiter.requestStop();
     }
     void operator()(){
         if (!_foreign.signal.getNotifyRef().test_and_set()) {
@@ -80,5 +78,7 @@ class ControllerImpl : public SOS::Behavior::SimpleController<SubControllerImpl>
         }
     }
     private:
+    SOS::MemoryView::BusShaker waiterBus{};
+    Timer<milliseconds,100> waiter;
     std::thread _thread = std::thread{};
 };

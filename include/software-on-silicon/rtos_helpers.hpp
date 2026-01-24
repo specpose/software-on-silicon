@@ -34,8 +34,11 @@ namespace SOS
             Stoppable(),
             _child(new S{_foreign}) {}
             ~BootstrapAsyncController(){
-                if (_child)
-                    SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                if (_child) {
+                    //SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                    delete _child;
+                    _child = nullptr;
+                }
             }
             void stop_descendants() {
                 if (_child)
@@ -64,15 +67,19 @@ namespace SOS
             _child(new S{_foreign})
             {}
             ~BootstrapSimpleController(){
-                if (_child)
-                    SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                if (_child) {
+                    //SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                    delete _child;
+                    _child = nullptr;
+                }
             }
             void stop_descendants() {
-                if (_child)
+                if (_child) {
                     delete _child;
-                else
+                    _child = nullptr;
+                } else {
                     SFA::util::runtime_error(SFA::util::error_code::ChildHasAlreadyBeenDeleted, __FILE__, __func__, typeid(*this).name());
-                _child = nullptr;
+                }
             }
             void start_descendants() {
                 if (!_child)
@@ -94,8 +101,11 @@ namespace SOS
             _child(new S{_foreign})
             {}
             ~BootstrapEventController(){
-                if (_child)
-                    SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                if (_child) {
+                    //SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                    delete _child;
+                    _child = nullptr;
+                }
             }
             void stop_descendants() {
                 if (_child)

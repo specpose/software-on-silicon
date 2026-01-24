@@ -87,10 +87,6 @@ namespace SOS {
                     SFA::util::logic_error(SFA::util::error_code::NoIdleReceivedAndNoReceivelockObtained,__FILE__,__func__, typeid(*this).name());
                 }
             }
-            void reset() {
-                read4minus1 = 0;
-                write3plus1 = 0;
-            }
             virtual unsigned char read_byte() = 0;
             virtual void read_bits(std::bitset<8> temp) = 0;
             virtual void write_byte(unsigned char) = 0;

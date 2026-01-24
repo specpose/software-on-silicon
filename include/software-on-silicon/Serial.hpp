@@ -17,9 +17,17 @@ namespace SOS
         {
         public:
             Serial() : SOS::Protocol::BlockWiseTransfer<Objects...>{} {}
+            ~Serial(){
+                /*for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++){
+                 i f (this->foreign().descriptors[j].readLock)        *
+                 throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
+                }*/
+                std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
+            }
             virtual void event_loop()
             { // final
-                this->reset();
+                //if (read4minus1 != 0 || write3plus1 != 0)
+                //    abort();
                 while (is_running())
                 {
                     std::this_thread::yield();
@@ -49,11 +57,6 @@ namespace SOS
                         shutdown_action();
                 }
                 finished();
-                /*for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++){
-                    if (this->foreign().descriptors[j].readLock)
-                        throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
-                }*/
-                std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
         protected:
             virtual bool is_running() = 0;
