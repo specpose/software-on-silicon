@@ -9,10 +9,10 @@ template<typename DurationType,
         typename PeriodType = typename std::enable_if<
             true, typename DurationType::duration
             >::type
-        > class Timer : public SOS::Behavior::BootstrapDummyEventController<> {//no bus here
+        > class Timer : public SOS::Behavior::StoppableDummyEventController<> {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
-    SOS::Behavior::BootstrapDummyEventController<>(bussignal) {
+    SOS::Behavior::StoppableDummyEventController<>(bussignal) {
         _thread = start(this);
     }
     ~Timer(){
@@ -45,7 +45,12 @@ template<typename DurationType,
     void constexpr operator()(){
         std::this_thread::sleep_for(DurationType{Period});;
     }
-    void requestStop(){ stop();}
+    void requestStop(){
+        request_stop();
+        while (!is_finished())
+            std::this_thread::yield();
+        finished();
+    }
     private:
     int runCount = 0;
     clock_t c_counter = 0;

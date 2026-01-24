@@ -4,7 +4,6 @@
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
 #include <iostream>
-#include "software-on-silicon/simulation_helpers.hpp"
 #include <chrono>
 
 #include "Sample.cpp"
@@ -54,7 +53,6 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         destroy(_thread);
     }
-    virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     private:
     virtual void read() final {
             ReadTaskImpl::read();

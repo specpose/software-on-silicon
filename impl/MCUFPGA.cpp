@@ -13,22 +13,21 @@
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::BootstrapDummyEventController<>
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
+    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
-        _thread = SOS::Behavior::Stoppable::start(this);
+        _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGAProcessingSwitch()
     {
-        SOS::Behavior::Stoppable::destroy(_thread);
+        SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
@@ -80,29 +79,28 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
-    virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
+    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
+    virtual void finished() final { SOS::Behavior::Loop::finished(); }
 
 private:
     bus_type &_nBus;
     std::thread _thread = std::thread{};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::BootstrapDummyEventController<>
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::BootstrapDummyEventController<>(bus.signal)
+    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
-        _thread = SOS::Behavior::Stoppable::start(this);
+        _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUProcessingSwitch()
     {
-        SOS::Behavior::Stoppable::destroy(_thread);
+        SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    virtual void restart() final { SFA::util::runtime_error(SFA::util::error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction, __FILE__, __func__, typeid(*this).name());}
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
@@ -154,8 +152,8 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
-    virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
+    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
+    virtual void finished() final { SOS::Behavior::Loop::finished(); }
 
 private:
     bus_type &_nBus;
@@ -191,13 +189,13 @@ public:
         }
         foreign().descriptors[1].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
-        _thread = SOS::Behavior::Loop::start(this);
+        _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~FPGA()
     {
         //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
         //    std::this_thread::yield();
-        destroy(_thread);
+        SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
@@ -211,7 +209,7 @@ public:
         _vars.loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
     void restart() {
-        _thread = SOS::Behavior::Loop::start(this);
+        start_descendants();
     }
     bool isStopped()
     {
@@ -276,13 +274,13 @@ public:
         std::get<2>(_foreign.objects).fill('-');
         foreign().descriptors[2].synced = false;
         boot_time = std::chrono::high_resolution_clock::now();
-        _thread = SOS::Behavior::Loop::start(this);
+        _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~MCU()
     {
         //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
         //    std::this_thread::yield();
-        destroy(_thread);
+        SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
@@ -295,7 +293,7 @@ public:
         _vars.loop_shutdown = true;
     }
     void restart() {
-        _thread = SOS::Behavior::Loop::start(this);
+        start_descendants();
     }
     bool isStopped()
     {

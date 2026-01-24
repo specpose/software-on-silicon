@@ -107,7 +107,11 @@ namespace SOS
             }
             virtual void stop_notifier() final
             {
-                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_descendants();
+            }
+            virtual void start_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::start_descendants();
             }
         private:
             virtual bool handshake() final
@@ -155,7 +159,11 @@ namespace SOS
             }
             virtual void stop_notifier() final
             {
-                SOS::Behavior::BootstrapEventController<ControllerType>::stop_children();
+                SOS::Behavior::BootstrapEventController<ControllerType>::stop_descendants();
+            }
+            virtual void start_notifier() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::start_descendants();
             }
         private:
             virtual bool handshake() final

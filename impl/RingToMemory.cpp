@@ -4,7 +4,9 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include "software-on-silicon/simulation_helpers.hpp"
+#include <chrono>
+
+using namespace std::chrono;
 
 #include "Sample.cpp"
 #define SAMPLE_TYPE char
@@ -55,7 +57,6 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     ~ReaderImpl(){
         destroy(_thread);
     }
-    virtual void restart() final { _thread = SOS::Behavior::Stoppable::start(this); }
     private:
     virtual void read() final {
             ReadTaskImpl::read();

@@ -67,6 +67,7 @@ namespace SOS
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
+            virtual void start_notifier() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void com_sighup_action() = 0;
             virtual bool exit_query() = 0;

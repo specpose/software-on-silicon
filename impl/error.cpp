@@ -3,6 +3,10 @@
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
+    //rtos_helpers.hpp
+    ChildHasToBeDeletedBeforeDestroyThread,
+    ChildHasAlreadyBeenDeleted,
+    ChildIsAlreadyRunningOrHasNotBeenDeleted,
     //SerialDMA
     InvalidDMAObjectSize,
     PoweronAfterUnexpectedShutdown,
@@ -67,6 +71,12 @@ const std::string SFA::util::error_message(error_code what)
     switch (what) {
     case error_code::noerror:
         return std::string("No error was supplied after initialization of static error variable");
+    case error_code::ChildHasToBeDeletedBeforeDestroyThread:
+        return std::string("Child has to be deleted before destroy thread");
+    case error_code::ChildHasAlreadyBeenDeleted:
+        return std::string("Child has already been deleted");
+    case error_code::ChildIsAlreadyRunningOrHasNotBeenDeleted:
+        return std::string("Child is already running or has not beed deleted");
     case error_code::InvalidDMAObjectSize:
         return std::string("Invalid DMAObject size");
     case error_code::PoweronAfterUnexpectedShutdown:
@@ -140,7 +150,7 @@ const std::string SFA::util::error_message(error_code what)
     case error_code::AttemptedWriteAfterEndOfBuffer:
         return std::string("Attempted write after end of buffer");
     case error_code::RequestedRingbufferSizeNotBigEnough:
-        return std::string("Requested RingBuffer size not big enough.");
+        return std::string("Requested RingBuffer size not big enough");
     case error_code::RingbufferTooSlowOrNotBigEnough:
         return std::string("RingBuffer too slow or not big enough");
     case error_code::NegativeReadoffsetSupplied:
