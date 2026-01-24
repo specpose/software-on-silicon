@@ -29,7 +29,6 @@ template<typename DurationType,
     }
     void restart() { _thread = start(this); }
     void event_loop(){
-        while(is_running()){
         if (!_intrinsic.getUpdatedRef().test_and_set()){
             const auto t_start = high_resolution_clock::now();
             const auto c_start = clock();
@@ -39,17 +38,9 @@ template<typename DurationType,
             runCount++;
             _intrinsic.getAcknowledgeRef().clear();
         }
-        }
-        finished();
     }
     void constexpr operator()(){
         std::this_thread::sleep_for(DurationType{Period});;
-    }
-    void requestStop(){
-        request_stop();
-        while (!is_finished())
-            std::this_thread::yield();
-        finished();
     }
     private:
     int runCount = 0;

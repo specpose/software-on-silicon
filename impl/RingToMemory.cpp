@@ -106,13 +106,10 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     }
     //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
-        while(is_running()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 this->read_loop();
             }
             std::this_thread::yield();
-        }
-        finished();
     }
     private:
     //ALWAYS has to be private

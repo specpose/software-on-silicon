@@ -30,13 +30,13 @@ class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private Ri
         destroy(_thread);
     }
     void event_loop(){
-        while(is_running()){
+        //while(is_running()){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 this->read_loop();
             }
             std::this_thread::yield();
-        }
-        finished();
+        //}
+        //finished();
     }
     private:
     //ALWAYS has to be private

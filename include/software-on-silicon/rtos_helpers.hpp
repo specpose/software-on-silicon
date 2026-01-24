@@ -12,6 +12,9 @@ namespace SOS
             }
             protected:
             virtual void request_stop() final { Loop::request_stop(); }
+            //SerialNotifier: event_loop in interface
+            //bool is_running() { return Loop::is_running(); }
+            //void finished() { Loop::finished(); }
         };
         //BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
         template<typename... Others> class StoppableDummyAsyncController : public Stoppable, protected SubController {

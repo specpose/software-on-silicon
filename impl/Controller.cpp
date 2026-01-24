@@ -18,9 +18,9 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
     }
     ~SubControllerImpl() final {
         destroy(_thread);
+        std::cout<<"SubController has ended normally."<<std::endl;
     }
     void event_loop(){
-        while(is_running()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -30,9 +30,6 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
             _intrinsic.getNotifyRef().test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
-        }
-        finished();
-        std::cout<<"SubController has ended normally."<<std::endl;
     };
     void operator()(){
         std::this_thread::sleep_for(milliseconds{_duration});
@@ -47,17 +44,16 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
 class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubControllerImpl> {
     public:
     ControllerImpl(bus_type& bus) : BootstrapSimpleController<SubControllerImpl>(bus.signal)
-    , waiter(Timer<milliseconds,100>(waiterBus.signal))
+    , waiter(new Timer<milliseconds,100>(waiterBus.signal))
     {
         _thread=start(this);
     }
     ~ControllerImpl() {
         destroy(_thread);
         std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
-        waiter.requestStop();
+        delete waiter;
     }
     void event_loop(){
-        while(is_running()){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
                 if (!_intrinsic.getNotifyRef().test_and_set())
@@ -66,8 +62,6 @@ class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubContro
                     operator()();
             }
             std::this_thread::yield();
-        }
-        finished();
     }
     void operator()(){
         if (!_foreign.signal.getNotifyRef().test_and_set()) {
@@ -79,6 +73,6 @@ class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubContro
     }
     private:
     SOS::MemoryView::BusShaker waiterBus{};
-    Timer<milliseconds,100> waiter;
+    Timer<milliseconds,100>* waiter;
     std::thread _thread = std::thread{};
 };

@@ -85,7 +85,7 @@ namespace SOS{
             protected:
             template<typename C> static std::thread start(C* startme){//ALWAYS requires that startme is derived from this LoopImpl
                 startme->Loop::stop_token.getUpdatedRef().test_and_set();
-                return std::move(std::thread{std::mem_fn(&C::event_loop),startme});
+                return std::move(std::thread{std::mem_fn(&C::_stoppable_loop),startme});
             }
             virtual void destroy(std::thread& destroyme){
                 request_stop();
@@ -94,8 +94,14 @@ namespace SOS{
             protected:
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
-            bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             private:
+            bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
+            void _stoppable_loop(){
+                while (is_running()) {
+                    event_loop();
+                }
+                finished();
+            }
             SOS::MemoryView::HandShake stop_token;
             virtual void request_stop() { stop_token.getUpdatedRef().clear(); }
             virtual bool stop() {//dont need thread in here

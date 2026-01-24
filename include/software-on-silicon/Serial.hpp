@@ -28,8 +28,6 @@ namespace SOS
             { // final
                 //if (read4minus1 != 0 || write3plus1 != 0)
                 //    abort();
-                while (is_running())
-                {
                     std::this_thread::yield();
                     if (handshake())
                     {
@@ -55,8 +53,6 @@ namespace SOS
                     }
                     if (exit_query() && _vars.loop_shutdown)
                         shutdown_action();
-                }
-                finished();
             }
         protected:
             virtual bool is_running() = 0;

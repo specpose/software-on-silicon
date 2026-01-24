@@ -129,15 +129,12 @@ namespace SOS {
             }
             public:
             virtual void event_loop() {
-                while(Loop::is_running()){
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
                         //                        std::cout << "S";
                         read();//FIFO whole buffer with intermittent waits when write
                         //                        std::cout << "F";
                         _intrinsic.getAcknowledgeRef().clear();
                     }
-                }
-                Loop::finished();
             }
             private:
             virtual void read()=0;

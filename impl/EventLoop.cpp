@@ -29,7 +29,6 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
         std::cout<<"Thread has ended normally."<<std::endl;
     }
     void event_loop(){
-        while(is_running()){
             //would: acquire new data through a wire
             //blink on
             _intrinsic.getNotifyRef().clear();
@@ -39,8 +38,6 @@ class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
             _intrinsic.getNotifyRef().test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
-        }
-        finished();
     }
     void operator()(){
         predicate();

@@ -2,7 +2,7 @@
 
 int main () {
     auto waiterBus = SOS::MemoryView::BusShaker{};
-    auto waiter = Timer<milliseconds,100>(waiterBus.signal);
+    auto waiter = new Timer<milliseconds,100>(waiterBus.signal);
 
     auto myBus = BusNotifier{};
     std::cout<<"Thread running for 10s..."<<std::endl;
@@ -24,5 +24,5 @@ int main () {
     std::cout<<std::endl<<"main() loop has terminated."<<std::endl;
     std::this_thread::sleep_for(seconds{5});
     delete myHandler;
-    waiter.requestStop();
+    delete waiter;
 }

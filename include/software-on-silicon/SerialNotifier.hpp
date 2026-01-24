@@ -6,8 +6,6 @@ namespace SOS {
             SerialProcessing() {}
             void event_loop()
             {
-                while (is_running())
-                {
                     if (transfered())
                     {
                         write_notify_hook();
@@ -17,8 +15,6 @@ namespace SOS {
                         read_notify_hook();
                     }
                     std::this_thread::yield();
-                }
-                finished();
             }
 
         protected:
