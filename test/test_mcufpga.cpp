@@ -58,7 +58,7 @@ int main () {
         //HOST THREAD
         if (nomoresignal && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - nomoresignal_time).count() < 2)){
             if (!host_request_stop){
-                host->requestStop();
+                mcubus.signal.getAuxUpdatedRef().clear();
                 host_request_stop = true;
             }
         }
@@ -67,7 +67,7 @@ int main () {
         //CLIENT THREAD
         if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             if (!client_request_stop){
-	            client->requestStop();
+                fpgabus.signal.getAuxUpdatedRef().clear();
                 client_request_stop = true;
 	        }
         }

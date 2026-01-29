@@ -203,23 +203,20 @@ public:
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
     }
-    void requestStop()//Only from Ctrl-C
+    virtual void request_shutdown_action() final //Only from Ctrl-C
     {
         stop_notifier();
         _vars.loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
-    void restart() {
-        start_descendants();
-    }
     bool isStopped()
     {
-        if (is_finished())
+        if (!_intrinsic.getAuxAcknowledgeRef().test_and_set())
         {
-            finished();
+            _intrinsic.getAuxAcknowledgeRef().clear();
             return true;
         }
         return false;
-    }
+    };
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
@@ -236,10 +233,6 @@ public:
     }
     virtual void com_sighup_action() final
     {
-    }
-    virtual void shutdown_action() final
-    {
-        SOS::Behavior::Stoppable::request_stop();
     }
     virtual bool incoming_shutdown_query() final
     {
@@ -288,18 +281,15 @@ public:
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
     }
-    void requestStop()//Only from Ctrl-C
+    virtual void request_shutdown_action() final //Only from Ctrl-C
     {
         _vars.loop_shutdown = true;
     }
-    void restart() {
-        start_descendants();
-    }
     bool isStopped()
     {
-        if (is_finished())
+        if (!_intrinsic.getAuxAcknowledgeRef().test_and_set())
         {
-            finished();
+            _intrinsic.getAuxAcknowledgeRef().clear();
             return true;
         }
         return false;
@@ -325,10 +315,6 @@ public:
     }
     virtual void com_sighup_action() final
     {
-    }
-    virtual void shutdown_action() final
-    {
-        SOS::Behavior::Stoppable::request_stop();
     }
     virtual bool incoming_shutdown_query() final
     {

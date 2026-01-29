@@ -33,6 +33,8 @@ namespace SOS
                     {
                         //IN
                             if (!first_run) {
+                            if (aux())
+                                request_shutdown_action();
                             unsigned char data = this->read_byte();
                             this->read_bits(data);
                             _vars.received_acknowledge = receive_acknowledge();
@@ -52,13 +54,15 @@ namespace SOS
                         handshake_ack();
                     }
                     if (exit_query() && _vars.loop_shutdown)
-                        shutdown_action();
+                        if (descendants_stopped())
+                            aux_ack();
             }
         protected:
-            virtual bool is_running() = 0;
-            virtual void finished() = 0;
+            virtual bool descendants_stopped() = 0;
             virtual bool handshake() = 0;
             virtual void handshake_ack() = 0;
+            virtual bool aux() = 0;
+            virtual void aux_ack() = 0;
             virtual void send_acknowledge() = 0;    // 3
             virtual void send_request() = 0;        // 1
             virtual bool receive_request() = 0;     // 2
@@ -66,13 +70,12 @@ namespace SOS
             virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
             //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
             virtual void stop_notifier() = 0;
-            virtual void start_notifier() = 0;
+            virtual void request_shutdown_action() = 0;
             virtual void com_shutdown_action() = 0;
             virtual void com_sighup_action() = 0;
             virtual bool exit_query() = 0;
             virtual bool incoming_shutdown_query() = 0;
             virtual bool outgoing_sighup_query() = 0;
-            virtual void shutdown_action() = 0;//no lock checks; request_stop or hotplugging
             void resend_current_object()
             {
                 if (this->send_lock || this->writeCount != 0){

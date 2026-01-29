@@ -19,12 +19,17 @@ namespace SOS
             auto &getWriteOffsetRef() { return std::get<1>(*this); }
         };
         template <typename ComBufferType>
-        struct ComBus : public SOS::MemoryView::BusShaker
+        struct ComBus : public bus <
+            bus_double_handshake_tag,
+            SOS::MemoryView::DoubleHandShake,
+            bus_traits<Bus>::cables_type,
+            bus_traits<Bus>::const_cables_type
+        >
         {
+            signal_type signal;
             using const_cables_type = std::tuple<ComSize<typename ComBufferType::iterator>>;
             using cables_type = std::tuple<ComOffset<typename ComBufferType::difference_type>>;
-            ComBus(const typename ComBufferType::iterator &inStart, const typename ComBufferType::iterator &inEnd, const typename ComBufferType::iterator &outStart, const typename ComBufferType::iterator &outEnd) : const_cables(
-                                                                                                                                                                                                                           std::tuple<ComSize<typename ComBufferType::iterator>>{ComSize<typename ComBufferType::iterator>(inStart, inEnd, outStart, outEnd)})
+            ComBus(const typename ComBufferType::iterator &inStart, const typename ComBufferType::iterator &inEnd, const typename ComBufferType::iterator &outStart, const typename ComBufferType::iterator &outEnd) : const_cables( {ComSize<typename ComBufferType::iterator>(inStart, inEnd, outStart, outEnd)} )
             {
                 if (std::distance(inStart, inEnd) < 1)
                     SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
@@ -99,8 +104,7 @@ namespace SOS
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
 
         protected:
-            virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
-            virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
+            virtual bool descendants_stopped() final { return SOS::Behavior::BootstrapEventController<ControllerType>::descendants_stopped(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() final
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
@@ -108,10 +112,6 @@ namespace SOS
             virtual void stop_notifier() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::stop_descendants();
-            }
-            virtual void start_notifier() final
-            {
-                SOS::Behavior::BootstrapEventController<ControllerType>::start_descendants();
             }
         private:
             virtual bool handshake() final
@@ -125,6 +125,18 @@ namespace SOS
             virtual void handshake_ack() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear(); // SIMULATION: Replace this with getUpdatedRef
+            }
+            virtual bool aux() final
+            {
+                if (!SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAuxUpdatedRef().test_and_set())
+                {
+                    return true;
+                }
+                return false;
+            }
+            virtual void aux_ack() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAuxAcknowledgeRef().clear();
             }
             virtual unsigned char read_byte() final
             {
@@ -151,8 +163,7 @@ namespace SOS
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
 
         protected:
-            virtual bool is_running() final { return SOS::Behavior::Stoppable::is_running(); }
-            virtual void finished() final { SOS::Behavior::Stoppable::finished(); }
+            virtual bool descendants_stopped() final { return SOS::Behavior::BootstrapEventController<ControllerType>::descendants_stopped(); }
             virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...> &foreign() final
             {
                 return SOS::Behavior::BootstrapEventController<ControllerType>::_foreign;
@@ -160,10 +171,6 @@ namespace SOS
             virtual void stop_notifier() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::stop_descendants();
-            }
-            virtual void start_notifier() final
-            {
-                SOS::Behavior::BootstrapEventController<ControllerType>::start_descendants();
             }
         private:
             virtual bool handshake() final
@@ -177,6 +184,18 @@ namespace SOS
             virtual void handshake_ack() final
             {
                 SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear(); // SIMULATION: Replace this with getUpdatedRef
+            }
+            virtual bool aux() final
+            {
+                if (!SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAuxUpdatedRef().test_and_set())
+                {
+                    return true;
+                }
+                return false;
+            }
+            virtual void aux_ack() final
+            {
+                SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAuxAcknowledgeRef().clear();
             }
             virtual unsigned char read_byte() final
             {

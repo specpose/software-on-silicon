@@ -41,9 +41,9 @@ class SubControllerImpl : public SOS::Behavior::DummySimpleController<> {
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubControllerImpl> {
+class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControllerImpl> {
     public:
-    ControllerImpl(bus_type& bus) : BootstrapSimpleController<SubControllerImpl>(bus.signal)
+    ControllerImpl(bus_type& bus) : BootstrapAsyncController<SubControllerImpl>(bus.signal)
     , waiter(new Timer<milliseconds,100>(waiterBus.signal))
     {
         _thread=start(this);
@@ -56,11 +56,14 @@ class ControllerImpl : public SOS::Behavior::BootstrapSimpleController<SubContro
     void event_loop(){
             waiterBus.signal.getUpdatedRef().clear();
             if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
-                if (!_intrinsic.getNotifyRef().test_and_set())
-                    request_stop();
-                else
+                if (!_intrinsic.getAuxUpdatedRef().test_and_set()) {
+                    stop_descendants();
+                } else {
                     operator()();
+                }
             }
+            if (descendants_stopped())
+                _intrinsic.getAuxAcknowledgeRef().clear();
             std::this_thread::yield();
     }
     void operator()(){

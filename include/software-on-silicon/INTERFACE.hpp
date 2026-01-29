@@ -91,7 +91,7 @@ namespace SOS{
                 request_stop();
                 destroyme.join();
             }
-            protected:
+            protected: //TODO
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
             private:
