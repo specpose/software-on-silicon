@@ -3,8 +3,8 @@ namespace SOS
     namespace Protocol
     {
         struct com_vars {
-            bool loop_shutdown = false;
             bool received_idle = false;
+            bool sent_idle = false;
             bool received_com_shutdown = false;
             bool sent_com_shutdown = false;
             bool received_sighup = false;
@@ -53,7 +53,7 @@ namespace SOS
                                     send_idleRequest();
                         handshake_ack();
                     }
-                    if (exit_query() && _vars.loop_shutdown)
+                    //if (exit_query() && _vars.loop_shutdown)
                         if (descendants_stopped())
                             aux_ack();
             }
@@ -150,9 +150,10 @@ namespace SOS
                     }
                     else if (state_code == ((std::bitset<8>{state::idle} << NUM_SIGNALBITS) >> NUM_SIGNALBITS))
                     {
-                        _vars.received_idle = true;
-                        if (_vars.received_com_shutdown)
+                        if (_vars.received_sighup){
+                            _vars.received_idle = true;
                             std::cout<<typeid(*this).name()<<"."<<"!"<<std::endl;
+                        }
                     }
                     else if (state_code == ((std::bitset<8>{state::shutdown} << NUM_SIGNALBITS) >> NUM_SIGNALBITS))
                     {
@@ -205,6 +206,8 @@ namespace SOS
                 this->write_bits(id_bits);
                 //std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
                 this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
+                if (_vars.sent_sighup)
+                    _vars.sent_idle = true;
             }
             void send_transferRequest(decltype(DMADescriptor::id) unsynced){
                 if (unsynced < NUM_IDS){

@@ -41,18 +41,22 @@ void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFE
 int main () {
     SOS::MemoryView::ComBus<COM_BUFFER> mcubus{std::begin(mcu_in_buffer),std::end(mcu_in_buffer),std::begin(mcu_out_buffer),std::end(mcu_out_buffer)};
     auto host= new MCU(mcubus);//SIMULATION: requires additional thread. => remove thread from MCU
+    std::thread host_stopper;
     bool host_request_stop = false;
+    bool host_delete = false;
     SOS::MemoryView::ComBus<COM_BUFFER> fpgabus{std::begin(fpga_in_buffer),std::end(fpga_in_buffer),std::begin(fpga_out_buffer),std::end(fpga_out_buffer)};
     using namespace std::chrono_literals;
     //std::this_thread::sleep_for(300ms);//SIMULATION: no way to check if thread is running without interfering with handshake
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
+    std::thread client_stopper;
     bool client_request_stop = false;
+    bool client_delete = false;
     bool stop = false;
     bool nomoresignal = false;
     const auto start = std::chrono::high_resolution_clock::now();
     auto nomoresignal_time = start;
     while (!stop) {
-        if (host->isStopped() && client->isStopped())
+        if (!host && !client)
             stop = true;
 
         //HOST THREAD
@@ -60,21 +64,35 @@ int main () {
             if (!host_request_stop){
                 mcubus.signal.getAuxUpdatedRef().clear();
                 host_request_stop = true;
+            } else {
+                if (host && !host_delete)
+                    if (host->isStopped()){
+                        host_stopper = std::move(std::thread([](MCU** process){ delete *process; *process = nullptr; },&host));
+                        host_delete = true;
+                    }
             }
         }
-        host_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus, nomoresignal, nomoresignal_time, host->isStopped());
+        host_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus, nomoresignal, nomoresignal_time);
 
         //CLIENT THREAD
         if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             if (!client_request_stop){
                 fpgabus.signal.getAuxUpdatedRef().clear();
                 client_request_stop = true;
-	        }
+	        } else {
+                if (client && !client_delete)
+                    if (client->isStopped()){
+                        client_stopper = std::move(std::thread([](FPGA** process){ delete *process; *process = nullptr; },&client));
+                        client_delete = true;
+                    }
+            }
         }
-        client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus, client->isStopped());
+        client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus);
 
         std::this_thread::yield();
     }
-    delete client;
-    delete host;
+    client_stopper.join();
+    host_stopper.join();
+    //delete client;
+    //delete host;
 }

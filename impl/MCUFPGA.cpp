@@ -193,8 +193,8 @@ public:
     }
     ~FPGA()
     {
-        //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-        //    std::this_thread::yield();
+        while (!exit_query())
+            std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
@@ -206,7 +206,6 @@ public:
     virtual void request_shutdown_action() final //Only from Ctrl-C
     {
         stop_notifier();
-        _vars.loop_shutdown = true;//no more transfers or syncs? then sent_com_shutdown
     };
     bool isStopped()
     {
@@ -224,7 +223,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.received_sighup)
+        if (_vars.sent_idle)
             return true;
         return false;
     }
@@ -236,13 +235,13 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (_vars.loop_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge)
+        if (!transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && isStopped())
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
-        if (_vars.received_sighup && (_vars.received_com_shutdown && _vars.received_idle) && !writes_pending())
+        if (_vars.sent_com_shutdown && _vars.received_com_shutdown && !reads_pending() && !writes_pending())
             return true;
         return false;
     }
@@ -271,7 +270,7 @@ public:
     }
     ~MCU()
     {
-        //while (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
+        //while (!exit_query())
         //    std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
@@ -283,7 +282,6 @@ public:
     }
     virtual void request_shutdown_action() final //Only from Ctrl-C
     {
-        _vars.loop_shutdown = true;
     }
     bool isStopped()
     {
@@ -305,7 +303,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.sent_sighup)
+        if (_vars.received_idle)
             return true;
         return false;
     }
@@ -318,13 +316,13 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge)
+        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && isStopped())
             return true;
         return false;
     }
     virtual bool outgoing_sighup_query() final
     {
-        if (_vars.sent_com_shutdown && (_vars.received_com_shutdown && _vars.received_idle) && !writes_pending())
+        if (_vars.received_sighup && !reads_pending() && !writes_pending())
             return true;
         return false;
     }
