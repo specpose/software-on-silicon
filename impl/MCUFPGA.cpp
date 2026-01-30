@@ -223,7 +223,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.sent_sighup)
+        if (_vars.received_sighup)
             return true;
         return false;
     }
@@ -270,8 +270,8 @@ public:
     }
     ~MCU()
     {
-        //while (!exit_query())
-        //    std::this_thread::yield();
+        while (!exit_query())
+            std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
