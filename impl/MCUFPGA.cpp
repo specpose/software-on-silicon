@@ -193,8 +193,8 @@ public:
     }
     ~FPGA()
     {
-        while (!exit_query())
-            std::this_thread::yield();
+        //while (!exit_query())
+        //    std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
@@ -235,7 +235,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (!transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && isStopped())
+        if (!transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && descendants_stopped())
             return true;
         return false;
     }
@@ -270,8 +270,8 @@ public:
     }
     ~MCU()
     {
-        while (!exit_query())
-            std::this_thread::yield();
+        //while (!exit_query())
+        //    std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
@@ -316,7 +316,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && isStopped())
+        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && descendants_stopped())
             return true;
         return false;
     }

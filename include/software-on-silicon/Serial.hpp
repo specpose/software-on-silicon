@@ -51,11 +51,10 @@ namespace SOS
                             if (!write_hook())
                                 if (!this->write_object())
                                     send_idleRequest();
+                        if (_vars.sent_sighup)
+                            aux_ack();
                         handshake_ack();
                     }
-                    //if (exit_query() && _vars.loop_shutdown)
-                        if (descendants_stopped())
-                            aux_ack();
             }
         protected:
             virtual bool descendants_stopped() = 0;

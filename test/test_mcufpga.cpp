@@ -60,10 +60,8 @@ int main () {
             client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus);
             std::this_thread::yield();
         } });
-    while (!stop) {
-        if (!host && !client)
-            stop = true;
-
+    while (!host_delete && !client_delete) {
+        std::this_thread::yield();
         //HOST THREAD
         if (nomoresignal && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - nomoresignal_time).count() < 2)){
             if (!host_request_stop){
@@ -73,13 +71,11 @@ int main () {
                 if (host && !host_delete)
                     if (host->isStopped()){
                         delete host;
-                        handshake_stop = true;
                         host = nullptr;
                         host_delete = true;
                     }
             }
         }
-
         //CLIENT THREAD
         if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
             if (!client_request_stop){
@@ -89,14 +85,16 @@ int main () {
                 if (client && !client_delete)
                     if (client->isStopped()){
                         delete client;
-                        handshake_stop = true;
                         client = nullptr;
                         client_delete = true;
                     }
             }
         }
-
-        std::this_thread::yield();
     }
+    if (client)
+        delete client;
+    if (host)
+        delete host;
+    handshake_stop = true;
     handshake.join();
 }
