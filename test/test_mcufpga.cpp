@@ -55,6 +55,13 @@ int main () {
     bool nomoresignal = false;
     const auto start = std::chrono::high_resolution_clock::now();
     auto nomoresignal_time = start;
+    bool handshake_stop = false;
+    auto handshake = std::thread([&](){
+        while (!handshake_stop) {
+            host_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus, nomoresignal, nomoresignal_time);
+            client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus);
+            std::this_thread::yield();
+        } });
     while (!stop) {
         if (!host && !client)
             stop = true;
@@ -68,11 +75,11 @@ int main () {
                 if (host && !host_delete)
                     if (host->isStopped()){
                         host_stopper = std::move(std::thread([](MCU** process){ delete *process; *process = nullptr; },&host));
+                        //delete host;
                         host_delete = true;
                     }
             }
         }
-        host_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus, nomoresignal, nomoresignal_time);
 
         //CLIENT THREAD
         if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)){
@@ -83,16 +90,16 @@ int main () {
                 if (client && !client_delete)
                     if (client->isStopped()){
                         client_stopper = std::move(std::thread([](FPGA** process){ delete *process; *process = nullptr; },&client));
+                        //delete client;
                         client_delete = true;
                     }
             }
         }
-        client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus);
 
         std::this_thread::yield();
     }
     client_stopper.join();
     host_stopper.join();
-    //delete client;
-    //delete host;
+    handshake_stop = true;
+    handshake.join();
 }
