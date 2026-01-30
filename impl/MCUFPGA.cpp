@@ -223,7 +223,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.sent_idle)
+        if (_vars.sent_sighup)
             return true;
         return false;
     }
@@ -303,7 +303,7 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.received_idle)
+        if (_vars.received_sighup)
             return true;
         return false;
     }

@@ -41,14 +41,12 @@ void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFE
 int main () {
     SOS::MemoryView::ComBus<COM_BUFFER> mcubus{std::begin(mcu_in_buffer),std::end(mcu_in_buffer),std::begin(mcu_out_buffer),std::end(mcu_out_buffer)};
     auto host= new MCU(mcubus);//SIMULATION: requires additional thread. => remove thread from MCU
-    std::thread host_stopper;
     bool host_request_stop = false;
     bool host_delete = false;
     SOS::MemoryView::ComBus<COM_BUFFER> fpgabus{std::begin(fpga_in_buffer),std::end(fpga_in_buffer),std::begin(fpga_out_buffer),std::end(fpga_out_buffer)};
     using namespace std::chrono_literals;
     //std::this_thread::sleep_for(300ms);//SIMULATION: no way to check if thread is running without interfering with handshake
     auto client= new FPGA(fpgabus);//SIMULATION: requires additional thread. => remove thread from FPGA
-    std::thread client_stopper;
     bool client_request_stop = false;
     bool client_delete = false;
     bool stop = false;
@@ -74,8 +72,9 @@ int main () {
             } else {
                 if (host && !host_delete)
                     if (host->isStopped()){
-                        host_stopper = std::move(std::thread([](MCU** process){ delete *process; *process = nullptr; },&host));
-                        //delete host;
+                        delete host;
+                        handshake_stop = true;
+                        host = nullptr;
                         host_delete = true;
                     }
             }
@@ -89,8 +88,9 @@ int main () {
 	        } else {
                 if (client && !client_delete)
                     if (client->isStopped()){
-                        client_stopper = std::move(std::thread([](FPGA** process){ delete *process; *process = nullptr; },&client));
-                        //delete client;
+                        delete client;
+                        handshake_stop = true;
+                        client = nullptr;
                         client_delete = true;
                     }
             }
@@ -98,8 +98,5 @@ int main () {
 
         std::this_thread::yield();
     }
-    client_stopper.join();
-    host_stopper.join();
-    handshake_stop = true;
     handshake.join();
 }
