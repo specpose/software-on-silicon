@@ -133,17 +133,17 @@ namespace SOS{
             protected:
             bus_type::signal_type& _intrinsic;
         };
-        template<typename... Others> class DummyAsyncController : public Loop, protected SubController {
+        template<typename... Others> class AsyncDummy : public Loop, protected SubController {
             public:
-            DummyAsyncController() : Loop(), SubController() {}
+            AsyncDummy() : Loop(), SubController() {}
         };
-        template<typename... Others> class DummySimpleController : public Loop, protected SimpleSubController {
+        template<typename... Others> class SimpleDummy : public Loop, protected SimpleSubController {
             public:
-            DummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Loop(), SimpleSubController(signal) {}
+            SimpleDummy(typename bus_type::signal_type& signal, Others&... args) : Loop(), SimpleSubController(signal) {}
         };
-        template<typename... Others> class DummyEventController : public Loop, protected EventSubController {
+        template<typename... Others> class EventDummy : public Loop, protected EventSubController {
             public:
-            DummyEventController(typename bus_type::signal_type& signal, Others&... args) : Loop(), EventSubController(signal) {}
+            EventDummy(typename bus_type::signal_type& signal, Others&... args) : Loop(), EventSubController(signal) {}
         };
         template<typename T, typename S = typename std::enable_if<
                 std::is_base_of< typename SOS::Behavior::SubController,T >::value,T

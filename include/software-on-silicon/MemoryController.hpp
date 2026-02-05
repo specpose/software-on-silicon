@@ -116,13 +116,13 @@ namespace SOS {
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
         };
-        template<typename OutputBuffer, typename MemoryControllerType> class Reader : public SOS::Behavior::DummyEventController<>,
+        template<typename OutputBuffer, typename MemoryControllerType> class Reader : public SOS::Behavior::EventDummy<>,
         public virtual SOS::Behavior::ReadTask<OutputBuffer, MemoryControllerType> {
             public:
             using bus_type = typename SOS::MemoryView::ReaderBus<OutputBuffer>;
             Reader(bus_type& outside, SOS::MemoryView::BlockerBus<MemoryControllerType>& blockerbus) :
             _blocked_signal(blockerbus.signal),
-            SOS::Behavior::DummyEventController<>(outside.signal)
+            SOS::Behavior::EventDummy<>(outside.signal)
             {}
             ~Reader(){
                 _blocked_signal.getReadingRef().test_and_set();

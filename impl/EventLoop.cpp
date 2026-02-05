@@ -16,10 +16,10 @@ class MyFunctor {
     unsigned int _duration = 333;
 };
 
-class BlinkLoop : public SOS::Behavior::DummySimpleController<> {
+class BlinkLoop : public SOS::Behavior::SimpleDummy<> {
     public:
     BlinkLoop(SOS::MemoryView::Notify& bussignal) :
-    SOS::Behavior::DummySimpleController<>(bussignal)
+    SOS::Behavior::SimpleDummy<>(bussignal)
     ,start_tp(high_resolution_clock::now())
     {
         _thread=start(this);

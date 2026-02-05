@@ -101,18 +101,18 @@ namespace SOS
             bus_type::signal_type& _intrinsic;
         };
         //BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
-        /*template<typename... Others> class StoppableDummyAsyncController : public Stoppable, protected SubController {
+        template<typename... Others> class StoppableAsyncDummy : public Stoppable, protected StoppableAsyncSubController {
             public:
-            StoppableDummyAsyncController() : Stoppable(), SubController() {}
+            StoppableAsyncDummy(typename bus_type::signal_type& signal) : Stoppable(), StoppableAsyncSubController(signal) {}
         };
-        template<typename... Others> class StoppableDummySimpleController : public Stoppable, protected StoppableSimpleSubController {
+        template<typename... Others> class StoppableSimpleDummy : public Stoppable, protected StoppableSimpleSubController {
             public:
-            StoppableDummySimpleController(typename bus_type::signal_type& signal, Others&... args) : Stoppable(), StoppableSimpleSubController(signal) {}
+            StoppableSimpleDummy(typename bus_type::signal_type& signal, Others&... args) : Stoppable(), StoppableSimpleSubController(signal) {}
         };
-        template<typename... Others> class StoppableDummyEventController : public Stoppable, protected StoppableEventSubController {
+        template<typename... Others> class StoppableEventDummy : public Stoppable, protected StoppableEventSubController {
             public:
-            StoppableDummyEventController(typename bus_type::signal_type& signal, Others&... args) : Stoppable(), StoppableEventSubController(signal) {}
-        };*/
+            StoppableEventDummy(typename bus_type::signal_type& signal, Others&... args) : Stoppable(), StoppableEventSubController(signal) {}
+        };
         //BootstrapController: Can start and stop their child and themselves via the Stoppable interface and a mix-in _thread in the impl
         template<typename S> class BootstrapAsyncController : public Controller<S>, public Stoppable, protected StoppableAsyncSubController {
             public:

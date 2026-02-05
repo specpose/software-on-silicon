@@ -7,6 +7,7 @@ int main () {
     const auto start = high_resolution_clock::now();
     std::this_thread::sleep_for(seconds{5});
     bus.signal.getAuxUpdatedRef().clear();
-    std::this_thread::sleep_for(seconds{5});
+    while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() <5)
+        std::this_thread::yield();
     delete myController;
 }

@@ -18,10 +18,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     private:
     virtual void transfer(RING_BUFFER::value_type& character) final {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
 };
-class RingBufferImpl : public SOS::Behavior::DummySimpleController<>, private RingBufferTaskImpl {
+class RingBufferImpl : public SOS::Behavior::SimpleDummy<>, private RingBufferTaskImpl {
     public:
     RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::DummySimpleController<>(bus.signal),
+    SOS::Behavior::SimpleDummy<>(bus.signal),
     RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
     {
         _thread = start(this);

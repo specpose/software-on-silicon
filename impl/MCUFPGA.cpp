@@ -13,11 +13,11 @@
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
+    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -86,11 +86,11 @@ private:
     bus_type &_nBus;
     std::thread _thread = std::thread{};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::DummyEventController<>
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<>
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::DummyEventController<>(bus.signal)
+    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(bus.signal)
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
