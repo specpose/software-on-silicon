@@ -65,7 +65,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     }
     private:
     virtual void read() final {
-        ReadTaskImpl::read();
+            ReadTaskImpl::read();
     };
     std::thread _thread;
 };
@@ -73,10 +73,13 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
     ara_sampleCount(0) {
+        _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
+        _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
+        _blocker.signal.getWritingRef().clear();
         memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
@@ -84,14 +87,13 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
         ara_sampleCount = memorycontroller.size();
+        _blocker.signal.getWritingRef().test_and_set();
     };
     MEMORY_CONTROLLER::difference_type ara_sampleCount;
     //not inherited: overload
     protected:
     virtual void write(RING_BUFFER::value_type& character) final {//takes absolutePosition out of Ringbuffer
-        _blocker.signal.getWritingRef().clear();
         resize(std::get<1>(character)+std::size(std::get<0>(character)));//offset + length
-        _blocker.signal.getWritingRef().test_and_set();
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<1>(character)+std::size(std::get<0>(character)))
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);

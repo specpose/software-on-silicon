@@ -59,7 +59,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     }
     private:
     virtual void read() final {
-        ReadTaskImpl::read();
+            ReadTaskImpl::read();
     };
     std::thread _thread;
 };
@@ -70,6 +70,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         std::fill(std::begin(this->memorycontroller),std::end(this->memorycontroller),MEMORY_CONTROLLER::value_type{{0,0,0,0,0}});
         std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
         std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
     protected:
