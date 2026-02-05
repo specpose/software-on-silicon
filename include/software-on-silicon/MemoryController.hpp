@@ -35,19 +35,15 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        class DoubleNotify : private std::array<std::atomic_flag,2> {
-            public:
-            DoubleNotify() : std::array<std::atomic_flag,2>{} {
-                std::get<0>(*this).test_and_set();
-                std::get<1>(*this).test_and_set();
-            }
-            auto& getWritingRef(){return std::get<0>(*this);}
-            auto& getReadingRef(){return std::get<1>(*this);}
+        class RWNotify : private Pair {
+        public:
+            using Pair::Pair;
+            auto& getWritingRef(){return getFirstRef();}
+            auto& getReadingRef(){return getSecondRef();}
         };
-        struct bus_double_notifier_tag{};
         template<typename MemoryControllerType> struct BlockerBus : public bus <
-            bus_double_notifier_tag,
-            SOS::MemoryView::DoubleNotify,
+            bus_pair_tag,
+            SOS::MemoryView::RWNotify,
             bus_traits<Bus>::cables_type,
             bus_traits<Bus>::const_cables_type
         >{

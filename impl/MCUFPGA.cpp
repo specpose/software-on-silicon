@@ -17,7 +17,7 @@ class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS:
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(bus.signal)
+    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -88,7 +88,7 @@ class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::
 {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(bus.signal)
+    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
     {
         if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());

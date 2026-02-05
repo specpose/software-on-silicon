@@ -83,13 +83,18 @@ namespace SOS {
             auto &getSendNotificationRef() { return std::get<1>(*this); }
         };
         template <typename... Objects>
-        struct SerialProcessNotifier : public SOS::MemoryView::BusShaker
+        struct SerialProcessNotifier  : public bus <
+            bus_pair_tag,
+            SOS::MemoryView::Pair,
+            std::tuple<DestinationAndOrigin>,
+            bus_traits<Bus>::const_cables_type
+        >
         {
-            using cables_type = std::tuple<DestinationAndOrigin>;
             SerialProcessNotifier()
             {
                 std::apply(descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
             }
+            signal_type signal;
             cables_type cables;
             std::tuple<Objects...> objects{};
             SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors{};

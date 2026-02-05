@@ -12,8 +12,10 @@ namespace SOS{
             }
             auto& getNotifyRef(){return std::get<0>(*this);}
         };
+        class Pair;
         //1+1=0
         class HandShake : private std::array<std::atomic_flag,2> {
+            friend Pair;
             public:
             HandShake() : std::array<std::atomic_flag,2>{} {//constexpr
                 std::get<0>(*this).test_and_set();
@@ -22,6 +24,13 @@ namespace SOS{
             auto& getUpdatedRef(){return std::get<0>(*this);}
             auto& getAcknowledgeRef(){return std::get<1>(*this);}
         };
+        class Pair : private HandShake {
+        public:
+            using HandShake::HandShake;
+            auto& getFirstRef(){return std::get<0>(*this);}
+            auto& getSecondRef(){return std::get<1>(*this);}
+        };
+        struct bus_pair_tag{};
         template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;

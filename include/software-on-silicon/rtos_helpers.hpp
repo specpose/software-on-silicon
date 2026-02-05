@@ -2,14 +2,11 @@ namespace SOS
 {
     namespace MemoryView
     {
-        class AsyncAndHandShake : private std::array<std::atomic_flag,2> {
+        class AsyncAndHandShake : private HandShake {
         public:
-            AsyncAndHandShake() : std::array<std::atomic_flag,2>{} {
-                std::get<0>(*this).test_and_set();
-                std::get<1>(*this).test_and_set();
-            }
-            auto& getAuxUpdatedRef(){return std::get<0>(*this);}
-            auto& getAuxAcknowledgeRef(){return std::get<1>(*this);}
+            using HandShake::HandShake;
+            auto& getAuxUpdatedRef(){return getUpdatedRef();}
+            auto& getAuxAcknowledgeRef(){return getAcknowledgeRef();}
         };
         class NotifierAndHandShake : private std::array<std::atomic_flag,3> {
         public:
@@ -35,9 +32,8 @@ namespace SOS
             auto& getAuxUpdatedRef(){return std::get<2>(*this);}
             auto& getAuxAcknowledgeRef(){return std::get<3>(*this);}
         };
-        struct bus_async_and_handshake_tag{};
         struct BusAsyncAndShaker : bus <
-        bus_async_and_handshake_tag,
+        bus_shaker_tag,
         SOS::MemoryView::AsyncAndHandShake,
         bus_traits<Bus>::cables_type,
         bus_traits<Bus>::const_cables_type
