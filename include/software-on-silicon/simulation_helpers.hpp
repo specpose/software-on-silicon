@@ -5,11 +5,9 @@ using namespace std::chrono;
 //error: non-type template parameters of class type only available with ‘-std=c++20’ or ‘-std=gnu++20’
 //template<typename DurationType, typename DurationType::period> class Timer {
 template<typename DurationType,
-        unsigned int Period,
-        typename PeriodType = typename std::enable_if<
-            true, typename DurationType::duration
-            >::type
-        > class Timer : public SOS::Behavior::EventDummy<> {//no bus here
+        unsigned int Period
+        >
+class Timer : public SOS::Behavior::EventDummy<> {//no bus here
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
     SOS::Behavior::EventDummy<>(bussignal) {
@@ -27,7 +25,7 @@ template<typename DurationType,
         ).count()
         <<"ns more on average per "<<Period<<" duration units."<<std::endl;
     }
-    void restart() { _thread = start(this); }
+    //void restart() { _thread = start(this); }
     void event_loop(){
         if (!_intrinsic.getUpdatedRef().test_and_set()){
             const auto t_start = high_resolution_clock::now();
@@ -39,13 +37,43 @@ template<typename DurationType,
             _intrinsic.getAcknowledgeRef().clear();
         }
     }
-    void constexpr operator()(){
-        std::this_thread::sleep_for(DurationType{Period});;
-    }
+    protected:
+    virtual void operator()() = 0;
     private:
     int runCount = 0;
     clock_t c_counter = 0;
     high_resolution_clock::duration t_counter = high_resolution_clock::duration{};
 
     std::thread _thread = std::thread{};
+};
+
+template<typename DurationType, unsigned int Period>
+class TimerIF : public virtual Timer<DurationType,Period>{
+    public:
+    using Timer<DurationType,Period>::Timer;
+};
+
+template<typename DurationType, unsigned int Period>
+class SystemTimer : public TimerIF<DurationType,Period>{
+    public:
+    SystemTimer(SOS::MemoryView::BusShaker::signal_type& bussignal) : TimerIF<DurationType,Period>(bussignal),
+    Timer<DurationType,Period>(bussignal)
+    {}
+    protected:
+    virtual void operator()() final {
+        std::this_thread::sleep_for(typename DurationType::duration{Period});;
+    }
+};
+
+template<typename DurationType, unsigned int Period>
+class TickTimer : public TimerIF<DurationType,Period>{
+    public:
+    TickTimer(SOS::MemoryView::BusShaker::signal_type& bussignal, unsigned long ticks) : _ticks(Period * ticks), TimerIF<DurationType,Period>(bussignal),
+    Timer<DurationType,Period>(bussignal)
+    {}
+    virtual void operator()() final {
+        for (unsigned long i = 0; i<_ticks; ++i) {}
+    }
+    private:
+    const unsigned long _ticks;
 };

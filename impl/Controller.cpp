@@ -25,18 +25,13 @@ class SubControllerImpl : public SOS::Behavior::SimpleDummy<> {
             //blink on
             _intrinsic.getNotifyRef().clear();
             //run
-            operator()();
+            std::this_thread::sleep_for(milliseconds{333});
             //blink off
             _intrinsic.getNotifyRef().test_and_set();
             //pause
             std::this_thread::sleep_for(milliseconds{666});
     };
-    void operator()(){
-        std::this_thread::sleep_for(milliseconds{_duration});
-    }
     private:
-    unsigned int _duration = 333;
-
     std::thread _thread = std::thread{};
 };
 
@@ -44,7 +39,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleDummy<> {
 class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControllerImpl> {
     public:
     ControllerImpl(bus_type& bus) : BootstrapAsyncController<SubControllerImpl>(bus.signal)
-    , waiter(new Timer<milliseconds,100>(waiterBus.signal))
+    , waiter(new SystemTimer<milliseconds,measurement_unit_in_ms>(waiterBus.signal))
     {
         _thread=start(this);
     }
@@ -71,6 +66,6 @@ class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControl
     }
     private:
     SOS::MemoryView::BusShaker waiterBus{};
-    Timer<milliseconds,100>* waiter;
+    SystemTimer<milliseconds,measurement_unit_in_ms>* waiter;
     std::thread _thread = std::thread{};
 };
