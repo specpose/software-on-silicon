@@ -8,9 +8,9 @@ namespace SOS
             auto& getAuxUpdatedRef(){return getUpdatedRef();}
             auto& getAuxAcknowledgeRef(){return getAcknowledgeRef();}
         };
-        class NotifierAndHandShake : private std::array<std::atomic_flag,3> {
+        class NotifyAndHandShake : private std::array<std::atomic_flag,3> {
         public:
-            NotifierAndHandShake() : std::array<std::atomic_flag,3>{} {
+            NotifyAndHandShake() : std::array<std::atomic_flag,3>{} {
                 std::get<0>(*this).test_and_set();
                 std::get<1>(*this).test_and_set();
                 std::get<2>(*this).test_and_set();
@@ -40,18 +40,18 @@ namespace SOS
         >{
             signal_type signal;
         };
-        struct bus_notifier_and_handshake_tag{};
+        struct bus_notifier_and_shaker_tag{};
         struct BusNotifierAndShaker : bus <
-        bus_notifier_and_handshake_tag,
-        SOS::MemoryView::NotifierAndHandShake,
+        bus_notifier_and_shaker_tag,
+        SOS::MemoryView::NotifyAndHandShake,
         bus_traits<Bus>::cables_type,
         bus_traits<Bus>::const_cables_type
         >{
             signal_type signal;
         };
-        struct bus_double_handshake_tag{};
+        struct bus_double_shaker_tag{};
         struct BusDoubleShaker : bus <
-        bus_double_handshake_tag,
+        bus_double_shaker_tag,
         SOS::MemoryView::DoubleHandShake,
         bus_traits<Bus>::cables_type,
         bus_traits<Bus>::const_cables_type

@@ -20,7 +20,7 @@ namespace SOS
         };
         template <typename ComBufferType>
         struct ComBus : public bus <
-            bus_double_handshake_tag,
+            bus_double_shaker_tag,
             SOS::MemoryView::DoubleHandShake,
             bus_traits<Bus>::cables_type,
             bus_traits<Bus>::const_cables_type

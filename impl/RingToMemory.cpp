@@ -71,9 +71,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     ~WriteTaskImpl(){}
     protected:
     virtual void write(RING_BUFFER::value_type& character) final {
-        _blocker.signal.getWritingRef().clear();
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
-        _blocker.signal.getWritingRef().test_and_set();
     }
 };
 //multiple inheritance: destruction order

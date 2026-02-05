@@ -151,15 +151,19 @@ namespace SOS {
         template<typename MemoryControllerType> class WriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask(){};
+            WriteTask(){
+                _blocker.signal.getWritingRef().test_and_set();
+            };
             protected:
             virtual void write(typename MemoryControllerType::value_type& character) {
+                _blocker.signal.getWritingRef().clear();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
                     *writerPos=character;
                     writerPos++;
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
+                _blocker.signal.getWritingRef().test_and_set();
             }
             bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
             typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
