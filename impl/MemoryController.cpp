@@ -59,11 +59,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     }
     private:
     virtual void read() final {
-        if (is_running()) {
-            ReadTaskImpl::read();
-        } else {
-            request_stop();
-        }
+        ReadTaskImpl::read();
     };
     std::thread _thread;
 };

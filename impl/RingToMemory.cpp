@@ -65,11 +65,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     }
     private:
     virtual void read() final {
-        if (is_running()) {
-            ReadTaskImpl::read();
-        } else {
-            request_stop();
-        }
+        ReadTaskImpl::read();
     };
     std::thread _thread;
 };
@@ -79,9 +75,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     ara_sampleCount(0) {
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
     }
-    ~WriteTaskImpl(){
-        clearMemoryController();
-    }
+    ~WriteTaskImpl(){}
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
@@ -125,9 +119,7 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     public:
     //multiple inheritance: construction order
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<BLOCK>& rd) :
-    rB(rB),
     RingBufferTaskImpl(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
-    rB(rB),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl
@@ -137,31 +129,14 @@ class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl
     ~RingBufferImpl() final{
         destroy(_thread);
     }
-    void resetAndRestart() {
-        clear_memorycontroller = true;
-    }
     //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
     void event_loop(){
             if(!_intrinsic.getNotifyRef().test_and_set()){
                 this->read_loop();
             }
-            if (clear_memorycontroller) {
-                //stop and omit the pending transfer writes
-                auto previous = std::get<0>(rB.cables).getCurrentRef().load();
-                std::get<0>(rB.cables).getThreadCurrentRef().store(--previous);
-                while(!_blocker.signal.getReadingRef().test_and_set()){
-                    _blocker.signal.getReadingRef().clear();
-                    std::this_thread::yield();
-                }//acknowledge => finished a pending read
-                clearMemoryController();
-                clear_memorycontroller = false;
-            }
             std::this_thread::yield();
     }
-    protected:
-    bool clear_memorycontroller = false;
     private:
-    SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB;
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
     std::thread _thread = std::thread{};
