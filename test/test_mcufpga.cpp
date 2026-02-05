@@ -69,7 +69,7 @@ int main () {
                 host_request_stop = true;
             } else {
                 if (host && !host_delete)
-                    if (host->isStopped()){
+                    if (!mcubus.signal.getAuxAcknowledgeRef().test_and_set()){
                         delete host;
                         host = nullptr;
                         host_delete = true;
@@ -83,7 +83,7 @@ int main () {
                 client_request_stop = true;
 	        } else {
                 if (client && !client_delete)
-                    if (client->isStopped()){
+                    if (!fpgabus.signal.getAuxAcknowledgeRef().test_and_set()){
                         delete client;
                         client = nullptr;
                         client_delete = true;

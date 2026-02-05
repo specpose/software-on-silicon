@@ -91,10 +91,9 @@ namespace SOS{
                 request_stop();
                 destroyme.join();
             }
-            protected: //TODO
+            private:
             bool is_running() { return stop_token.getUpdatedRef().test_and_set(); }
             void finished() { stop_token.getAcknowledgeRef().clear(); }
-            private:
             bool is_finished() { return !stop_token.getAcknowledgeRef().test_and_set(); }
             void _stoppable_loop(){
                 while (is_running()) {

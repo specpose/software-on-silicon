@@ -18,8 +18,6 @@ namespace SOS {
             }
 
         protected:
-            virtual bool is_running() = 0;
-            virtual void finished() = 0;
             virtual bool received() = 0;
             virtual bool transfered() = 0;
             virtual void write_notify_hook() = 0;

@@ -73,11 +73,6 @@ namespace SOS
                 //    throw SFA::util::logic_error("stop() has not been called on Stoppable.", __FILE__, __func__);
                 std::cout<<typeid(*this).name()<<"SN"<<std::endl;
             }
-            protected:
-            //virtual void request_stop() final { Loop::request_stop(); }
-            //SerialNotifier: event_loop in interface
-            //bool is_running() { return Loop::is_running(); }
-            //void finished() { Loop::finished(); }
         };
         class StoppableAsyncSubController : public SubController {
         public:

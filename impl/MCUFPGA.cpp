@@ -79,8 +79,6 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
-    virtual void finished() final { SOS::Behavior::Loop::finished(); }
 
 private:
     bus_type &_nBus;
@@ -152,8 +150,6 @@ protected:
     {
         return !_intrinsic.getAcknowledgeRef().test_and_set();
     }
-    virtual bool is_running() final { return SOS::Behavior::Loop::is_running(); }
-    virtual void finished() final { SOS::Behavior::Loop::finished(); }
 
 private:
     bus_type &_nBus;
@@ -206,15 +202,6 @@ public:
     virtual void request_shutdown_action() final //Only from Ctrl-C
     {
         stop_notifier();
-    };
-    bool isStopped()
-    {
-        if (!_intrinsic.getAuxAcknowledgeRef().test_and_set())
-        {
-            _intrinsic.getAuxAcknowledgeRef().clear();
-            return true;
-        }
-        return false;
     };
     virtual void com_hotplug_action() final
     {
@@ -283,15 +270,6 @@ public:
     virtual void request_shutdown_action() final //Only from Ctrl-C
     {
     }
-    bool isStopped()
-    {
-        if (!_intrinsic.getAuxAcknowledgeRef().test_and_set())
-        {
-            _intrinsic.getAuxAcknowledgeRef().clear();
-            return true;
-        }
-        return false;
-    };
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
