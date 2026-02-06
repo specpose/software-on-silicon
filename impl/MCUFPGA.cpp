@@ -13,13 +13,15 @@
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<>
-{
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<> {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
+    FPGAProcessingSwitch(bus_type& bus)
+        : _nBus(bus)
+        , SOS::Behavior::SerialProcessing()
+        , SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
     {
-        if (_nBus.descriptors.size()!=3)//TODO also assert on tuple
+        if (_nBus.descriptors.size() != 3) // TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -31,22 +33,20 @@ public:
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
-        switch (object_id)
-        {
+        switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock){
+            if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
-                if (!std::get<0>(_nBus.objects).mcu_owned())
-                { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (_nBus.descriptors[0].synced){
+                if (!std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+                    if (_nBus.descriptors[0].synced) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(true);
                         _nBus.descriptors[0].synced = false;
                     }
                 }
             } else {
-                SFA::util::runtime_error(SFA::util::error_code::FPGAProcessingSwitchThreadIsTooSlow,__FILE__,__func__, typeid(*this).name());
+                SFA::util::runtime_error(SFA::util::error_code::FPGAProcessingSwitchThreadIsTooSlow, __FILE__, __func__, typeid(*this).name());
             }
             break;
         case 1:
@@ -58,8 +58,7 @@ public:
     void write_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
-        switch (object_id)
-        {
+        switch (object_id) {
         // just been transfered, can now process further
         case 0:
             break;
@@ -81,16 +80,18 @@ protected:
     }
 
 private:
-    bus_type &_nBus;
-    std::thread _thread = std::thread{};
+    bus_type& _nBus;
+    std::thread _thread = std::thread {};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<>
-{
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<> {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
-    MCUProcessingSwitch(bus_type &bus) : _nBus(bus), SOS::Behavior::SerialProcessing(), SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
+    MCUProcessingSwitch(bus_type& bus)
+        : _nBus(bus)
+        , SOS::Behavior::SerialProcessing()
+        , SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
     {
-        if (_nBus.descriptors.size()!=3)
+        if (_nBus.descriptors.size() != 3)
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -102,22 +103,20 @@ public:
     void read_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
-        switch (object_id)
-        {
+        switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock){
+            if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
-                if (std::get<0>(_nBus.objects).mcu_owned())
-                { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (_nBus.descriptors[0].synced){
+                if (std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
+                    if (_nBus.descriptors[0].synced) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(false);
                         _nBus.descriptors[0].synced = false;
                     }
                 }
             } else {
-                SFA::util::runtime_error(SFA::util::error_code::MCUProcessingSwitchThreadIsTooSlow,__FILE__,__func__, typeid(*this).name());
+                SFA::util::runtime_error(SFA::util::error_code::MCUProcessingSwitchThreadIsTooSlow, __FILE__, __func__, typeid(*this).name());
             }
             break;
         case 1:
@@ -129,8 +128,7 @@ public:
     void write_notify_hook()
     {
         auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
-        switch (object_id)
-        {
+        switch (object_id) {
         // just been transfered, can now process further
         case 0:
             break;
@@ -152,19 +150,18 @@ protected:
     }
 
 private:
-    bus_type &_nBus;
-    std::thread _thread = std::thread{};
+    bus_type& _nBus;
+    std::thread _thread = std::thread {};
 };
-class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>
-{
+class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    FPGA(bus_type &myBus) : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
+    FPGA(bus_type& myBus)
+        : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
         int writeBlinkCounter = 0;
         bool writeBlink = true;
-        for (std::size_t i = 0; i < std::get<1>(_foreign.objects).size(); i++)
-        {
+        for (std::size_t i = 0; i < std::get<1>(_foreign.objects).size(); i++) {
             DMA::value_type data;
             if (writeBlink)
                 data = 42; //'*'
@@ -172,13 +169,10 @@ public:
                 data = 95; //'_'
             std::get<1>(_foreign.objects)[i] = data;
             writeBlinkCounter++;
-            if (writeBlink && writeBlinkCounter == 333)
-            {
+            if (writeBlink && writeBlinkCounter == 333) {
                 writeBlink = false;
                 writeBlinkCounter = 0;
-            }
-            else if (!writeBlink && writeBlinkCounter == 666)
-            {
+            } else if (!writeBlink && writeBlinkCounter == 666) {
                 writeBlink = true;
                 writeBlinkCounter = 0;
             }
@@ -189,17 +183,17 @@ public:
     }
     ~FPGA()
     {
-        //while (!exit_query())
-        //    std::this_thread::yield();
+        // while (!exit_query())
+        //     std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
+            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
-    virtual void request_shutdown_action() final //Only from Ctrl-C
+    virtual void request_shutdown_action() final // Only from Ctrl-C
     {
         stop_notifier();
     };
@@ -239,13 +233,13 @@ private:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
-    std::thread _thread = std::thread{};
+    std::thread _thread = std::thread {};
 };
-class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>
-{
+class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    MCU(bus_type &myBus) : SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
+    MCU(bus_type& myBus)
+        : SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
         std::get<0>(_foreign.objects).setNumber(0);
         std::get<0>(_foreign.objects).set_mcu_owned(false);
@@ -257,27 +251,27 @@ public:
     }
     ~MCU()
     {
-        //while (!exit_query())
-        //    std::this_thread::yield();
+        // while (!exit_query())
+        //     std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
-            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction,__FILE__,__func__, typeid(*this).name());
+            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
-    virtual void request_shutdown_action() final //Only from Ctrl-C
+    virtual void request_shutdown_action() final // Only from Ctrl-C
     {
     }
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
         this->resend_current_object();
-        //if (!std::get<0>(_foreign.objects).mcu_owned()){
-        //    std::get<0>(_foreign.objects).set_mcu_owned(false);
-        //    _foreign.descriptors[0].synced = false;
-        //}
+        // if (!std::get<0>(_foreign.objects).mcu_owned()){
+        //     std::get<0>(_foreign.objects).set_mcu_owned(false);
+        //     _foreign.descriptors[0].synced = false;
+        // }
     }
     virtual bool exit_query() final
     {
@@ -311,5 +305,5 @@ private:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
-    std::thread _thread = std::thread{};
+    std::thread _thread = std::thread {};
 };
