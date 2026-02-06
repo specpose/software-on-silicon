@@ -45,7 +45,7 @@ namespace Protocol {
         void* obj = nullptr;
         std::size_t obj_size = 0;
         volatile bool readLock = false; // SerialProcessing thread
-        volatile bool synced = true; // SerialProcessing thread
+        volatile bool unsynced = false; // SerialProcessing thread
         bool transfer = false;
         int rx_counter = 0; // DEBUG
         int tx_counter = 0; // DEBUG

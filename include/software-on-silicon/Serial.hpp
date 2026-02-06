@@ -73,7 +73,7 @@ namespace Protocol {
         {
             if (this->send_lock || this->writeCount != 0) {
                 SFA::util::runtime_error(SFA::util::error_code::PoweronAfterUnexpectedShutdown, __FILE__, __func__, typeid(*this).name());
-                this->foreign().descriptors[this->writeOrigin].synced = false;
+                this->foreign().descriptors[this->writeOrigin].unsynced = true;
                 this->foreign().descriptors[this->writeOrigin].transfer = false;
                 this->send_lock = false;
                 this->writeCount = 0;
@@ -97,7 +97,7 @@ namespace Protocol {
         bool transfers_pending()
         {
             for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (!this->foreign().descriptors[j].synced && !this->foreign().descriptors[j].transfer)
+                if (this->foreign().descriptors[j].unsynced && !this->foreign().descriptors[j].transfer)
                     return true;
             }
             return false;
@@ -230,7 +230,7 @@ namespace Protocol {
                     bool gotOne = false;
                     for (unsigned char j = 0; j < this->foreign().descriptors.size() && !gotOne; j++) {
                         if (j == acknowledgeId) {
-                            if (this->foreign().descriptors[j].synced)
+                            if (!this->foreign().descriptors[j].unsynced)
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnSyncedObject, __FILE__, __func__, typeid(*this).name());
                             if (this->foreign().descriptors[j].readLock)
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
@@ -263,7 +263,7 @@ namespace Protocol {
                     if (this->foreign().descriptors[j].id == requestId) {
                         if (this->foreign().descriptors[j].readLock)
                             SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(requestId), __func__, typeid(*this).name());
-                        if (this->foreign().descriptors[j].synced) {
+                        if (!this->foreign().descriptors[j].unsynced) {
                             if (!this->foreign().descriptors[j].transfer) {
                                 this->foreign().descriptors[j].readLock = true;
                                 std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
@@ -285,7 +285,7 @@ namespace Protocol {
         bool getFirstTransfer()
         {
             for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (!this->foreign().descriptors[j].synced && !this->foreign().descriptors[j].transfer) {
+                if (this->foreign().descriptors[j].unsynced && !this->foreign().descriptors[j].transfer) {
                     if (this->foreign().descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                     acknowledgeId = j;
@@ -299,10 +299,10 @@ namespace Protocol {
         bool getFirstSyncObject()
         {
             for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].readLock && !this->foreign().descriptors[j].synced)
+                if (this->foreign().descriptors[j].readLock && this->foreign().descriptors[j].unsynced)
                     SFA::util::logic_error(SFA::util::error_code::DMAObjectHasEnteredAnIllegalSyncState, __FILE__, __func__, typeid(*this).name());
                 if (this->foreign().descriptors[j].transfer) {
-                    if (this->foreign().descriptors[j].synced)
+                    if (!this->foreign().descriptors[j].unsynced)
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsSynced, __FILE__, __func__, typeid(*this).name());
                     if (this->foreign().descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsReadlocked, __FILE__, __func__, typeid(*this).name());

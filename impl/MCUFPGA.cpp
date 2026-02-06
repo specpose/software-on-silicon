@@ -39,10 +39,10 @@ public:
             if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (!std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (_nBus.descriptors[0].synced) {
+                    if (!_nBus.descriptors[0].unsynced) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(true);
-                        _nBus.descriptors[0].synced = false;
+                        _nBus.descriptors[0].unsynced = true;
                     }
                 }
             } else {
@@ -109,10 +109,10 @@ public:
             if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (_nBus.descriptors[0].synced) {
+                    if (!_nBus.descriptors[0].unsynced) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(false);
-                        _nBus.descriptors[0].synced = false;
+                        _nBus.descriptors[0].unsynced = true;
                     }
                 }
             } else {
@@ -177,7 +177,7 @@ public:
                 writeBlinkCounter = 0;
             }
         }
-        foreign().descriptors[1].synced = false;
+        foreign().descriptors[1].unsynced = true;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -243,9 +243,9 @@ public:
     {
         std::get<0>(_foreign.objects).setNumber(0);
         std::get<0>(_foreign.objects).set_mcu_owned(false);
-        foreign().descriptors[0].synced = false;
+        foreign().descriptors[0].unsynced = true;
         std::get<2>(_foreign.objects).fill('-');
-        foreign().descriptors[2].synced = false;
+        foreign().descriptors[2].unsynced = true;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -270,7 +270,7 @@ public:
         this->resend_current_object();
         // if (!std::get<0>(_foreign.objects).mcu_owned()){
         //     std::get<0>(_foreign.objects).set_mcu_owned(false);
-        //     _foreign.descriptors[0].synced = false;
+        //     _foreign.descriptors[0].unsynced = true;
         // }
     }
     virtual bool exit_query() final

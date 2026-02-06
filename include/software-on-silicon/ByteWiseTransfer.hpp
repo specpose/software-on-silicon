@@ -18,7 +18,7 @@ namespace Protocol {
                 } else { // write3plus1==3
                     if (writeOriginPos == foreign().descriptors[writeOrigin].obj_size) {
                         foreign().descriptors[writeOrigin].transfer = false;
-                        foreign().descriptors[writeOrigin].synced = true;
+                        foreign().descriptors[writeOrigin].unsynced = false;
                         send_lock = false;
                         foreign().sendNotificationId().store(writeOrigin);
                         foreign().signal.getSecondRef().clear();
