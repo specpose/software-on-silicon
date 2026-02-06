@@ -2,12 +2,10 @@
 
 using namespace std::chrono;
 
-//error: non-type template parameters of class type only available with ‘-std=c++20’ or ‘-std=gnu++20’
-//template<typename DurationType, typename DurationType::period> class Timer {
 template<typename DurationType,
         unsigned int Period
         >
-class Timer : public SOS::Behavior::EventDummy<> {//no bus here
+class Timer : public SOS::Behavior::EventDummy<> {
     public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal) :
     SOS::Behavior::EventDummy<>(bussignal) {
@@ -25,7 +23,6 @@ class Timer : public SOS::Behavior::EventDummy<> {//no bus here
         ).count()
         <<"ns more on average per "<<Period<<" duration units."<<std::endl;
     }
-    //void restart() { _thread = start(this); }
     void event_loop(){
         if (!_intrinsic.getUpdatedRef().test_and_set()){
             const auto t_start = high_resolution_clock::now();

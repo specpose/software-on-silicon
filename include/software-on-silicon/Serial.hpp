@@ -18,16 +18,10 @@ namespace SOS
         public:
             Serial() : SOS::Protocol::BlockWiseTransfer<Objects...>{} {}
             ~Serial(){
-                /*for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++){
-                 i f (this->foreign().descriptors[j].readLock)        *
-                 throw SFA::util::runtime_error("ReadLocked item after thread exit", __FILE__, __func__);
-                }*/
                 std::cout<<typeid(*this).name()<<" shutdown"<<std::endl;
             }
             virtual void event_loop()
             { // final
-                //if (read4minus1 != 0 || write3plus1 != 0)
-                //    abort();
                     std::this_thread::yield();
                     if (handshake())
                     {
@@ -66,8 +60,7 @@ namespace SOS
             virtual void send_request() = 0;        // 1
             virtual bool receive_request() = 0;     // 2
             virtual bool receive_acknowledge() = 0; // 4
-            virtual void com_hotplug_action() = 0;//send_lock: check for objects not finished sending
-            //read_lock: Use an encapsulated messaging method to let the other side handle its incorrect shutdown / power loss
+            virtual void com_hotplug_action() = 0;
             virtual void stop_notifier() = 0;
             virtual void request_shutdown_action() = 0;
             virtual void com_shutdown_action() = 0;
@@ -143,7 +136,7 @@ namespace SOS
                         if (_vars.acknowledgeRequested || _vars.received_acknowledge)
                             SFA::util::runtime_error(SFA::util::error_code::PreviousTransferRequestsWereNotCleared, __FILE__, __func__, typeid(*this).name());
                         _vars = com_vars{};
-                        com_hotplug_action();//NO send_request() or send_acknowledge() in here
+                        com_hotplug_action();
                         //start_calc_thread
                         //start notifier
                     }
@@ -262,8 +255,8 @@ namespace SOS
                         SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
                     }
                 }
-                acknowledgeId = NUM_IDS;//overridden at half baud rate
-                _vars.acknowledgeRequested = false;//overridden at half baud rate
+                acknowledgeId = NUM_IDS;
+                _vars.acknowledgeRequested = false;
             }
             void transfer_hook() {
                 if (received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
@@ -272,13 +265,12 @@ namespace SOS
                         if (this->foreign().descriptors[j].readLock)
                             SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest,std::to_string(requestId),__func__, typeid(*this).name());
                         if (this->foreign().descriptors[j].synced)
-                        {//acknowledge override case can be omitted: 2 cycles
+                        {
                             if (!this->foreign().descriptors[j].transfer){
                                 this->foreign().descriptors[j].readLock = true;
                                 std::cout<<typeid(*this).name()<<"."<<"L"<<std::to_string(j)<<std::endl;
                                 if (this->receive_lock)
                                     this->foreign().descriptors[j].queued = true;
-                                //acknowledge sets a transfer
                                 send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer,__FILE__,__func__, typeid(*this).name());
@@ -300,7 +292,7 @@ namespace SOS
                     if (!this->foreign().descriptors[j].synced && !this->foreign().descriptors[j].transfer){
                         if (this->foreign().descriptors[j].readLock)
                             SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
-                        acknowledgeId = j;//overridden when synced is set to false
+                        acknowledgeId = j;
                         _vars.acknowledgeRequested = true;
                         send_transferRequest(this->foreign().descriptors[j].id + NUM_STATES);
                         return true;

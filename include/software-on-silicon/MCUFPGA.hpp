@@ -98,8 +98,6 @@ namespace SOS
                                               SOS::Protocol::SimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables), std::get<0>(myBus.cables)),
                                               SOS::Behavior::BootstrapEventController<ControllerType>(myBus.signal)
             {
-                // write_byte(static_cast<unsigned char>(SOS::Protocol::idleState().to_ulong()));//INIT: FPGA initiates communication with an idle byte
-                // SOS::Behavior::BootstrapEventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();//INIT: start one-way handshake
             }
             virtual void event_loop() final { SOS::Protocol::Serial<Objects...>::event_loop(); }
 

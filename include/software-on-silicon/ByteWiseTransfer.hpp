@@ -50,10 +50,6 @@ namespace SOS {
                             gotOne = true;
                         }
                     }
-                    //Never reached because of idle
-                    //if (!gotOne)
-                    //    if (!received_writes_finished)
-                    //        received_writes_finished = true;
                 }
                 if (receive_lock){
                 read(data);
