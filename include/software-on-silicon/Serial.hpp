@@ -69,17 +69,6 @@ namespace Protocol {
         virtual bool exit_query() = 0;
         virtual bool incoming_shutdown_query() = 0;
         virtual bool outgoing_sighup_query() = 0;
-        void resend_current_object()
-        {
-            if (this->send_lock || this->writeCount != 0) {
-                SFA::util::runtime_error(SFA::util::error_code::PoweronAfterUnexpectedShutdown, __FILE__, __func__, typeid(*this).name());
-                this->foreign().descriptors[this->writeOrigin].unsynced = true;
-                this->foreign().descriptors[this->writeOrigin].transfer = false;
-                this->send_lock = false;
-                this->writeCount = 0;
-                this->writeOriginPos = 0;
-            }
-        }
         void clear_read_receive()
         {
             if (this->receive_lock || this->readCount != 0) {

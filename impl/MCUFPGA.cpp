@@ -200,7 +200,6 @@ public:
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
-        this->resend_current_object();
     }
     virtual bool exit_query() final
     {
@@ -267,7 +266,6 @@ public:
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
-        this->resend_current_object();
         // if (!std::get<0>(_foreign.objects).mcu_owned()){
         //     std::get<0>(_foreign.objects).set_mcu_owned(false);
         //     _foreign.descriptors[0].unsynced = true;
