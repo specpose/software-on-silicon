@@ -1,5 +1,62 @@
 namespace SOS {
+namespace MemoryView {
+    class TripleHandShake : private std::array<std::atomic_flag,6> {
+    public:
+        TripleHandShake() : std::array<std::atomic_flag,6>{} {
+            std::get<0>(*this).test_and_set();
+            std::get<1>(*this).test_and_set();
+            std::get<2>(*this).test_and_set();
+            std::get<3>(*this).test_and_set();
+            std::get<4>(*this).test_and_set();
+            std::get<5>(*this).test_and_set();
+        }
+        auto& getFirstUpdatedRef(){return std::get<0>(*this);}
+        auto& getFirstAcknowledgeRef(){return std::get<1>(*this);}
+        auto& getSecondUpdatedRef(){return std::get<2>(*this);}
+        auto& getSecondAcknowledgeRef(){return std::get<3>(*this);}
+        auto& getThirdUpdatedRef(){return std::get<4>(*this);}
+        auto& getThirdAcknowledgeRef(){return std::get<5>(*this);}
+    };
+    class DMAObjectShake : private TripleHandShake {
+    public:
+        using TripleHandShake::TripleHandShake;
+        auto& getReadUpdatedRef(){return getFirstUpdatedRef();}
+        auto& getReadAcknowledgeRef(){return getFirstAcknowledgeRef();}
+        auto& getWriteUpdatedRef(){return getSecondUpdatedRef();}
+        auto& getWriteAcknowledgeRef(){return getSecondAcknowledgeRef();}
+        auto& getTransferUpdatedRef(){return getThirdUpdatedRef();}
+        auto& getTransferAcknowledgeRef(){return getThirdAcknowledgeRef();}
+    };
+    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 2> {
+        DestinationAndOrigin()
+        : SOS::MemoryView::TaskCable<std::size_t, 2> { 0, 0 }
+        {
+        }
+        auto& getReceiveNotificationRef() { return std::get<0>(*this); }
+        auto& getSendNotificationRef() { return std::get<1>(*this); }
+    };
+    struct bus_dma_shaker_tag{};
+    struct BusDMAShaker : bus <
+    bus_dma_shaker_tag,
+    SOS::MemoryView::DMAObjectShake,
+    std::tuple<DestinationAndOrigin>,
+    bus_traits<Bus>::const_cables_type
+    >{
+        signal_type signal;
+    };
+}
 namespace Behavior {
+    class SerialSubController : public SubController {
+    public:
+        using bus_type = SOS::MemoryView::BusDMAShaker;
+        constexpr SerialSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
+    template<typename... Others> class SerialDummy : public Loop, protected SerialSubController {
+    public:
+        SerialDummy(typename bus_type::signal_type& signal, Others&... args) : Loop(), SerialSubController(signal) {}
+    };
     class SerialProcessing {
     public:
         SerialProcessing() { }
@@ -71,25 +128,13 @@ namespace Protocol {
     };
 }
 namespace MemoryView {
-    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 2> {
-        DestinationAndOrigin()
-            : SOS::MemoryView::TaskCable<std::size_t, 2> { 0, 0 }
-        {
-        }
-        auto& getReceiveNotificationRef() { return std::get<0>(*this); }
-        auto& getSendNotificationRef() { return std::get<1>(*this); }
-    };
+
     template <typename... Objects>
-    struct SerialProcessNotifier : public bus<
-                                       bus_pair_tag,
-                                       SOS::MemoryView::Pair,
-                                       std::tuple<DestinationAndOrigin>,
-                                       bus_traits<Bus>::const_cables_type> {
+    struct SerialProcessNotifier : public BusDMAShaker {
         SerialProcessNotifier()
         {
             std::apply(descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
         }
-        signal_type signal;
         cables_type cables;
         std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors {};

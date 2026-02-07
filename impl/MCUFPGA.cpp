@@ -13,13 +13,13 @@
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<> {
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::SerialDummy<> {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     FPGAProcessingSwitch(bus_type& bus)
         : _nBus(bus)
         , SOS::Behavior::SerialProcessing()
-        , SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
+        , SOS::Behavior::SerialDummy<>(bus.signal)
     {
         if (_nBus.descriptors.size() != 3) // TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -72,24 +72,24 @@ public:
 protected:
     virtual bool received() final
     {
-        return !_intrinsic.getUpdatedRef().test_and_set();
+        return !_intrinsic.getReadUpdatedRef().test_and_set();
     }
     virtual bool transfered() final
     {
-        return !_intrinsic.getAcknowledgeRef().test_and_set();
+        return !_intrinsic.getWriteUpdatedRef().test_and_set();
     }
 
 private:
     bus_type& _nBus;
     std::thread _thread = std::thread {};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::EventDummy<> {
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::SerialDummy<> {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     MCUProcessingSwitch(bus_type& bus)
         : _nBus(bus)
         , SOS::Behavior::SerialProcessing()
-        , SOS::Behavior::EventDummy<>(reinterpret_cast<SOS::MemoryView::HandShake&>(bus.signal))
+        , SOS::Behavior::SerialDummy<>(bus.signal)
     {
         if (_nBus.descriptors.size() != 3)
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -142,11 +142,11 @@ public:
 protected:
     virtual bool received() final
     {
-        return !_intrinsic.getUpdatedRef().test_and_set();
+        return !_intrinsic.getReadUpdatedRef().test_and_set();
     }
     virtual bool transfered() final
     {
-        return !_intrinsic.getAcknowledgeRef().test_and_set();
+        return !_intrinsic.getWriteUpdatedRef().test_and_set();
     }
 
 private:
