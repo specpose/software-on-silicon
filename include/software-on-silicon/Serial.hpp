@@ -37,13 +37,14 @@ namespace Protocol {
                     if (received_request)
                         read_hook(data);
                     else
-                        this->read_object(data);
-                    transfer_hook();
-                    acknowledge_hook();
+                        this->read_object(data);//inform_read_end
+                    transfer_hook();//inform_read_start, can cancel write_start; may check unsynced
+                    acknowledge_hook();//inform_write_start; may check unsynced
                 }
+                collect_sync();
                 // OUT
-                if (!write_hook())
-                    if (!this->write_object())
+                if (!write_hook())//collect_unsynced
+                    if (!this->write_object())//inform_write_end
                         send_idleRequest();
                 if (_vars.sent_sighup)
                     aux_ack();
@@ -186,15 +187,15 @@ namespace Protocol {
             if (_vars.sent_sighup)
                 _vars.sent_idle = true;
         }
-        void send_transferRequest(decltype(DMADescriptor::id) unsynced)
+        void send_transferRequest(decltype(DMADescriptor::id) item)
         {
-            if (unsynced < NUM_IDS) {
+            if (item < NUM_IDS) {
                 send_request();
                 auto id_bits = std::bitset<8> { 0x00 };
                 this->write_bits(id_bits);
-                auto obj_id = std::bitset<8> { unsynced }; // DANGER: overflow check
+                auto obj_id = std::bitset<8> { item }; // DANGER: overflow check
                 id_bits = id_bits ^ obj_id;
-                std::cout << typeid(*this).name() << ":" << "T" << std::to_string(unsynced - NUM_STATES) << std::endl; // why not ID?!
+                std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item - NUM_STATES) << std::endl; // why not ID?!
                 this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             } else {
                 SFA::util::runtime_error(SFA::util::error_code::InvalidDMAObjectId, __FILE__, __func__, typeid(*this).name());
@@ -271,6 +272,17 @@ namespace Protocol {
             }
             requestId = NUM_IDS;
         }
+        void collect_sync()
+        {
+            if (!this->foreign().signal.getSyncUpdatedRef().test_and_set()){
+                while (this->foreign().signal.getSyncAcknowledgeRef().test_and_set())
+                    std::this_thread::yield();
+                const auto id = this->foreign().sendNotificationId().load();
+                for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++)
+                    if (id==j)
+                        this->foreign().descriptors[j].unsynced=true;
+            }
+        }
         bool getFirstTransfer()
         {
             for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
@@ -312,16 +324,16 @@ namespace Protocol {
                 return true;
             }
             if (!this->send_lock)
-                if (!_vars.sent_com_shutdown ? getFirstTransfer() : false) {
+                if (!_vars.sent_com_shutdown ? getFirstTransfer() : false) {//unsynced
                     return true;
                 }
             if (!this->send_lock)
-                if (incoming_shutdown_query() && !_vars.sent_com_shutdown) {
+                if (incoming_shutdown_query() && !_vars.sent_com_shutdown) {//unsynced
                     send_comshutdownRequest();
                     return true;
                 }
             if (!this->send_lock)
-                if (getFirstSyncObject())
+                if (getFirstSyncObject())//may check unsynced
                     return false;
             if (!this->send_lock)
                 if (outgoing_sighup_query() && !_vars.sent_sighup) {

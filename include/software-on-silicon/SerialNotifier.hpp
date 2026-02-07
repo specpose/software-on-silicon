@@ -24,16 +24,17 @@ namespace MemoryView {
         auto& getReadAcknowledgeRef(){return getFirstAcknowledgeRef();}
         auto& getWriteUpdatedRef(){return getSecondUpdatedRef();}
         auto& getWriteAcknowledgeRef(){return getSecondAcknowledgeRef();}
-        auto& getTransferUpdatedRef(){return getThirdUpdatedRef();}
-        auto& getTransferAcknowledgeRef(){return getThirdAcknowledgeRef();}
+        auto& getSyncUpdatedRef(){return getThirdUpdatedRef();}
+        auto& getSyncAcknowledgeRef(){return getThirdAcknowledgeRef();}
     };
-    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 2> {
+    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 3> {
         DestinationAndOrigin()
-        : SOS::MemoryView::TaskCable<std::size_t, 2> { 0, 0 }
+        : SOS::MemoryView::TaskCable<std::size_t, 3> { 0, 0, 0 }
         {
         }
         auto& getReceiveNotificationRef() { return std::get<0>(*this); }
         auto& getSendNotificationRef() { return std::get<1>(*this); }
+        auto& getSyncNotificationRef() { return std::get<2>(*this); }
     };
     struct bus_dma_shaker_tag{};
     struct BusDMAShaker : bus <
@@ -43,7 +44,22 @@ namespace MemoryView {
     bus_traits<Bus>::const_cables_type
     >{
         signal_type signal;
+        cables_type cables;
+        auto& receiveNotificationId() { return std::get<0>(cables).getReceiveNotificationRef(); }
+        auto& sendNotificationId() { return std::get<0>(cables).getSendNotificationRef(); }
+        auto& syncNotificationId() { return std::get<0>(cables).getSyncNotificationRef(); }
     };
+}
+namespace Protocol {
+    enum state : unsigned char {
+        idle = 0x00,
+        poweron = 0x01,
+        sighup = 0x02,
+        shutdown = 0x03
+    };
+    static const unsigned char NUM_STATES = 4;
+    static const unsigned char NUM_IDS = 64 - NUM_STATES;
+    static const unsigned int NUM_SIGNALBITS = 2;
 }
 namespace Behavior {
     class SerialSubController : public SubController {
@@ -57,37 +73,37 @@ namespace Behavior {
     public:
         SerialDummy(typename bus_type::signal_type& signal, Others&... args) : Loop(), SerialSubController(signal) {}
     };
-    class SerialProcessing {
+    class SerialProcessing : public SOS::Behavior::SerialDummy<> {
     public:
-        SerialProcessing() { }
+        using bus_type = SOS::MemoryView::BusDMAShaker;
+        SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {}
         void event_loop()
         {
-            if (transfered()) {
+            if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
+                _intrinsic.getWriteUpdatedRef().test_and_set();//not used
+                const auto id = _datasignals.sendNotificationId().load();
+                writing[id] = false;
                 write_notify_hook();
             }
-            if (received()) {
+            if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
+                _intrinsic.getReadUpdatedRef().test_and_set();//not used
+                const auto id = _datasignals.receiveNotificationId().load();
+                reading[id] = false;
                 read_notify_hook();
             }
             std::this_thread::yield();
         }
 
     protected:
-        virtual bool received() = 0;
-        virtual bool transfered() = 0;
         virtual void write_notify_hook() = 0;
         virtual void read_notify_hook() = 0;
+        std::bitset<SOS::Protocol::NUM_IDS> reading{};
+        std::bitset<SOS::Protocol::NUM_IDS> writing{};
+    private:
+        bus_type& _datasignals;
     };
 }
 namespace Protocol {
-    enum state : unsigned char {
-        idle = 0x00,
-        poweron = 0x01,
-        sighup = 0x02,
-        shutdown = 0x03
-    };
-    static const unsigned char NUM_STATES = 4;
-    static const unsigned char NUM_IDS = 64 - NUM_STATES;
-    static const unsigned int NUM_SIGNALBITS = 2;
     struct DMADescriptor {
         DMADescriptor() { } // DANGER
         DMADescriptor(unsigned char id, void* obj, std::size_t obj_size)
@@ -104,8 +120,6 @@ namespace Protocol {
         volatile bool readLock = false; // SerialProcessing thread
         volatile bool unsynced = false; // SerialProcessing thread
         bool transfer = false;
-        int rx_counter = 0; // DEBUG
-        int tx_counter = 0; // DEBUG
     };
     template <unsigned int N>
     struct DescriptorHelper : public std::array<DMADescriptor, N> {
@@ -135,11 +149,8 @@ namespace MemoryView {
         {
             std::apply(descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
         }
-        cables_type cables;
         std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors {};
-        auto& receiveNotificationId() { return std::get<0>(cables).getReceiveNotificationRef(); }
-        auto& sendNotificationId() { return std::get<0>(cables).getSendNotificationRef(); }
     };
 }
 }

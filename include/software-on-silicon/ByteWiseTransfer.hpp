@@ -21,8 +21,8 @@ namespace Protocol {
                         foreign().descriptors[writeOrigin].unsynced = false;
                         send_lock = false;
                         foreign().sendNotificationId().store(writeOrigin);
-                        foreign().signal.getWriteUpdatedRef().clear();
-                        foreign().descriptors[writeOrigin].tx_counter++; // DEBUG
+                        foreign().signal.getWriteAcknowledgeRef().clear();
+                        ++tx_counter[writeOrigin]; // DEBUG
                         std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
                     }
@@ -64,8 +64,8 @@ namespace Protocol {
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
                         foreign().receiveNotificationId().store(readDestination);
-                        foreign().signal.getReadUpdatedRef().clear();
-                        foreign().descriptors[readDestination].rx_counter++; // DEBUG
+                        foreign().signal.getReadAcknowledgeRef().clear();
+                        ++rx_counter[readDestination]; // DEBUG
                         std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
                     }
@@ -88,6 +88,8 @@ namespace Protocol {
         std::size_t writeOriginPos = 0;
         unsigned int writeCount = 0; // write3plus1
         unsigned char writeOrigin = NUM_IDS;
+        std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter{0}; // DEBUG
+        std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter{0}; // DEBUG
 
     private:
         std::array<std::bitset<8>, 3> writeAssembly;

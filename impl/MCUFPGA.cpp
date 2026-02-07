@@ -13,13 +13,12 @@
 #include "MCUFPGA/DMA.cpp"
 
 #include "MCUFPGA/SymbolRateCounter.cpp"
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::SerialDummy<> {
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     FPGAProcessingSwitch(bus_type& bus)
         : _nBus(bus)
-        , SOS::Behavior::SerialProcessing()
-        , SOS::Behavior::SerialDummy<>(bus.signal)
+        , SOS::Behavior::SerialProcessing(bus)
     {
         if (_nBus.descriptors.size() != 3) // TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -69,27 +68,16 @@ public:
         }
     }
 
-protected:
-    virtual bool received() final
-    {
-        return !_intrinsic.getReadUpdatedRef().test_and_set();
-    }
-    virtual bool transfered() final
-    {
-        return !_intrinsic.getWriteUpdatedRef().test_and_set();
-    }
-
 private:
     bus_type& _nBus;
     std::thread _thread = std::thread {};
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing, public SOS::Behavior::SerialDummy<> {
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing {
 public:
     using bus_type = typename SOS::MemoryView::SerialProcessNotifier<SymbolRateCounter, DMA, DMA>;
     MCUProcessingSwitch(bus_type& bus)
         : _nBus(bus)
-        , SOS::Behavior::SerialProcessing()
-        , SOS::Behavior::SerialDummy<>(bus.signal)
+        , SOS::Behavior::SerialProcessing(bus)
     {
         if (_nBus.descriptors.size() != 3)
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
@@ -139,16 +127,6 @@ public:
         }
     }
 
-protected:
-    virtual bool received() final
-    {
-        return !_intrinsic.getReadUpdatedRef().test_and_set();
-    }
-    virtual bool transfered() final
-    {
-        return !_intrinsic.getWriteUpdatedRef().test_and_set();
-    }
-
 private:
     bus_type& _nBus;
     std::thread _thread = std::thread {};
@@ -189,7 +167,7 @@ public:
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "FPGA read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
-        dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
+        dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
@@ -256,7 +234,7 @@ public:
         kill_time = std::chrono::high_resolution_clock::now();
         std::cout << "MCU read notify count " << std::get<0>(_foreign.objects).getNumber() << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
-        dump_objects(_foreign.objects, _foreign.descriptors, boot_time, kill_time);
+        dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
         if (SOS::Protocol::Serial<SymbolRateCounter, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
