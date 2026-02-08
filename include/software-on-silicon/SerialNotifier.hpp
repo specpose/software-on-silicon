@@ -84,7 +84,7 @@ namespace SOS {
         };
         template <typename... Objects>
         struct SerialProcessNotifier  : public bus <
-            bus_pair_tag,
+            bus_notifier_tag,
             SOS::MemoryView::Pair,
             std::tuple<DestinationAndOrigin>,
             bus_traits<Bus>::const_cables_type

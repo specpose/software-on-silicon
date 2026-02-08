@@ -42,7 +42,7 @@ namespace SOS {
             auto& getReadingRef(){return getSecondRef();}
         };
         template<typename MemoryControllerType> struct BlockerBus : public bus <
-            bus_pair_tag,
+            bus_notifier_tag,
             SOS::MemoryView::RWNotify,
             bus_traits<Bus>::cables_type,
             bus_traits<Bus>::const_cables_type

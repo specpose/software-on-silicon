@@ -2,35 +2,22 @@ namespace SOS
 {
     namespace MemoryView
     {
-        class AsyncAndHandShake : private HandShake {
+        class AsyncAndHandShake {
         public:
-            using HandShake::HandShake;
-            auto& getAuxUpdatedRef(){return getUpdatedRef();}
-            auto& getAuxAcknowledgeRef(){return getAcknowledgeRef();}
+            AsyncAndHandShake() { aux_updated.test_and_set(); aux_acknowledge.test_and_set(); }
+            auto& getAuxUpdatedRef() { return aux_updated; }
+            auto& getAuxAcknowledgeRef() { return aux_acknowledge; }
+        private:
+            std::atomic_flag aux_updated {};
+            std::atomic_flag aux_acknowledge {};
         };
-        class NotifyAndHandShake : private std::array<std::atomic_flag,3> {
+        class NotifyAndHandShake : public SOS::MemoryView::Notify, public AsyncAndHandShake {
         public:
-            NotifyAndHandShake() : std::array<std::atomic_flag,3>{} {
-                std::get<0>(*this).test_and_set();
-                std::get<1>(*this).test_and_set();
-                std::get<2>(*this).test_and_set();
-            }
-            auto& getNotifyRef(){return std::get<0>(*this);}
-            auto& getAuxUpdatedRef(){return std::get<1>(*this);}
-            auto& getAuxAcknowledgeRef(){return std::get<2>(*this);}
+            NotifyAndHandShake() : SOS::MemoryView::Notify(), AsyncAndHandShake() {}
         };
-        class DoubleHandShake : private std::array<std::atomic_flag,4> {
+        class DoubleHandShake : public SOS::MemoryView::HandShake, public AsyncAndHandShake {
         public:
-            DoubleHandShake() : std::array<std::atomic_flag,4>{} {
-                std::get<0>(*this).test_and_set();
-                std::get<1>(*this).test_and_set();
-                std::get<2>(*this).test_and_set();
-                std::get<3>(*this).test_and_set();
-            }
-            auto& getUpdatedRef(){return std::get<0>(*this);}
-            auto& getAcknowledgeRef(){return std::get<1>(*this);}
-            auto& getAuxUpdatedRef(){return std::get<2>(*this);}
-            auto& getAuxAcknowledgeRef(){return std::get<3>(*this);}
+            DoubleHandShake() : SOS::MemoryView::HandShake(), AsyncAndHandShake() {}
         };
         struct BusAsyncAndShaker : bus <
         bus_shaker_tag,
