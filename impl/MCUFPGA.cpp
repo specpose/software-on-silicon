@@ -22,6 +22,26 @@ public:
     {
         if (_nBus.descriptors.size() != 3) // TODO also assert on tuple
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
+        int writeBlinkCounter = 0;
+        bool writeBlink = true;
+        for (std::size_t i = 0; i < std::get<1>(_nBus.objects).size(); i++) {
+            DMA::value_type data;
+            if (writeBlink)
+                data = 42; //'*'
+            else
+                data = 95; //'_'
+            std::get<1>(_nBus.objects)[i] = data;
+            writeBlinkCounter++;
+            if (writeBlink && writeBlinkCounter == 333) {
+                writeBlink = false;
+                writeBlinkCounter = 0;
+            } else if (!writeBlink && writeBlinkCounter == 666) {
+                writeBlink = true;
+                writeBlinkCounter = 0;
+            }
+        }
+        //_nBus.descriptors[1].unsynced = true;
+        sync[1] = true;
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGAProcessingSwitch()
@@ -34,13 +54,14 @@ public:
         switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock) {
+            if (!read[0]) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (!std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (!_nBus.descriptors[0].unsynced && !_nBus.descriptors[0].transfer) {
+                    if (!sync[0] && !write[0]) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(true);
-                        _nBus.descriptors[0].unsynced = true;
+                        //_nBus.descriptors[0].unsynced = true;
+                        sync[0] = true;
                     }
                 }
             } else {
@@ -79,6 +100,13 @@ public:
     {
         if (_nBus.descriptors.size() != 3)
             SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
+        std::get<0>(_nBus.objects).setNumber(0);
+        std::get<0>(_nBus.objects).set_mcu_owned(false);
+        //_nBus.descriptors[0].unsynced = true;
+        sync[0] = true;
+        std::get<2>(_nBus.objects).fill('-');
+        //_nBus.descriptors[2].unsynced = true;
+        sync[2] = true;
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUProcessingSwitch()
@@ -91,13 +119,14 @@ public:
         switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
-            if (!_nBus.descriptors[0].readLock) {
+            if (!read[0]) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (!_nBus.descriptors[0].unsynced && !_nBus.descriptors[0].transfer) {
+                    if (!sync[0] && !write[0]) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(false);
-                        _nBus.descriptors[0].unsynced = true;
+                        //_nBus.descriptors[0].unsynced = true;
+                        sync[0] = true;
                     }
                 }
             } else {
@@ -133,25 +162,6 @@ public:
     FPGA(bus_type& myBus)
         : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
-        int writeBlinkCounter = 0;
-        bool writeBlink = true;
-        for (std::size_t i = 0; i < std::get<1>(_foreign.objects).size(); i++) {
-            DMA::value_type data;
-            if (writeBlink)
-                data = 42; //'*'
-            else
-                data = 95; //'_'
-            std::get<1>(_foreign.objects)[i] = data;
-            writeBlinkCounter++;
-            if (writeBlink && writeBlinkCounter == 333) {
-                writeBlink = false;
-                writeBlinkCounter = 0;
-            } else if (!writeBlink && writeBlinkCounter == 666) {
-                writeBlink = true;
-                writeBlinkCounter = 0;
-            }
-        }
-        foreign().descriptors[1].unsynced = true;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -214,11 +224,6 @@ public:
     MCU(bus_type& myBus)
         : SOS::Behavior::SimulationMCU<MCUProcessingSwitch, SymbolRateCounter, DMA, DMA>(myBus)
     {
-        std::get<0>(_foreign.objects).setNumber(0);
-        std::get<0>(_foreign.objects).set_mcu_owned(false);
-        foreign().descriptors[0].unsynced = true;
-        std::get<2>(_foreign.objects).fill('-');
-        foreign().descriptors[2].unsynced = true;
         boot_time = std::chrono::high_resolution_clock::now();
         _thread = SOS::Behavior::Stoppable::start(this);
     }
@@ -242,7 +247,8 @@ public:
         this->clear_read_receive();
         // if (!std::get<0>(_foreign.objects).mcu_owned()){
         //     std::get<0>(_foreign.objects).set_mcu_owned(false);
-        //     _foreign.descriptors[0].unsynced = true;
+        ////     _nBus.descriptors[0].unsynced = true;
+        //     sync[0] = true;
         // }
     }
     virtual bool exit_query() final

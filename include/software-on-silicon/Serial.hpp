@@ -41,7 +41,7 @@ namespace Protocol {
                     transfer_hook();//inform_read_start; may check unsynced
                     acknowledge_hook();//inform_write_start; sets unsynced
                 }
-                //collect_sync();
+                collect_sync();
                 // OUT
                 if (!write_hook())//collect_unsynced
                     if (!this->write_object())//inform_write_end
@@ -229,6 +229,10 @@ namespace Protocol {
                             if (!this->foreign().descriptors[j].readLock) {
                                 this->foreign().descriptors[j].transfer = true;
                                 this->foreign().descriptors[j].unsynced = false;
+                                while (this->foreign().signal.getSyncStopUpdatedRef().test_and_set())
+                                    std::this_thread::yield();
+                                this->foreign().syncStopId().store(j);
+                                this->foreign().signal.getSyncStopAcknowledgeRef().clear();
                                 std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -273,13 +277,11 @@ namespace Protocol {
             }
             requestId = NUM_IDS;
         }
-        void collect_sync()
-        {
-            if (!this->foreign().signal.getSyncUpdatedRef().test_and_set()){
-                while (this->foreign().signal.getSyncAcknowledgeRef().test_and_set())
-                    std::this_thread::yield();
-                const auto id = this->foreign().sendNotificationId().load();
-                this->foreign().descriptors[id].unsynced=true;
+        void collect_sync() {
+            if (!this->foreign().signal.getSyncStartUpdatedRef().test_and_set()) {
+                const auto id = this->foreign().syncStartId().load();
+                this->foreign().descriptors[id].unsynced = true;
+                this->foreign().signal.getSyncStartAcknowledgeRef().clear();
             }
         }
         bool getFirstTransfer()

@@ -1,28 +1,33 @@
 namespace SOS {
 namespace MemoryView {
-    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag,4> {
+    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag,6> {
     public:
-        DMAObjectShake() : std::array<std::atomic_flag,4>{} {
+        DMAObjectShake() : std::array<std::atomic_flag,6>{} {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
             std::get<2>(*this).test_and_set();
             std::get<3>(*this).test_and_set();
+            std::get<4>(*this).test_and_set();
+            std::get<5>(*this).test_and_set();
         }
         auto& getReadUpdatedRef(){return std::get<0>(*this);}
         auto& getReadAcknowledgeRef(){return std::get<1>(*this);}
         auto& getWriteUpdatedRef(){return std::get<2>(*this);}
         auto& getWriteAcknowledgeRef(){return std::get<3>(*this);}
-        auto& getSyncUpdatedRef(){ return updated; }
-        auto& getSyncAcknowledgeRef(){ return acknowledge; }
+        auto& getSyncStopUpdatedRef(){return std::get<4>(*this);}
+        auto& getSyncStopAcknowledgeRef(){return std::get<5>(*this);}
+        auto& getSyncStartUpdatedRef(){ return updated; }
+        auto& getSyncStartAcknowledgeRef(){ return acknowledge; }
     };
-    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 3> {
+    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 4> {
         DestinationAndOrigin()
-        : SOS::MemoryView::TaskCable<std::size_t, 3> { 0, 0, 0 }
+        : SOS::MemoryView::TaskCable<std::size_t, 4> { 0, 0, 0, 0 }
         {
         }
         auto& getReceiveNotificationRef() { return std::get<0>(*this); }
         auto& getSendNotificationRef() { return std::get<1>(*this); }
-        auto& getSyncNotificationRef() { return std::get<2>(*this); }
+        auto& getSyncStopNotificationRef() { return std::get<2>(*this); }
+        auto& getSyncStartNotificationRef() { return std::get<3>(*this); }
     };
     struct bus_dma_shaker_tag{};
     struct BusDMAShaker : bus <
@@ -35,7 +40,8 @@ namespace MemoryView {
         cables_type cables;
         auto& receiveNotificationId() { return std::get<0>(cables).getReceiveNotificationRef(); }
         auto& sendNotificationId() { return std::get<0>(cables).getSendNotificationRef(); }
-        auto& syncNotificationId() { return std::get<0>(cables).getSyncNotificationRef(); }
+        auto& syncStopId() { return std::get<0>(cables).getSyncStopNotificationRef(); }
+        auto& syncStartId() { return std::get<0>(cables).getSyncStartNotificationRef(); }
     };
 }
 namespace Protocol {
@@ -64,29 +70,57 @@ namespace Behavior {
     class SerialProcessing : public SOS::Behavior::SerialDummy<> {
     public:
         using bus_type = SOS::MemoryView::BusDMAShaker;
-        SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {}
+        SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {
+            _intrinsic.getSyncStartAcknowledgeRef().clear();
+            readOrWrite = true; // one sync is enough to trigger a read or write hook
+            _intrinsic.getSyncStopUpdatedRef().clear();
+        }
         void event_loop()
         {
+            if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
+                const auto id = _datasignals.syncStopId().load();
+                sync[id] = false;
+                sync_backup[id] = false;
+                _intrinsic.getSyncStopUpdatedRef().clear();
+            }
             if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
                 _intrinsic.getWriteUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.sendNotificationId().load();
                 write[id] = false;
                 write_notify_hook(id);
+                readOrWrite = true;
             }
             if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
                 _intrinsic.getReadUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.receiveNotificationId().load();
                 read[id] = false;
                 read_notify_hook(id);
+                readOrWrite = true;
+            }
+            if (readOrWrite) {
+                for (std::size_t i=0; i<SOS::Protocol::NUM_IDS; i++) {
+                    if (sync[i] && !sync_backup[i]){
+                        if (!_intrinsic.getSyncStartAcknowledgeRef().test_and_set()){
+                            sync_backup[i] = true;
+                            _datasignals.syncStartId().store(i);
+                            _intrinsic.getSyncStartUpdatedRef().clear();
+                        }
+                        break;
+                    }
+                }
+                readOrWrite = false;
             }
             std::this_thread::yield();
         }
 
     protected:
+        bool readOrWrite = false;
         virtual void write_notify_hook(std::size_t object_id) = 0;
         virtual void read_notify_hook(std::size_t object_id) = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
         std::bitset<SOS::Protocol::NUM_IDS> write{};
+        std::bitset<SOS::Protocol::NUM_IDS> sync{};
+        std::bitset<SOS::Protocol::NUM_IDS> sync_backup{};
     private:
         bus_type& _datasignals;
     };
