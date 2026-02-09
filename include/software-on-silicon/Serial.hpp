@@ -269,8 +269,6 @@ namespace SOS
                             if (!this->foreign().descriptors[j].transfer){
                                 this->foreign().descriptors[j].readLock = true;
                                 std::cout<<typeid(*this).name()<<"."<<"L"<<std::to_string(j)<<std::endl;
-                                if (this->receive_lock)
-                                    this->foreign().descriptors[j].queued = true;
                                 send_acknowledge();//ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer,__FILE__,__func__, typeid(*this).name());

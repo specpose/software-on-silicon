@@ -47,7 +47,6 @@ namespace SOS {
             void *obj = nullptr;
             std::size_t obj_size = 0;
             volatile bool readLock = false; // SerialProcessing thread
-            bool queued = false;
             volatile bool synced = true;    // SerialProcessing thread
             bool transfer = false;
             int rx_counter = 0;    // DEBUG
