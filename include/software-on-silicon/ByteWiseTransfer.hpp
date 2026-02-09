@@ -37,7 +37,6 @@ namespace Protocol {
             if (!receive_lock) {
                 bool gotOne = false;
                 for (unsigned char j = 0; j < foreign().descriptors.size() && !gotOne; j++) {
-                    foreign().descriptors[j].queued = false;
                     if (foreign().descriptors[j].readLock) {
                         if (readDestinationPos != 0) {
                             SFA::util::logic_error(SFA::util::error_code::PreviousReadobjectHasNotFinished, __FILE__, __func__, typeid(*this).name());
