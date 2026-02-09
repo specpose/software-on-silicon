@@ -29,9 +29,8 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void read_notify_hook()
+    void read_notify_hook(std::size_t object_id)
     {
-        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
         switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
@@ -54,9 +53,8 @@ public:
             break;
         }
     }
-    void write_notify_hook()
+    void write_notify_hook(std::size_t object_id)
     {
-        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id) {
         // just been transfered, can now process further
         case 0:
@@ -88,9 +86,8 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void read_notify_hook()
+    void read_notify_hook(std::size_t object_id)
     {
-        auto object_id = std::get<0>(_nBus.cables).getReceiveNotificationRef().load();
         switch (object_id) {
         case 0:
             // fresh out of read_lock, safe before unsynced
@@ -113,9 +110,8 @@ public:
             break;
         }
     }
-    void write_notify_hook()
+    void write_notify_hook(std::size_t object_id)
     {
-        auto object_id = std::get<0>(_nBus.cables).getSendNotificationRef().load();
         switch (object_id) {
         // just been transfered, can now process further
         case 0:

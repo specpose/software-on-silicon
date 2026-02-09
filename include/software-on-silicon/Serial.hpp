@@ -278,9 +278,7 @@ namespace Protocol {
                 while (this->foreign().signal.getSyncAcknowledgeRef().test_and_set())
                     std::this_thread::yield();
                 const auto id = this->foreign().sendNotificationId().load();
-                for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++)
-                    if (id==j)
-                        this->foreign().descriptors[j].unsynced=true;
+                this->foreign().descriptors[id].unsynced=true;
             }
         }
         bool getFirstTransfer()

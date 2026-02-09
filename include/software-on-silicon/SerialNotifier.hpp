@@ -1,31 +1,19 @@
 namespace SOS {
 namespace MemoryView {
-    class TripleHandShake : private std::array<std::atomic_flag,6> {
+    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag,4> {
     public:
-        TripleHandShake() : std::array<std::atomic_flag,6>{} {
+        DMAObjectShake() : std::array<std::atomic_flag,4>{} {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
             std::get<2>(*this).test_and_set();
             std::get<3>(*this).test_and_set();
-            std::get<4>(*this).test_and_set();
-            std::get<5>(*this).test_and_set();
         }
-        auto& getFirstUpdatedRef(){return std::get<0>(*this);}
-        auto& getFirstAcknowledgeRef(){return std::get<1>(*this);}
-        auto& getSecondUpdatedRef(){return std::get<2>(*this);}
-        auto& getSecondAcknowledgeRef(){return std::get<3>(*this);}
-        auto& getThirdUpdatedRef(){return std::get<4>(*this);}
-        auto& getThirdAcknowledgeRef(){return std::get<5>(*this);}
-    };
-    class DMAObjectShake : private TripleHandShake {
-    public:
-        using TripleHandShake::TripleHandShake;
-        auto& getReadUpdatedRef(){return getFirstUpdatedRef();}
-        auto& getReadAcknowledgeRef(){return getFirstAcknowledgeRef();}
-        auto& getWriteUpdatedRef(){return getSecondUpdatedRef();}
-        auto& getWriteAcknowledgeRef(){return getSecondAcknowledgeRef();}
-        auto& getSyncUpdatedRef(){return getThirdUpdatedRef();}
-        auto& getSyncAcknowledgeRef(){return getThirdAcknowledgeRef();}
+        auto& getReadUpdatedRef(){return std::get<0>(*this);}
+        auto& getReadAcknowledgeRef(){return std::get<1>(*this);}
+        auto& getWriteUpdatedRef(){return std::get<2>(*this);}
+        auto& getWriteAcknowledgeRef(){return std::get<3>(*this);}
+        auto& getSyncUpdatedRef(){ return updated; }
+        auto& getSyncAcknowledgeRef(){ return acknowledge; }
     };
     struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 3> {
         DestinationAndOrigin()
@@ -82,23 +70,23 @@ namespace Behavior {
             if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
                 _intrinsic.getWriteUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.sendNotificationId().load();
-                writing[id] = false;
-                write_notify_hook();
+                write[id] = false;
+                write_notify_hook(id);
             }
             if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
                 _intrinsic.getReadUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.receiveNotificationId().load();
-                reading[id] = false;
-                read_notify_hook();
+                read[id] = false;
+                read_notify_hook(id);
             }
             std::this_thread::yield();
         }
 
     protected:
-        virtual void write_notify_hook() = 0;
-        virtual void read_notify_hook() = 0;
-        std::bitset<SOS::Protocol::NUM_IDS> reading{};
-        std::bitset<SOS::Protocol::NUM_IDS> writing{};
+        virtual void write_notify_hook(std::size_t object_id) = 0;
+        virtual void read_notify_hook(std::size_t object_id) = 0;
+        std::bitset<SOS::Protocol::NUM_IDS> read{};
+        std::bitset<SOS::Protocol::NUM_IDS> write{};
     private:
         bus_type& _datasignals;
     };

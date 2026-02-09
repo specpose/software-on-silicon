@@ -24,7 +24,7 @@ namespace SOS{
             HandShake() { updated.test_and_set(); acknowledge.test_and_set(); }
             auto& getUpdatedRef() { return updated; }
             auto& getAcknowledgeRef() { return acknowledge; }
-            private:
+            protected:
             std::atomic_flag updated {};
             std::atomic_flag acknowledge {};
         };
