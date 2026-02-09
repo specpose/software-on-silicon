@@ -37,7 +37,7 @@ public:
             if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (!std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (!_nBus.descriptors[0].unsynced) {
+                    if (!_nBus.descriptors[0].unsynced && !_nBus.descriptors[0].transfer) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(true);
                         _nBus.descriptors[0].unsynced = true;
@@ -94,7 +94,7 @@ public:
             if (!_nBus.descriptors[0].readLock) {
                 auto n = std::get<0>(_nBus.objects).getNumber();
                 if (std::get<0>(_nBus.objects).mcu_owned()) { // WRITE-LOCK encapsulated <= Not all implementations need a write-lock
-                    if (!_nBus.descriptors[0].unsynced) {
+                    if (!_nBus.descriptors[0].unsynced && !_nBus.descriptors[0].transfer) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(false);
                         _nBus.descriptors[0].unsynced = true;

@@ -38,10 +38,10 @@ namespace Protocol {
                         read_hook(data);
                     else
                         this->read_object(data);//inform_read_end
-                    transfer_hook();//inform_read_start, can cancel write_start; may check unsynced
-                    acknowledge_hook();//inform_write_start; may check unsynced
+                    transfer_hook();//inform_read_start; may check unsynced
+                    acknowledge_hook();//inform_write_start; sets unsynced
                 }
-                collect_sync();
+                //collect_sync();
                 // OUT
                 if (!write_hook())//collect_unsynced
                     if (!this->write_object())//inform_write_end
@@ -228,6 +228,7 @@ namespace Protocol {
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
                             if (!this->foreign().descriptors[j].readLock) {
                                 this->foreign().descriptors[j].transfer = true;
+                                this->foreign().descriptors[j].unsynced = false;
                                 std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -301,8 +302,8 @@ namespace Protocol {
                 if (this->foreign().descriptors[j].readLock && this->foreign().descriptors[j].unsynced)
                     SFA::util::logic_error(SFA::util::error_code::DMAObjectHasEnteredAnIllegalSyncState, __FILE__, __func__, typeid(*this).name());
                 if (this->foreign().descriptors[j].transfer) {
-                    if (!this->foreign().descriptors[j].unsynced)
-                        SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsSynced, __FILE__, __func__, typeid(*this).name());
+                    if (this->foreign().descriptors[j].unsynced)
+                        SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsUnsynced, __FILE__, __func__, typeid(*this).name());
                     if (this->foreign().descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsReadlocked, __FILE__, __func__, typeid(*this).name());
                     if (this->writeOriginPos != 0) {
