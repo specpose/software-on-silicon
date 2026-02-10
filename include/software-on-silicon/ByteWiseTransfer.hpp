@@ -19,10 +19,10 @@ namespace Protocol {
                     if (writeOriginPos == foreign().descriptors[writeOrigin].obj_size) {
                         foreign().descriptors[writeOrigin].transfer = false;
                         send_lock = false;
-                        if (!foreign().signal.getWriteUpdatedRef().test_and_set()) {
-                            foreign().sendNotificationId().store(writeOrigin);
-                            foreign().signal.getWriteAcknowledgeRef().clear();
-                        }
+                        while (foreign().signal.getWriteUpdatedRef().test_and_set())
+                            std::this_thread::yield();
+                        foreign().sendNotificationId().store(writeOrigin);
+                        foreign().signal.getWriteAcknowledgeRef().clear();
                         ++tx_counter[writeOrigin]; // DEBUG
                         std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
@@ -63,10 +63,10 @@ namespace Protocol {
                     if (readDestinationPos == foreign().descriptors[readDestination].obj_size) {
                         foreign().descriptors[readDestination].readLock = false;
                         receive_lock = false;
-                        if (!foreign().signal.getReadUpdatedRef().test_and_set()){
-                            foreign().receiveNotificationId().store(readDestination);
-                            foreign().signal.getReadAcknowledgeRef().clear();
-                        }
+                        while (foreign().signal.getReadUpdatedRef().test_and_set())
+                            std::this_thread::yield();
+                        foreign().receiveNotificationId().store(readDestination);
+                        foreign().signal.getReadAcknowledgeRef().clear();
                         ++rx_counter[readDestination]; // DEBUG
                         std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
