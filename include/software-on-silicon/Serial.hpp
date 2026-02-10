@@ -278,10 +278,10 @@ namespace Protocol {
             requestId = NUM_IDS;
         }
         void collect_sync() {
-            if (!this->foreign().signal.getSyncStartUpdatedRef().test_and_set()) {
+            if (!this->foreign().signal.getSyncStartAcknowledgeRef().test_and_set()) {
                 const auto id = this->foreign().syncStartId().load();
                 this->foreign().descriptors[id].unsynced = true;
-                this->foreign().signal.getSyncStartAcknowledgeRef().clear();
+                this->foreign().signal.getSyncStartUpdatedRef().clear();
             }
         }
         bool getFirstTransfer()

@@ -14,20 +14,14 @@ namespace MemoryView {
         auto& getReadAcknowledgeRef(){return std::get<1>(*this);}
         auto& getWriteUpdatedRef(){return std::get<2>(*this);}
         auto& getWriteAcknowledgeRef(){return std::get<3>(*this);}
-        auto& getSyncStopUpdatedRef(){return std::get<4>(*this);}
-        auto& getSyncStopAcknowledgeRef(){return std::get<5>(*this);}
-        auto& getSyncStartUpdatedRef(){ return updated; }
-        auto& getSyncStartAcknowledgeRef(){ return acknowledge; }
+        auto& getSyncStartUpdatedRef(){return std::get<4>(*this);}
+        auto& getSyncStartAcknowledgeRef(){return std::get<5>(*this);}
+        auto& getSyncStopUpdatedRef(){return updated;}
+        auto& getSyncStopAcknowledgeRef(){return acknowledge;}
     };
-    struct DestinationAndOrigin : private SOS::MemoryView::TaskCable<std::size_t, 4> {
+    struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, 4> {
         DestinationAndOrigin()
-        : SOS::MemoryView::TaskCable<std::size_t, 4> { 0, 0, 0, 0 }
-        {
-        }
-        auto& getReceiveNotificationRef() { return std::get<0>(*this); }
-        auto& getSendNotificationRef() { return std::get<1>(*this); }
-        auto& getSyncStopNotificationRef() { return std::get<2>(*this); }
-        auto& getSyncStartNotificationRef() { return std::get<3>(*this); }
+        : SOS::MemoryView::TaskCable<std::size_t, 4> { 0, 0, 0, 0 } {}
     };
     struct bus_dma_shaker_tag{};
     struct BusDMAShaker : bus <
@@ -38,10 +32,10 @@ namespace MemoryView {
     >{
         signal_type signal;
         cables_type cables;
-        auto& receiveNotificationId() { return std::get<0>(cables).getReceiveNotificationRef(); }
-        auto& sendNotificationId() { return std::get<0>(cables).getSendNotificationRef(); }
-        auto& syncStopId() { return std::get<0>(cables).getSyncStopNotificationRef(); }
-        auto& syncStartId() { return std::get<0>(cables).getSyncStartNotificationRef(); }
+        auto& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
+        auto& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
+        auto& syncStopId() { return std::get<2>(std::get<0>(cables)); }
+        auto& syncStartId() { return std::get<3>(std::get<0>(cables)); }
     };
 }
 namespace Protocol {
@@ -71,9 +65,11 @@ namespace Behavior {
     public:
         using bus_type = SOS::MemoryView::BusDMAShaker;
         SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {
-            _intrinsic.getSyncStartAcknowledgeRef().clear();
+            _intrinsic.getSyncStartUpdatedRef().clear();
             readOrWrite = true; // one sync is enough to trigger a read or write hook
             _intrinsic.getSyncStopUpdatedRef().clear();
+            _intrinsic.getWriteUpdatedRef().clear();
+            _intrinsic.getReadUpdatedRef().clear();
         }
         void event_loop()
         {
@@ -84,26 +80,26 @@ namespace Behavior {
                 _intrinsic.getSyncStopUpdatedRef().clear();
             }
             if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
-                _intrinsic.getWriteUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.sendNotificationId().load();
                 write[id] = false;
+                _intrinsic.getWriteUpdatedRef().clear();
                 write_notify_hook(id);
                 readOrWrite = true;
             }
             if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
-                _intrinsic.getReadUpdatedRef().test_and_set();//not used
                 const auto id = _datasignals.receiveNotificationId().load();
                 read[id] = false;
+                _intrinsic.getReadUpdatedRef().clear();
                 read_notify_hook(id);
                 readOrWrite = true;
             }
             if (readOrWrite) {
                 for (std::size_t i=0; i<SOS::Protocol::NUM_IDS; i++) {
                     if (sync[i] && !sync_backup[i]){
-                        if (!_intrinsic.getSyncStartAcknowledgeRef().test_and_set()){
+                        if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()){
                             sync_backup[i] = true;
                             _datasignals.syncStartId().store(i);
-                            _intrinsic.getSyncStartUpdatedRef().clear();
+                            _intrinsic.getSyncStartAcknowledgeRef().clear();
                         }
                         break;
                     }
