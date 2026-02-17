@@ -34,7 +34,6 @@ enum SFA::util::error_code : unsigned char {
     PreviousObjectWriteHasNotBeenCompleted,
     PreviousReadobjectHasNotFinished,
     NoIdleReceivedAndNoReceivelockObtained,
-    DMADescriptorsInitializationFailed, //2x
     FPGAProcessingSwitchThreadIsTooSlow,
     MCUProcessingSwitchRelaunchedAfterComHotplugAction,
     MCUProcessingSwitchThreadIsTooSlow,
@@ -129,8 +128,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Previous read object has not finished");
     case error_code::NoIdleReceivedAndNoReceivelockObtained:
         return std::string("No idle received and no receive_lock obtained");
-    case error_code::DMADescriptorsInitializationFailed:
-        return std::string("DMADescriptors initialization failed");
     case error_code::FPGAProcessingSwitchThreadIsTooSlow:
         return std::string("FPGAProcessingSwitch thread is too slow");
     case error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction:

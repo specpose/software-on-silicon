@@ -20,8 +20,6 @@ public:
         : _nBus(bus)
         , SOS::Behavior::SerialProcessing(bus)
     {
-        if (_nBus.descriptors.size() != 3) // TODO also assert on tuple
-            SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
         int writeBlinkCounter = 0;
         bool writeBlink = true;
         for (std::size_t i = 0; i < std::get<1>(_nBus.objects).size(); i++) {
@@ -40,7 +38,6 @@ public:
                 writeBlinkCounter = 0;
             }
         }
-        //_nBus.descriptors[1].unsynced = true;
         sync[1] = true;
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -60,7 +57,6 @@ public:
                     if (!sync[0] && !write[0]) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(true);
-                        //_nBus.descriptors[0].unsynced = true;
                         sync[0] = true;
                     }
                 }
@@ -98,14 +94,10 @@ public:
         : _nBus(bus)
         , SOS::Behavior::SerialProcessing(bus)
     {
-        if (_nBus.descriptors.size() != 3)
-            SFA::util::runtime_error(SFA::util::error_code::DMADescriptorsInitializationFailed, __FILE__, __func__, typeid(*this).name());
         std::get<0>(_nBus.objects).setNumber(0);
         std::get<0>(_nBus.objects).set_mcu_owned(false);
-        //_nBus.descriptors[0].unsynced = true;
         sync[0] = true;
         std::get<2>(_nBus.objects).fill('-');
-        //_nBus.descriptors[2].unsynced = true;
         sync[2] = true;
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -125,7 +117,6 @@ public:
                     if (!sync[0] && !write[0]) {
                         std::get<0>(_nBus.objects).setNumber(++n);
                         std::get<0>(_nBus.objects).set_mcu_owned(false);
-                        //_nBus.descriptors[0].unsynced = true;
                         sync[0] = true;
                     }
                 }
@@ -247,7 +238,6 @@ public:
         this->clear_read_receive();
         // if (!std::get<0>(_foreign.objects).mcu_owned()){
         //     std::get<0>(_foreign.objects).set_mcu_owned(false);
-        ////     _nBus.descriptors[0].unsynced = true;
         //     sync[0] = true;
         // }
     }

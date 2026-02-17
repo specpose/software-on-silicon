@@ -158,6 +158,10 @@ namespace Protocol {
         }
         std::size_t count = 0;
     };
+    template <typename... Objects>
+    struct ObjectHelper : public std::tuple<Objects&...> {
+        ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
+    };
 }
 //https://en.cppreference.com/w/cpp/utility/integer_sequence.html
 namespace detail {
@@ -186,12 +190,7 @@ namespace MemoryView {
 
     template <typename... Objects>
     struct SerialProcessNotifier : public BusDMAShaker {
-        SerialProcessNotifier()
-        {
-            apply(descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
-        }
         std::tuple<Objects...> objects {};
-        SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors {};
     };
 }
 }

@@ -13,10 +13,7 @@ namespace Protocol {
     template <typename... Objects>
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...> {
     public:
-        Serial()
-            : SOS::Protocol::BlockWiseTransfer<Objects...> {}
-        {
-        }
+        Serial(SOS::MemoryView::SerialProcessNotifier<Objects...>& bus) : bus(bus), SOS::Protocol::BlockWiseTransfer<Objects...>(bus.objects) {}
         ~Serial()
         {
             std::cout << typeid(*this).name() << " shutdown" << std::endl;
@@ -74,8 +71,8 @@ namespace Protocol {
         {
             if (this->receive_lock || this->readCount != 0) {
                 SFA::util::runtime_error(SFA::util::error_code::HotplugAfterUnexpectedShutdown, __FILE__, __func__, typeid(*this).name());
-                for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                    if (this->foreign().descriptors[j].readLock) {
+                for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                    if (this->descriptors[j].readLock) {
                         SFA::util::runtime_error(SFA::util::error_code::ObjectCouldBeOutdated, __FILE__, __func__, typeid(*this).name());
                     }
                 }
@@ -86,24 +83,24 @@ namespace Protocol {
         };
         bool transfers_pending()
         {
-            for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].unsynced && !this->foreign().descriptors[j].transfer)
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].unsynced && !this->descriptors[j].transfer)
                     return true;
             }
             return false;
         }
         bool writes_pending()
         {
-            for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].transfer)
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].transfer)
                     return true;
             }
             return false;
         }
         bool reads_pending()
         {
-            for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].readLock)
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].readLock)
                     return true;
             }
             return false;
@@ -115,6 +112,7 @@ namespace Protocol {
         com_vars _vars = com_vars {};
 
     private:
+        SOS::MemoryView::SerialProcessNotifier<Objects...>& bus;
         bool first_run = true;
         bool received_request = false;
         unsigned char requestId = NUM_IDS;
@@ -218,21 +216,18 @@ namespace Protocol {
                     SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
                 } else {
                     bool gotOne = false;
-                    for (unsigned char j = 0; j < this->foreign().descriptors.size() && !gotOne; j++) {
+                    for (unsigned char j = 0; j < this->descriptors.size() && !gotOne; j++) {
                         if (j == acknowledgeId) {
-                            if (!this->foreign().descriptors[j].unsynced)
+                            if (!this->descriptors[j].unsynced)
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnSyncedObject, __FILE__, __func__, typeid(*this).name());
-                            if (this->foreign().descriptors[j].readLock)
+                            if (this->descriptors[j].readLock)
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
-                            if (this->foreign().descriptors[j].transfer)
+                            if (this->descriptors[j].transfer)
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
-                            if (!this->foreign().descriptors[j].readLock) {
-                                this->foreign().descriptors[j].transfer = true;
-                                this->foreign().descriptors[j].unsynced = false;
-                                while (this->foreign().signal.getSyncStopUpdatedRef().test_and_set())
-                                    std::this_thread::yield();
-                                this->foreign().syncStopId().store(j);
-                                this->foreign().signal.getSyncStopAcknowledgeRef().clear();
+                            if (!this->descriptors[j].readLock) {
+                                this->descriptors[j].transfer = true;
+                                this->descriptors[j].unsynced = false;
+                                emit_sync_canceled(j);
                                 std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -254,20 +249,20 @@ namespace Protocol {
         void transfer_hook()
         {
             if (received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
-                for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                    if (this->foreign().descriptors[j].id == requestId) {
-                        if (this->foreign().descriptors[j].readLock)
+                for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                    if (this->descriptors[j].id == requestId) {
+                        if (this->descriptors[j].readLock)
                             SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(requestId), __func__, typeid(*this).name());
-                        if (!this->foreign().descriptors[j].unsynced) {
-                            if (!this->foreign().descriptors[j].transfer) {
-                                this->foreign().descriptors[j].readLock = true;
+                        if (!this->descriptors[j].unsynced) {
+                            if (!this->descriptors[j].transfer) {
+                                this->descriptors[j].readLock = true;
                                 std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
                             }
                         } else {
-                            if (!this->foreign().descriptors[j].transfer) // OVERRIDE
+                            if (!this->descriptors[j].transfer) // OVERRIDE
                                 SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
                         }
                     }
@@ -278,21 +273,39 @@ namespace Protocol {
             requestId = NUM_IDS;
         }
         void collect_sync() {
-            if (!this->foreign().signal.getSyncStartAcknowledgeRef().test_and_set()) {
-                const auto id = this->foreign().syncStartId().load();
-                this->foreign().descriptors[id].unsynced = true;
-                this->foreign().signal.getSyncStartUpdatedRef().clear();
+            if (!bus.signal.getSyncStartAcknowledgeRef().test_and_set()) {
+                const auto id = bus.syncStartId().load();
+                this->descriptors[id].unsynced = true;
+                bus.signal.getSyncStartUpdatedRef().clear();
             }
+        }
+        void emit_sync_canceled(std::size_t obj_id){
+            while (bus.signal.getSyncStopUpdatedRef().test_and_set())
+                std::this_thread::yield();
+            bus.syncStopId().store(obj_id);
+            bus.signal.getSyncStopAcknowledgeRef().clear();
+        }
+        virtual void emit_received(std::size_t obj_id) {
+            while (bus.signal.getReadUpdatedRef().test_and_set())
+                std::this_thread::yield();
+            bus.receiveNotificationId().store(obj_id);
+            bus.signal.getReadAcknowledgeRef().clear();
+        }
+        virtual void emit_sent(std::size_t obj_id) {
+            while (bus.signal.getWriteUpdatedRef().test_and_set())
+                std::this_thread::yield();
+            bus.sendNotificationId().store(obj_id);
+            bus.signal.getWriteAcknowledgeRef().clear();
         }
         bool getFirstTransfer()
         {
-            for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].unsynced && !this->foreign().descriptors[j].transfer) {
-                    if (this->foreign().descriptors[j].readLock)
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].unsynced && !this->descriptors[j].transfer) {
+                    if (this->descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                     acknowledgeId = j;
                     _vars.acknowledgeRequested = true;
-                    send_transferRequest(this->foreign().descriptors[j].id + NUM_STATES);
+                    send_transferRequest(this->descriptors[j].id + NUM_STATES);
                     return true;
                 }
             }
@@ -300,13 +313,13 @@ namespace Protocol {
         }
         bool getFirstSyncObject()
         {
-            for (unsigned char j = 0; j < this->foreign().descriptors.size(); j++) {
-                if (this->foreign().descriptors[j].readLock && this->foreign().descriptors[j].unsynced)
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].readLock && this->descriptors[j].unsynced)
                     SFA::util::logic_error(SFA::util::error_code::DMAObjectHasEnteredAnIllegalSyncState, __FILE__, __func__, typeid(*this).name());
-                if (this->foreign().descriptors[j].transfer) {
-                    if (this->foreign().descriptors[j].unsynced)
+                if (this->descriptors[j].transfer) {
+                    if (this->descriptors[j].unsynced)
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsUnsynced, __FILE__, __func__, typeid(*this).name());
-                    if (this->foreign().descriptors[j].readLock)
+                    if (this->descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsReadlocked, __FILE__, __func__, typeid(*this).name());
                     if (this->writeOriginPos != 0) {
                         SFA::util::logic_error(SFA::util::error_code::PreviousObjectWriteHasNotBeenCompleted, __FILE__, __func__, typeid(*this).name());
@@ -342,98 +355,6 @@ namespace Protocol {
                     return true;
                 }
             return false;
-        }
-    };
-    template <typename... Objects>
-    class SerialFPGA : protected virtual Serial<Objects...> {
-    public:
-        SerialFPGA() { }
-
-    private:
-        virtual void read_bits(std::bitset<8> temp) final
-        {
-            Serial<Objects...>::mcu_updated = !temp[7];
-            Serial<Objects...>::fpga_acknowledge = temp[6];
-            Serial<Objects...>::mcu_acknowledge = false;
-        }
-        virtual void write_bits(std::bitset<8>& out) final
-        {
-            if (Serial<Objects...>::fpga_updated)
-                out.set(7, 0);
-            else
-                out.set(7, 1);
-            if (Serial<Objects...>::mcu_acknowledge)
-                out.set(6, 1);
-            else
-                out.set(6, 0);
-        }
-        virtual void send_acknowledge() final
-        {
-            if (Serial<Objects...>::mcu_updated) {
-                Serial<Objects...>::mcu_acknowledge = true;
-            }
-        }
-        virtual void send_request() final
-        {
-            Serial<Objects...>::fpga_updated = true;
-        }
-        virtual bool receive_acknowledge() final
-        {
-            if (Serial<Objects...>::fpga_acknowledge) {
-                Serial<Objects...>::fpga_updated = false;
-                return true;
-            }
-            return false;
-        }
-        virtual bool receive_request() final
-        {
-            return Serial<Objects...>::mcu_updated;
-        }
-    };
-    template <typename... Objects>
-    class SerialMCU : protected virtual Serial<Objects...> {
-    public:
-        SerialMCU() { }
-
-    private:
-        virtual void read_bits(std::bitset<8> temp) final
-        {
-            Serial<Objects...>::fpga_updated = !temp[7];
-            Serial<Objects...>::mcu_acknowledge = temp[6];
-            Serial<Objects...>::fpga_acknowledge = false;
-        }
-        virtual void write_bits(std::bitset<8>& out) final
-        {
-            if (Serial<Objects...>::mcu_updated)
-                out.set(7, 0);
-            else
-                out.set(7, 1);
-            if (Serial<Objects...>::fpga_acknowledge)
-                out.set(6, 1);
-            else
-                out.set(6, 0);
-        }
-        virtual void send_acknowledge() final
-        {
-            if (Serial<Objects...>::fpga_updated) {
-                Serial<Objects...>::fpga_acknowledge = true;
-            }
-        }
-        virtual void send_request() final
-        {
-            Serial<Objects...>::mcu_updated = true;
-        }
-        virtual bool receive_acknowledge() final
-        {
-            if (Serial<Objects...>::mcu_acknowledge) {
-                Serial<Objects...>::mcu_updated = false;
-                return true;
-            }
-            return false;
-        }
-        virtual bool receive_request() final
-        {
-            return Serial<Objects...>::fpga_updated;
         }
     };
 }

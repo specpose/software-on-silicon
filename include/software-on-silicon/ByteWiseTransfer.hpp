@@ -3,7 +3,9 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer() { }
+        BlockWiseTransfer(std::tuple<Objects...>& objects) {
+            apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
+        }
 
     protected:
         bool write_object()
@@ -11,18 +13,15 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
-                    data = reinterpret_cast<char*>(foreign().descriptors[writeOrigin].obj)[writeOriginPos++];
+                    data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
                     write3plus1++;
                     write(data);
                     return true;
                 } else { // write3plus1==3
-                    if (writeOriginPos == foreign().descriptors[writeOrigin].obj_size) {
-                        foreign().descriptors[writeOrigin].transfer = false;
+                    if (writeOriginPos == descriptors[writeOrigin].obj_size) {
+                        descriptors[writeOrigin].transfer = false;
                         send_lock = false;
-                        while (foreign().signal.getWriteUpdatedRef().test_and_set())
-                            std::this_thread::yield();
-                        foreign().sendNotificationId().store(writeOrigin);
-                        foreign().signal.getWriteAcknowledgeRef().clear();
+                        emit_sent(writeOrigin);
                         ++tx_counter[writeOrigin]; // DEBUG
                         std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
@@ -38,8 +37,8 @@ namespace Protocol {
         {
             if (!receive_lock) {
                 bool gotOne = false;
-                for (unsigned char j = 0; j < foreign().descriptors.size() && !gotOne; j++) {
-                    if (foreign().descriptors[j].readLock) {
+                for (unsigned char j = 0; j < descriptors.size() && !gotOne; j++) {
+                    if (descriptors[j].readLock) {
                         if (readDestinationPos != 0) {
                             SFA::util::logic_error(SFA::util::error_code::PreviousReadobjectHasNotFinished, __FILE__, __func__, typeid(*this).name());
                         }
@@ -55,18 +54,15 @@ namespace Protocol {
                     read4minus1++;
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
-                    if (readDestinationPos < foreign().descriptors[readDestination].obj_size) {
+                    if (readDestinationPos < descriptors[readDestination].obj_size) {
                         for (std::size_t i = 0; i < 3; i++) {
-                            reinterpret_cast<char*>(foreign().descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
+                            reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
                     }
-                    if (readDestinationPos == foreign().descriptors[readDestination].obj_size) {
-                        foreign().descriptors[readDestination].readLock = false;
+                    if (readDestinationPos == descriptors[readDestination].obj_size) {
+                        descriptors[readDestination].readLock = false;
                         receive_lock = false;
-                        while (foreign().signal.getReadUpdatedRef().test_and_set())
-                            std::this_thread::yield();
-                        foreign().receiveNotificationId().store(readDestination);
-                        foreign().signal.getReadAcknowledgeRef().clear();
+                        emit_received(readDestination);
                         ++rx_counter[readDestination]; // DEBUG
                         std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
@@ -81,7 +77,6 @@ namespace Protocol {
         virtual void read_bits(std::bitset<8> temp) = 0;
         virtual void write_byte(unsigned char) = 0;
         virtual void write_bits(std::bitset<8>& out) = 0;
-        virtual constexpr typename SOS::MemoryView::SerialProcessNotifier<Objects...>& foreign() = 0;
         bool receive_lock = false;
         std::size_t readDestinationPos = 0;
         unsigned int readCount = 0; // read4minus1
@@ -90,6 +85,9 @@ namespace Protocol {
         std::size_t writeOriginPos = 0;
         unsigned int writeCount = 0; // write3plus1
         unsigned char writeOrigin = NUM_IDS;
+        virtual void emit_received(std::size_t obj_id) = 0;
+        virtual void emit_sent(std::size_t obj_id) = 0;
+        SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors {};
         std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter{0}; // DEBUG
         std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter{0}; // DEBUG
 
