@@ -23,7 +23,7 @@ namespace Protocol {
                         send_lock = false;
                         emit_sent(writeOrigin);
                         ++tx_counter[writeOrigin]; // DEBUG
-                        std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
+                        //std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
                     }
                     write3plus1 = 0;
@@ -64,7 +64,7 @@ namespace Protocol {
                         receive_lock = false;
                         emit_received(readDestination);
                         ++rx_counter[readDestination]; // DEBUG
-                        std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
+                        //std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
                     }
                     read4minus1 = 0;

@@ -14,13 +14,15 @@ struct SymbolRateCounter {
         save_first_byte[7]= state;
         StatusAndNumber[0]=static_cast<decltype(StatusAndNumber)::value_type>(save_first_byte.to_ulong());
     }
-    unsigned int getNumber(){
+    unsigned long getNumber(){
         std::bitset<24> combined_bits;
         bytearrayToBitset(combined_bits,StatusAndNumber);
         auto stripped = ((combined_bits << 1) >> 1);
         return stripped.to_ulong();
     }
-    void setNumber(unsigned int number){
+    void setNumber(unsigned long long number){
+        if (number > 8388607)
+            SFA::util::runtime_error(SFA::util::error_code::CounterMaxedOut, __FILE__, __func__, typeid(*this).name());
         bool save_ownership = mcu_owned();
         std::bitset<24> combined_bits{number};
         combined_bits[23]=save_ownership;//mcu_owned        

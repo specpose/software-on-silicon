@@ -129,6 +129,7 @@ namespace Protocol {
                 com_hotplug_action();
                 // start_calc_thread
                 // start notifier
+                std::cout << typeid(*this).name() << "." << "P" << std::endl;
             } else if (state_code == ((std::bitset<8> { state::idle } << NUM_SIGNALBITS) >> NUM_SIGNALBITS)) {
                 if (_vars.received_sighup) {
                     _vars.received_idle = true;
@@ -148,6 +149,7 @@ namespace Protocol {
                 if (!_vars.received_sighup) {
                     com_sighup_action();
                     _vars.received_sighup = true;
+                    std::cout << typeid(*this).name() << "." << "I" << std::endl;
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::DuplicateSighup, __FILE__, __func__, typeid(*this).name());
                 }
@@ -193,7 +195,7 @@ namespace Protocol {
                 this->write_bits(id_bits);
                 auto obj_id = std::bitset<8> { item }; // DANGER: overflow check
                 id_bits = id_bits ^ obj_id;
-                std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item - NUM_STATES) << std::endl; // why not ID?!
+                //std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item - NUM_STATES) << std::endl; // why not ID?!
                 this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             } else {
                 SFA::util::runtime_error(SFA::util::error_code::InvalidDMAObjectId, __FILE__, __func__, typeid(*this).name());
@@ -228,7 +230,7 @@ namespace Protocol {
                                 this->descriptors[j].transfer = true;
                                 this->descriptors[j].unsynced = false;
                                 emit_sync_canceled(j);
-                                std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
+                                //std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
@@ -256,7 +258,7 @@ namespace Protocol {
                         if (!this->descriptors[j].unsynced) {
                             if (!this->descriptors[j].transfer) {
                                 this->descriptors[j].readLock = true;
-                                std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
+                                //std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());

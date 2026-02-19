@@ -79,18 +79,19 @@ namespace Behavior {
                 sync_backup[id] = false;
                 _intrinsic.getSyncStopUpdatedRef().clear();
             }
-            if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.sendNotificationId().load();
-                write[id] = false;
-                _intrinsic.getWriteUpdatedRef().clear();
-                write_notify_hook(id);
-                readOrWrite = true;
-            }
             if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.receiveNotificationId().load();
                 read[id] = false;
                 _intrinsic.getReadUpdatedRef().clear();
                 read_notify_hook(id);
+                readOrWrite = true;
+            }
+            process_hook();
+            if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
+                const auto id = _datasignals.sendNotificationId().load();
+                write[id] = false;
+                _intrinsic.getWriteUpdatedRef().clear();
+                write_notify_hook(id);
                 readOrWrite = true;
             }
             if (readOrWrite) {
@@ -113,6 +114,7 @@ namespace Behavior {
         bool readOrWrite = false;
         virtual void write_notify_hook(std::size_t object_id) = 0;
         virtual void read_notify_hook(std::size_t object_id) = 0;
+        virtual void process_hook() = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
         std::bitset<SOS::Protocol::NUM_IDS> write{};
         std::bitset<SOS::Protocol::NUM_IDS> sync{};
@@ -158,9 +160,25 @@ namespace Protocol {
         }
         std::size_t count = 0;
     };
-    template <typename... Objects>
-    struct ObjectHelper : public std::tuple<Objects&...> {
-        ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
+    //template <typename... Objects>
+    //struct ObjectHelper : public std::tuple<Objects&...> {
+    //    ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
+    //};
+    //template<typename ArithmeticType, std::size_t N> struct Array : public SOS::MemoryView::TaskCable<ArithmeticType, N> {
+    //    using SOS::MemoryView::TaskCable<ArithmeticType, N>::TaskCable;
+    //};
+    template<typename ArithmeticType> struct Size : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
+        Size(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
+    };
+    template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof%3==0&&Sizeof%12!=0&&Sizeof%24!=0&&Sizeof%12288!=0, unsigned char>::type>
+    class CharBusGenerator : public SOS::MemoryView::BusShaker {
+    public:
+        CharBusGenerator() = delete;
+        CharBusGenerator(Object& obj) :
+        SOS::MemoryView::BusShaker{},
+        const_cables{ Size<ArithmeticType*>(reinterpret_cast<ArithmeticType*>(&obj), reinterpret_cast<ArithmeticType*>(&obj)+Sizeof) } {}
+        using const_cables_type = std::tuple< Size<ArithmeticType*> >;
+        const_cables_type const_cables;
     };
 }
 //https://en.cppreference.com/w/cpp/utility/integer_sequence.html

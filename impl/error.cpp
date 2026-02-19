@@ -34,7 +34,6 @@ enum SFA::util::error_code : unsigned char {
     PreviousObjectWriteHasNotBeenCompleted,
     PreviousReadobjectHasNotFinished,
     NoIdleReceivedAndNoReceivelockObtained,
-    FPGAProcessingSwitchThreadIsTooSlow,
     MCUProcessingSwitchRelaunchedAfterComHotplugAction,
     MCUProcessingSwitchThreadIsTooSlow,
     BitsetDoesNotFitIntoChararray,
@@ -46,6 +45,8 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
+    //SymbolRateCounter.cpp
+    CounterMaxedOut,
     //RingBuffer.hpp
     RequestedRingbufferSizeNotBigEnough,
     //ringbuffer_hellpers.hpp
@@ -128,8 +129,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Previous read object has not finished");
     case error_code::NoIdleReceivedAndNoReceivelockObtained:
         return std::string("No idle received and no receive_lock obtained");
-    case error_code::FPGAProcessingSwitchThreadIsTooSlow:
-        return std::string("FPGAProcessingSwitch thread is too slow");
     case error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction:
         return std::string("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action");
     case error_code::MCUProcessingSwitchThreadIsTooSlow:
@@ -164,6 +163,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Reads pending after Comthread destruction");
     case error_code::InvalidDMAObjectId:
         return std::string("Invalid DMA Object Id");
+    case error_code::CounterMaxedOut:
+        return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:
         return std::string("No ReadBuffer supplied");
     case error_code::ContiguousInitializedIncorrectly:
