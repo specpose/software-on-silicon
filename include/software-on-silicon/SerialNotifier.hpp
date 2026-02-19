@@ -40,13 +40,16 @@ namespace MemoryView {
 }
 namespace Protocol {
     enum state : unsigned char {
-        idle = 0x00,
-        poweron = 0x01,
-        sighup = 0x02,
-        shutdown = 0x03
+        reserved2 = 0x00, // unused
+        sighup = 0x3D,
+        poweron = 0x3E,
+        idle = 0x3B,
+        shutdown = 0x3C,
+        reserved = 0x3F // 8bit LEQ instruction?
     };
-    static const unsigned char NUM_STATES = 4;
-    static const unsigned char NUM_IDS = 64 - NUM_STATES;
+    static const unsigned char LOWER_STATES = 1;
+    static const unsigned char UPPER_STATES = 5;
+    static const unsigned char NUM_IDS = 64 - UPPER_STATES - LOWER_STATES;
     static const unsigned int NUM_SIGNALBITS = 2;
 }
 namespace Behavior {

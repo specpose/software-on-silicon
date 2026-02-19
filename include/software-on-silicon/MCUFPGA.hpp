@@ -144,16 +144,16 @@ namespace Behavior {
         //SerialFPGA
         virtual void read_bits(std::bitset<8> temp) final
         {
-            SOS::Protocol::Serial<Objects...>::mcu_updated = !temp[7];
+            SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
             SOS::Protocol::Serial<Objects...>::fpga_acknowledge = temp[6];
             SOS::Protocol::Serial<Objects...>::mcu_acknowledge = false;
         }
         virtual void write_bits(std::bitset<8>& out) final
         {
             if (SOS::Protocol::Serial<Objects...>::fpga_updated)
-                out.set(7, 0);
-            else
                 out.set(7, 1);
+            else
+                out.set(7, 0);
             if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge)
                 out.set(6, 1);
             else
@@ -238,16 +238,16 @@ namespace Behavior {
         //SerialMCU
         virtual void read_bits(std::bitset<8> temp) final
         {
-            SOS::Protocol::Serial<Objects...>::fpga_updated = !temp[7];
+            SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];
             SOS::Protocol::Serial<Objects...>::mcu_acknowledge = temp[6];
             SOS::Protocol::Serial<Objects...>::fpga_acknowledge = false;
         }
         virtual void write_bits(std::bitset<8>& out) final
         {
             if (SOS::Protocol::Serial<Objects...>::mcu_updated)
-                out.set(7, 0);
-            else
                 out.set(7, 1);
+            else
+                out.set(7, 0);
             if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge)
                 out.set(6, 1);
             else

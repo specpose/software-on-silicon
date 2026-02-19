@@ -156,7 +156,7 @@ namespace Protocol {
             } else {
                 if (_vars.received_sighup)
                     SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                requestId = state_code.to_ulong() - NUM_STATES;
+                requestId = receive_transferRequest(state_code.to_ulong());
             }
         }
         void send_poweronRequest()
@@ -187,15 +187,17 @@ namespace Protocol {
             if (_vars.sent_sighup)
                 _vars.sent_idle = true;
         }
+        unsigned char receive_transferRequest(unsigned char mod) { return mod - LOWER_STATES; }
         void send_transferRequest(decltype(DMADescriptor::id) item)
         {
             if (item < NUM_IDS) {
                 send_request();
                 auto id_bits = std::bitset<8> { 0x00 };
                 this->write_bits(id_bits);
-                auto obj_id = std::bitset<8> { item }; // DANGER: overflow check
+                //std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item) << std::endl; // why not ID?!
+                const unsigned char mod = item + LOWER_STATES;
+                auto obj_id = std::bitset<8> { mod };
                 id_bits = id_bits ^ obj_id;
-                //std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item - NUM_STATES) << std::endl; // why not ID?!
                 this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             } else {
                 SFA::util::runtime_error(SFA::util::error_code::InvalidDMAObjectId, __FILE__, __func__, typeid(*this).name());
@@ -307,7 +309,7 @@ namespace Protocol {
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                     acknowledgeId = j;
                     _vars.acknowledgeRequested = true;
-                    send_transferRequest(this->descriptors[j].id + NUM_STATES);
+                    send_transferRequest(this->descriptors[j].id);
                     return true;
                 }
             }
