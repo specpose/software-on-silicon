@@ -169,17 +169,14 @@ namespace Behavior {
         {
             SOS::Protocol::Serial<Objects...>::fpga_updated = true;
         }
-        virtual bool receive_acknowledge() final
+        virtual std::tuple<bool, bool> receive_signals() final
         {
+            std::tuple<bool, bool> result{ SOS::Protocol::Serial<Objects...>::mcu_updated, false};
             if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge) {
                 SOS::Protocol::Serial<Objects...>::fpga_updated = false;
-                return true;
+                std::get<1>(result) = true;
             }
-            return false;
-        }
-        virtual bool receive_request() final
-        {
-            return SOS::Protocol::Serial<Objects...>::mcu_updated;
+            return result;
         }
     };
     template <typename ControllerType, typename... Objects>
@@ -263,17 +260,14 @@ namespace Behavior {
         {
             SOS::Protocol::Serial<Objects...>::mcu_updated = true;
         }
-        virtual bool receive_acknowledge() final
+        virtual std::tuple<bool, bool> receive_signals() final
         {
+            std::tuple<bool, bool> result{ SOS::Protocol::Serial<Objects...>::fpga_updated, false};
             if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge) {
                 SOS::Protocol::Serial<Objects...>::mcu_updated = false;
-                return true;
+                std::get<1>(result) = true;
             }
-            return false;
-        }
-        virtual bool receive_request() final
-        {
-            return SOS::Protocol::Serial<Objects...>::fpga_updated;
+            return result;
         }
     };
 }

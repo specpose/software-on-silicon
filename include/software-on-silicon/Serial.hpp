@@ -8,6 +8,7 @@ namespace Protocol {
         bool received_sighup = false;
         bool sent_sighup = false;
         bool acknowledgeRequested = false;
+        bool received_request = false;
         bool received_acknowledge = false;
     };
     template <typename... Objects>
@@ -28,10 +29,9 @@ namespace Protocol {
                         request_shutdown_action();
                     unsigned char data = this->read_byte();
                     this->read_bits(data);
-                    _vars.received_acknowledge = receive_acknowledge();
-                    received_request = receive_request();
+                    std::tie(_vars.received_request, _vars.received_acknowledge) = receive_signals();
                     _vars.received_idle = false;
-                    if (received_request)
+                    if (_vars.received_request)
                         read_hook(data);
                     else
                         this->read_object(data);//inform_read_end
@@ -57,8 +57,7 @@ namespace Protocol {
         virtual void aux_ack() = 0;
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
-        virtual bool receive_request() = 0; // 2
-        virtual bool receive_acknowledge() = 0; // 4
+        virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
         virtual void stop_notifier() = 0;
         virtual void request_shutdown_action() = 0;
@@ -114,13 +113,14 @@ namespace Protocol {
     private:
         SOS::MemoryView::SerialProcessNotifier<Objects...>& bus;
         bool first_run = true;
-        bool received_request = false;
         unsigned char requestId = NUM_IDS;
         unsigned char acknowledgeId = NUM_IDS;
         void read_hook(unsigned char& data)
         {
-            auto state_code = (std::bitset<8> { data } << NUM_SIGNALBITS) >> NUM_SIGNALBITS;
-            if (state_code == ((std::bitset<8> { state::poweron } << NUM_SIGNALBITS) >> NUM_SIGNALBITS)) {
+            auto state_code = std::bitset<8> { data };
+            state_code <<= NUM_SIGNALBITS;
+            state_code >>= NUM_SIGNALBITS;
+            if (state_code == std::bitset<8> { state::poweron }) {
                 // if (!_vars.received_sighup)
                 //     SFA::util::runtime_error(SFA::util::error_code::PreviousCommunicationNotSighupTerminated, __FILE__, __func__, typeid(*this).name());
                 if (_vars.acknowledgeRequested || _vars.received_acknowledge)
@@ -130,12 +130,12 @@ namespace Protocol {
                 // start_calc_thread
                 // start notifier
                 std::cout << typeid(*this).name() << "." << "P" << std::endl;
-            } else if (state_code == ((std::bitset<8> { state::idle } << NUM_SIGNALBITS) >> NUM_SIGNALBITS)) {
+            } else if (state_code == std::bitset<8> { state::idle }) {
                 if (_vars.received_sighup) {
                     _vars.received_idle = true;
                     std::cout << typeid(*this).name() << "." << "!" << std::endl;
                 }
-            } else if (state_code == ((std::bitset<8> { state::shutdown } << NUM_SIGNALBITS) >> NUM_SIGNALBITS)) {
+            } else if (state_code == std::bitset<8> { state::shutdown }) {
                 if (_vars.received_sighup)
                     SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
                 if (!_vars.received_com_shutdown) {
@@ -145,7 +145,7 @@ namespace Protocol {
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::DuplicateComShutdown, __FILE__, __func__, typeid(*this).name());
                 }
-            } else if (state_code == ((std::bitset<8> { state::sighup } << NUM_SIGNALBITS) >> NUM_SIGNALBITS)) {
+            } else if (state_code == std::bitset<8> { state::sighup }) {
                 if (!_vars.received_sighup) {
                     com_sighup_action();
                     _vars.received_sighup = true;
@@ -252,7 +252,7 @@ namespace Protocol {
         }
         void transfer_hook()
         {
-            if (received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
+            if (_vars.received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
                 for (unsigned char j = 0; j < this->descriptors.size(); j++) {
                     if (this->descriptors[j].id == requestId) {
                         if (this->descriptors[j].readLock)
