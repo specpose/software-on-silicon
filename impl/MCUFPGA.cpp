@@ -7,7 +7,9 @@
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
+#include <future>
 #include "software-on-silicon/SerialNotifier.hpp"
+#include "software-on-silicon/cpp14.hpp"
 #include <string>
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
@@ -28,25 +30,42 @@ public:
         , SOS::Behavior::SerialProcessing(bus)
     {
         counterBus.signal.getAcknowledgeRef().clear();
-        int writeBlinkCounter = 0;
-        bool writeBlink = true;
-        for (std::size_t i = 0; i < std::get<1>(_nBus.objects).size(); i++) {
-            DMA::value_type data;
-            if (writeBlink)
-                data = 42; //'*'
-            else
-                data = 95; //'_'
-            std::get<1>(_nBus.objects)[i] = data;
-            writeBlinkCounter++;
-            if (writeBlink && writeBlinkCounter == 333) {
-                writeBlink = false;
-                writeBlinkCounter = 0;
-            } else if (!writeBlink && writeBlinkCounter == 666) {
-                writeBlink = true;
-                writeBlinkCounter = 0;
+        //LOCK
+        auto fut = write_status[1].get_future();
+        if (is_promise_ready(fut)) {
+            write_status[1] = std::move(std::promise<bool>());
+            //EDIT
+            int writeBlinkCounter = 0;
+            bool writeBlink = true;
+            for (std::size_t i = 0; i < std::get<1>(_nBus.objects).size(); i++) {
+                DMA::value_type data;
+                if (writeBlink)
+                    data = 42; //'*'
+                else
+                    data = 95; //'_'
+                std::get<1>(_nBus.objects)[i] = data;
+                writeBlinkCounter++;
+                if (writeBlink && writeBlinkCounter == 333) {
+                    writeBlink = false;
+                    writeBlinkCounter = 0;
+                } else if (!writeBlink && writeBlinkCounter == 666) {
+                    writeBlink = true;
+                    writeBlinkCounter = 0;
+                }
             }
+            //SEND
+            auto fut2 = write_status[1].get_future();
+            if (!is_promise_ready(fut2)) {
+                sync[1] = true;
+                //CALLBACK
+                auto t = std::thread(&dump<DMA&>, std::move(fut2), std::ref(std::get<1>(_nBus.objects)));
+                t.detach();
+            } else {
+                SFA::util::logic_error(SFA::util::error_code::ObjectHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
+            }
+        } else {
+            SFA::util::logic_error(SFA::util::error_code::WriteRequestAlreadyInProgress, __FILE__, __func__, typeid(*this).name());
         }
-        sync[1] = true;
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGAProcessingSwitch()
@@ -105,8 +124,21 @@ public:
         , SOS::Behavior::SerialProcessing(bus)
     {
         counterBus.signal.getUpdatedRef().clear();
-        std::get<2>(_nBus.objects).fill('-');
-        sync[2] = true;
+        //LOCK
+        auto fut = write_status[2].get_future();
+        if (is_promise_ready(fut)) {
+            write_status[2] = std::move(std::promise<bool>());
+            //EDIT
+            std::get<2>(_nBus.objects).fill('-');
+            //SEND
+            auto fut2 = write_status[2].get_future();
+            if (!is_promise_ready(fut2)) {
+                sync[2] = true;
+                //CALLBACK
+                auto t = std::thread(&dump<DMA&>, std::move(fut2), std::ref(std::get<2>(_nBus.objects)));
+                t.detach();
+            }
+        }
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUProcessingSwitch()

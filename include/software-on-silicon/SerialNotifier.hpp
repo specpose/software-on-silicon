@@ -40,7 +40,7 @@ namespace MemoryView {
 }
 namespace Protocol {
     enum state : unsigned char {
-        reserved2 = 0x00, // unused
+        reserved2 = 0x00, // Clock divider?
         sighup = 0x3D,
         poweron = 0x3E,
         idle = 0x3B,
@@ -51,6 +51,21 @@ namespace Protocol {
     static const unsigned char UPPER_STATES = 5;
     static const unsigned char NUM_IDS = 64 - UPPER_STATES - LOWER_STATES;
     static const unsigned int NUM_SIGNALBITS = 2;
+}
+namespace MemoryView {
+    //template<unsigned char N>
+    //struct Futures : public std::array<std::future<bool>,N> {
+    //    Futures() : std::array<std::future<bool>,N>{} {}
+    //};
+    template<unsigned char N>
+    struct Promises : public std::array<std::promise<bool>,N> {
+        //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
+        Promises() : std::array<std::promise<bool>,N>{} {
+            for (std::size_t i = 0; i < this->size(); ++i){
+                (*this)[i].set_value(true);
+            }
+        }
+    };
 }
 namespace Behavior {
     class SerialSubController : public SubController {
@@ -78,6 +93,11 @@ namespace Behavior {
         {
             if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.syncStopId().load();
+                if (sync[id])
+                    if (id==1 || id==2){
+                        std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
+                        write_status[id].set_value(false);
+                    }
                 sync[id] = false;
                 sync_backup[id] = false;
                 _intrinsic.getSyncStopUpdatedRef().clear();
@@ -93,6 +113,10 @@ namespace Behavior {
             if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.sendNotificationId().load();
                 write[id] = false;
+                if (id==1 || id==2){
+                    std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
+                    write_status[id].set_value(true);
+                }
                 _intrinsic.getWriteUpdatedRef().clear();
                 write_notify_hook(id);
                 readOrWrite = true;
@@ -120,6 +144,7 @@ namespace Behavior {
         virtual void process_hook() = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
         std::bitset<SOS::Protocol::NUM_IDS> write{};
+        SOS::MemoryView::Promises<SOS::Protocol::NUM_IDS> write_status{};
         std::bitset<SOS::Protocol::NUM_IDS> sync{};
         std::bitset<SOS::Protocol::NUM_IDS> sync_backup{};
     private:
@@ -151,7 +176,7 @@ namespace Protocol {
         template <typename... T>
         void operator()(T&... obj_ref)
         {
-            (assign(obj_ref), ...);
+            (assign(obj_ref), ...);//fold expression: cpp17
         }
 
     private:
@@ -183,29 +208,6 @@ namespace Protocol {
         using const_cables_type = std::tuple< Size<ArithmeticType*> >;
         const_cables_type const_cables;
     };
-}
-//https://en.cppreference.com/w/cpp/utility/integer_sequence.html
-namespace detail {
-    template<class T, T I, T N, T... integers>
-    struct make_integer_sequence_helper
-    {
-        using type = typename make_integer_sequence_helper<T, I + 1, N, integers..., I>::type;
-    };
-
-    template<class T, T N, T... integers>
-    struct make_integer_sequence_helper<T, N, N, integers...>
-    {
-        using type = std::integer_sequence<T, integers...>;
-    };
-}
-template<class T, T N> using make_integer_sequence = typename detail::make_integer_sequence_helper<T, 0, N>::type;
-//https://stackoverflow.com/questions/7858817/unpacking-a-tuple-to-call-a-matching-function-pointer
-template<typename Function, typename ArgsTuple, std::size_t... I> auto apply(Function& func, ArgsTuple&& args, std::integer_sequence<std::size_t,I...>) {
-    return func(std::get<I>(args)...);
-}
-template<typename Function, typename ArgsTuple> auto apply(Function& func, ArgsTuple& args) {
-    auto _args = std::forward_as_tuple(args);
-    return apply(func, args, make_integer_sequence<std::size_t, std::tuple_size<ArgsTuple>::value>{} );
 }
 namespace MemoryView {
 

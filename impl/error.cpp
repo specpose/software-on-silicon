@@ -45,6 +45,9 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
+    //MCUFPGA.cpp
+    WriteRequestAlreadyInProgress,
+    ObjectHasBeenModifiedDuringEdit,
     //SymbolRateCounter.cpp
     CounterMaxedOut,
     //RingBuffer.hpp
@@ -163,6 +166,10 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Reads pending after Comthread destruction");
     case error_code::InvalidDMAObjectId:
         return std::string("Invalid DMA Object Id");
+    case error_code::WriteRequestAlreadyInProgress:
+        return std::string("Writerequest already in progress");
+    case error_code::ObjectHasBeenModifiedDuringEdit:
+        return std::string("Object has been modified during Edit");
     case error_code::CounterMaxedOut:
         return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:

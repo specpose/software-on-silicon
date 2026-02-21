@@ -212,7 +212,7 @@ namespace Protocol {
             this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             _vars.sent_sighup = true;
         }
-        // acknowledge has priority over request, but requires last read_object byte
+        // send_acknowledge has priority over start_transfer, but requires last read_object byte
         void acknowledge_hook()
         {
             if (_vars.received_acknowledge) {
@@ -231,7 +231,6 @@ namespace Protocol {
                             if (!this->descriptors[j].readLock) {
                                 this->descriptors[j].transfer = true;
                                 this->descriptors[j].unsynced = false;
-                                emit_sync_canceled(j);
                                 //std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -260,6 +259,7 @@ namespace Protocol {
                         if (!this->descriptors[j].unsynced) {
                             if (!this->descriptors[j].transfer) {
                                 this->descriptors[j].readLock = true;
+                                emit_sync_canceled(j);
                                 //std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
