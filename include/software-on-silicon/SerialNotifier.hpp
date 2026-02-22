@@ -178,20 +178,26 @@ namespace Protocol {
     struct DescriptorHelper : public std::array<DMADescriptor, SOS::Protocol::NUM_IDS> {
     public:
         using std::array<DMADescriptor, SOS::Protocol::NUM_IDS>::array;
-        template <typename... T>
-        void operator()(T&... obj_ref)
+        template <typename T, std::size_t... I>
+        void operator()(T& objects, std::integer_sequence<std::size_t,I...>)
         {
             count = 0;
-            (assign(obj_ref), ...);//fold expression: cpp17
+            assign(std::get<I>(objects)...);
+            //(assign(obj_ref), ...);//fold expression: cpp17
+            for (std::size_t i = 0; i < count; i++) {
+                std::cout << "DMAObject " << i << " ptr: " << (*this)[i].obj << " size: " << (*this)[i].obj_size << std::endl;
+            }
         }
         std::size_t size() { return count; }
 
     private:
-        template <typename T>
-        void assign(T& obj_ref)
+        template<typename First, typename... Others>
+        void assign(First& obj_ref, Others&... objects)
         {
             (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
             count++;
+            if constexpr(sizeof...(Others) > 0)
+                assign(objects...);
         }
         std::size_t count = 0;
     };

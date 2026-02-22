@@ -4,7 +4,8 @@ namespace Protocol {
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
         BlockWiseTransfer(std::tuple<Objects...>& objects) {
-            apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
+            this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value>{});
+            //apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
         }
 
     protected:

@@ -8,8 +8,8 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include <future>
-#include "software-on-silicon/SerialNotifier.hpp"
 #include "software-on-silicon/cpp14.hpp"
+#include "software-on-silicon/SerialNotifier.hpp"
 #include <string>
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
