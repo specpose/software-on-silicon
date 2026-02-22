@@ -72,17 +72,6 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void read_notify_hook(std::size_t object_id)
-    {
-        switch (object_id) {
-        case 0:
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
-        }
-    }
     void process_hook() {
         //SIGNALING
         if (!read_ack[0].test_and_set()){
@@ -98,17 +87,6 @@ public:
             (*(--blue))++;
             sync[0] = true;
             counterBus.signal.getAcknowledgeRef().clear();
-        }
-    }
-    void write_notify_hook(std::size_t object_id)
-    {
-        switch (object_id) {
-        case 0:
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
         }
     }
 
@@ -149,17 +127,6 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void read_notify_hook(std::size_t object_id)
-    {
-        switch (object_id) {
-        case 0:
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
-        }
-    }
     void process_hook() {
         //SIGNALING
         if (!read_ack[0].test_and_set()){
@@ -175,17 +142,6 @@ public:
             (*(++green))++;
             sync[0] = true;
             counterBus.signal.getAcknowledgeRef().clear();
-        }
-    }
-    void write_notify_hook(std::size_t object_id)
-    {
-        switch (object_id) {
-        case 0:
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
         }
     }
 

@@ -113,7 +113,6 @@ namespace Behavior {
                 read[id] = false;
                 read_ack[id].clear();
                 _intrinsic.getReadUpdatedRef().clear();
-                read_notify_hook(id);
                 readOrWrite = true;
             }
             process_hook();
@@ -125,7 +124,6 @@ namespace Behavior {
                     write_ack[id].clear();
                 }
                 _intrinsic.getWriteUpdatedRef().clear();
-                write_notify_hook(id);
                 readOrWrite = true;
             }
             if (readOrWrite) {
@@ -146,8 +144,6 @@ namespace Behavior {
 
     protected:
         bool readOrWrite = false;
-        virtual void write_notify_hook(std::size_t object_id) = 0;
-        virtual void read_notify_hook(std::size_t object_id) = 0;
         virtual void process_hook() = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
         std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> read_ack{};

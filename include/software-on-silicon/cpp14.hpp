@@ -36,7 +36,7 @@ template<typename First, typename... Others> class Tuple<First, Others...> : pub
 public:
     constexpr Tuple(){}
     Tuple(First& h, Others&... t)
-    : counter(sizeof...(Others)), m_head{h}, inherited(t...) {}
+    : count(sizeof...(Others)), m_head{h}, inherited(t...) {}
     template<typename... Objects> Tuple(const Tuple<Objects...>& other)
     : m_head(other.head()), inherited(other.tail()) {}
     template<typename... Objects> Tuple& operator=(const Tuple<Objects...>& other){
@@ -49,7 +49,7 @@ public:
     const First& head() const {return m_head;};
     inherited& tail(){return *this;};
     const inherited& tail() const {return *this;};
-    std::size_t counter;
+    std::size_t count;
 protected:
     First m_head;
 };
