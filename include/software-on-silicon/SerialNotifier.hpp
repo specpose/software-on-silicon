@@ -84,6 +84,7 @@ namespace Behavior {
         using bus_type = SOS::MemoryView::BusDMAShaker;
         SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {
             for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; ++i){
+                read_ack[i].test_and_set();
                 write_fault[i].test_and_set();
                 write_ack[i].test_and_set();
                 write_status[i] = std::async(std::launch::deferred,[]()->bool{ return true; });
@@ -110,6 +111,7 @@ namespace Behavior {
             if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.receiveNotificationId().load();
                 read[id] = false;
+                read_ack[id].clear();
                 _intrinsic.getReadUpdatedRef().clear();
                 read_notify_hook(id);
                 readOrWrite = true;
@@ -148,6 +150,7 @@ namespace Behavior {
         virtual void read_notify_hook(std::size_t object_id) = 0;
         virtual void process_hook() = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
+        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> read_ack{};
         std::bitset<SOS::Protocol::NUM_IDS> write{};
         std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_fault{};
         std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_ack{};

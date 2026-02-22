@@ -76,9 +76,6 @@ public:
     {
         switch (object_id) {
         case 0:
-            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
-                counterBus.signal.getUpdatedRef().clear();
-            }
             break;
         case 1:
             break;
@@ -87,6 +84,13 @@ public:
         }
     }
     void process_hook() {
+        //SIGNALING
+        if (!read_ack[0].test_and_set()){
+            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
+                counterBus.signal.getUpdatedRef().clear();
+            }
+        }
+        //COMPUTE
         if (!counterBus.signal.getUpdatedRef().test_and_set()){
             auto red = std::get<0>(std::get<0>(counterBus.const_cables));
             (*red)++;
@@ -99,7 +103,6 @@ public:
     void write_notify_hook(std::size_t object_id)
     {
         switch (object_id) {
-        // just been transfered, can now process further
         case 0:
             break;
         case 1:
@@ -150,9 +153,6 @@ public:
     {
         switch (object_id) {
         case 0:
-            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
-                counterBus.signal.getUpdatedRef().clear();
-            }
             break;
         case 1:
             break;
@@ -161,6 +161,13 @@ public:
         }
     }
     void process_hook() {
+        //SIGNALING
+        if (!read_ack[0].test_and_set()){
+            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
+                counterBus.signal.getUpdatedRef().clear();
+            }
+        }
+        //COMPUTE
         if (!counterBus.signal.getUpdatedRef().test_and_set()){
             auto red = std::get<0>(std::get<0>(counterBus.const_cables));
             (*red)--;
@@ -173,7 +180,6 @@ public:
     void write_notify_hook(std::size_t object_id)
     {
         switch (object_id) {
-        // just been transfered, can now process further
         case 0:
             break;
         case 1:
