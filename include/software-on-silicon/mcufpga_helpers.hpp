@@ -13,7 +13,7 @@ template<typename... Objects> void dump_objects(
         std::cout<<std::endl;
     }
 };
-template<typename Object> void dump(std::future<bool>&& fut, Object& obj) {// need the type of object so select the correct dump, id is not enough
+template<typename Object> void dump(std::shared_future<bool>&& fut, Object& obj) {// need the type of object so select the correct dump, id is not enough
     if (fut.get())
         std::cout << obj << std::endl;
 }
@@ -21,11 +21,11 @@ template<typename Object> void dump(std::future<bool>&& fut, Object& obj) {// ne
 //    if (fut.get())
 //        std::cout << "Callback object id " << static_cast<unsigned int>(id) << std::endl;
 //};
-bool is_promise_ready(std::future<bool>& fut) {
+/*bool is_promise_ready(std::future<bool>& fut) {
     std::future_status s;
     if (fut.valid())
         s = fut.wait_for(std::chrono::seconds::zero());
     if (s != std::future_status::ready)
         return false;
     return true;
-}
+}*/

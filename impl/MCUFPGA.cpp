@@ -31,9 +31,8 @@ public:
     {
         counterBus.signal.getAcknowledgeRef().clear();
         //LOCK
-        auto fut = write_status[1].get_future();
-        if (is_promise_ready(fut)) {
-            write_status[1] = std::move(std::promise<bool>());
+        auto fut = write_status[1].get();
+        if (fut) {
             //EDIT
             int writeBlinkCounter = 0;
             bool writeBlink = true;
@@ -54,17 +53,17 @@ public:
                 }
             }
             //SEND
-            auto fut2 = write_status[1].get_future();
-            if (!is_promise_ready(fut2)) {
+            if (!write_status[1].valid()) {
                 sync[1] = true;
+                write_status[1] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
                 //CALLBACK
-                auto t = std::thread(&dump<DMA&>, std::move(fut2), std::ref(std::get<1>(_nBus.objects)));
+                auto t = std::thread(&dump<DMA&>, std::move(write_status[1].share()), std::ref(std::get<1>(_nBus.objects)));
                 t.detach();
             } else {
-                SFA::util::logic_error(SFA::util::error_code::ObjectHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
+                SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
             }
         } else {
-            SFA::util::logic_error(SFA::util::error_code::WriteRequestAlreadyInProgress, __FILE__, __func__, typeid(*this).name());
+            SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -125,20 +124,21 @@ public:
     {
         counterBus.signal.getUpdatedRef().clear();
         //LOCK
-        auto fut = write_status[2].get_future();
-        if (is_promise_ready(fut)) {
-            write_status[2] = std::move(std::promise<bool>());
-            //EDIT
-            std::get<2>(_nBus.objects).fill('-');
-            //SEND
-            auto fut2 = write_status[2].get_future();
-            if (!is_promise_ready(fut2)) {
-                sync[2] = true;
-                //CALLBACK
-                auto t = std::thread(&dump<DMA&>, std::move(fut2), std::ref(std::get<2>(_nBus.objects)));
-                t.detach();
-            }
+        auto fut = write_status[2].get();
+        //EDIT
+        //if (fut){
+        std::get<2>(_nBus.objects).fill('-');
+        //SEND
+        if (!write_status[2].valid()) {
+            sync[2] = true;
+            write_status[2] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
+            //CALLBACK
+            auto t = std::thread(&dump<DMA&>, std::move(write_status[2].share()), std::ref(std::get<2>(_nBus.objects)));
+            t.detach();
+        } else {
+            SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
         }
+        //}
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUProcessingSwitch()

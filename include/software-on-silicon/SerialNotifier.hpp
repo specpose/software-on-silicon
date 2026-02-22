@@ -53,19 +53,19 @@ namespace Protocol {
     static const unsigned int NUM_SIGNALBITS = 2;
 }
 namespace MemoryView {
-    //template<unsigned char N>
-    //struct Futures : public std::array<std::future<bool>,N> {
-    //    Futures() : std::array<std::future<bool>,N>{} {}
-    //};
     template<unsigned char N>
-    struct Promises : public std::array<std::promise<bool>,N> {
-        //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
-        Promises() : std::array<std::promise<bool>,N>{} {
-            for (std::size_t i = 0; i < this->size(); ++i){
-                (*this)[i].set_value(true);
-            }
-        }
+    struct Futures : public std::array<std::future<bool>,N> {
+        Futures() : std::array<std::future<bool>,N>{} {}
     };
+    //template<unsigned char N>
+    //struct Promises : public std::array<std::promise<bool>,N> {
+    //    //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
+    //    Promises() : std::array<std::promise<bool>,N>{} {
+    //        for (std::size_t i = 0; i < this->size(); ++i){
+    //            (*this)[i].set_value(true);
+    //        }
+    //    }
+    //};
 }
 namespace Behavior {
     class SerialSubController : public SubController {
@@ -83,6 +83,11 @@ namespace Behavior {
     public:
         using bus_type = SOS::MemoryView::BusDMAShaker;
         SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {
+            for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; ++i){
+                write_fault[i].test_and_set();
+                write_ack[i].test_and_set();
+                write_status[i] = std::async(std::launch::deferred,[]()->bool{ return true; });
+            }
             _intrinsic.getSyncStartUpdatedRef().clear();
             readOrWrite = true; // one sync is enough to trigger a read or write hook
             _intrinsic.getSyncStopUpdatedRef().clear();
@@ -96,7 +101,7 @@ namespace Behavior {
                 if (sync[id])
                     if (id==1 || id==2){
                         std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
-                        write_status[id].set_value(false);
+                        write_fault[id].clear();
                     }
                 sync[id] = false;
                 sync_backup[id] = false;
@@ -115,7 +120,7 @@ namespace Behavior {
                 write[id] = false;
                 if (id==1 || id==2){
                     std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
-                    write_status[id].set_value(true);
+                    write_ack[id].clear();
                 }
                 _intrinsic.getWriteUpdatedRef().clear();
                 write_notify_hook(id);
@@ -144,7 +149,9 @@ namespace Behavior {
         virtual void process_hook() = 0;
         std::bitset<SOS::Protocol::NUM_IDS> read{};
         std::bitset<SOS::Protocol::NUM_IDS> write{};
-        SOS::MemoryView::Promises<SOS::Protocol::NUM_IDS> write_status{};
+        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_fault{};
+        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_ack{};
+        SOS::MemoryView::Futures<SOS::Protocol::NUM_IDS> write_status{};
         std::bitset<SOS::Protocol::NUM_IDS> sync{};
         std::bitset<SOS::Protocol::NUM_IDS> sync_backup{};
     private:
@@ -215,5 +222,23 @@ namespace MemoryView {
     struct SerialProcessNotifier : public BusDMAShaker {
         std::tuple<Objects...> objects {};
     };
+}
+namespace Protocol {
+    bool write_status(std::atomic_flag& fault, std::atomic_flag& ack) {
+        bool exit = false;
+        bool result = false;
+        while( !exit ) {
+            if (!fault.test_and_set()) {
+                result = false;
+                exit = true;
+            }
+            if (!ack.test_and_set()) {
+                result = true;
+                exit = true;
+            }
+            std::this_thread::yield();
+        }
+        return result;
+    }
 }
 }
