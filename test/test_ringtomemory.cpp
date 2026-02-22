@@ -91,7 +91,7 @@ using namespace std::chrono;
 int main (){
     const std::size_t ara_offset = 2996;
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
-    auto functor2 = Functor2(ara_offset);
+    Functor2 functor2(ara_offset);
     std::cout << "Writer writing 4995 times (5s) from start at rate 1/ms..." << std::endl;
-    auto functor1 = Functor1(functor2.readerBus);
+    Functor1 functor1(functor2.readerBus);
 }

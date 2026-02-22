@@ -116,7 +116,7 @@ namespace SOS
             }
             bool descendants_stopped () { return !_child; }
             protected:
-            typename S::bus_type _foreign = typename S::bus_type{};
+            typename S::bus_type _foreign{};
             private:
             S* _child = nullptr;
         };
@@ -145,7 +145,7 @@ namespace SOS
             }
             bool descendants_stopped () { return !_child; }
             protected:
-            typename S::bus_type _foreign = typename S::bus_type{};
+            typename S::bus_type _foreign{};
             private:
             S* _child = nullptr;
         };
@@ -174,7 +174,7 @@ namespace SOS
             }
             bool descendants_stopped () { return !_child; }
             protected:
-            typename S::bus_type _foreign = typename S::bus_type{};
+            typename S::bus_type _foreign{};
             private:
             S* _child = nullptr;
         };

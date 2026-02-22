@@ -61,7 +61,7 @@ namespace SOS {
         template<typename S, typename... Others> class PassthruAsyncController : public Controller<S>, public Loop {
             public:
             PassthruAsyncController(typename S::bus_type& passThru, Others&... args) :
-            Controller<S>(), Loop(), _foreign(passThru), _child(S{_foreign, args...}) {}
+            Controller<S>(), Loop(), _foreign(passThru), _child(_foreign, args...) {}
             protected:
             typename S::bus_type& _foreign;
             private:
@@ -74,7 +74,7 @@ namespace SOS {
             Loop(),
             SimpleSubController(signal),
             _foreign(passThru),
-            _child(S{_foreign, args...})
+            _child(_foreign, args...)
             {}
             protected:
             typename S::bus_type& _foreign;
@@ -89,7 +89,7 @@ namespace SOS {
             Loop(),
             EventSubController(signal),
             _foreign(passThru),
-            _child(S{_foreign, args...})
+            _child(_foreign, args...)
             {}
             protected:
             typename S::bus_type& _foreign;
@@ -165,9 +165,9 @@ namespace SOS {
                 }
                 _blocker.signal.getWritingRef().test_and_set();
             }
-            bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
+            MemoryControllerType memorycontroller{};
+            bus_type _blocker = bus_type{memorycontroller.begin(),memorycontroller.end()};
             typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.const_cables).getBKStartRef();
-            MemoryControllerType memorycontroller = MemoryControllerType{};
         };
     }
 }

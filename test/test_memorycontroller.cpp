@@ -26,7 +26,7 @@ using namespace std::chrono;
 
 int main(){
     std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
-    auto functor = Functor(6992);
+    Functor functor(6992);
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){

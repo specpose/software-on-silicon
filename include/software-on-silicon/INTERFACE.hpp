@@ -10,11 +10,11 @@ namespace SOS{
             Notify() { notify.test_and_set(); }
             auto& getNotifyRef() { return notify; }
             protected:
-            std::atomic_flag notify {};
+            std::atomic_flag notify = ATOMIC_FLAG_INIT;
         };
         class Pair : private Notify, public std::array<std::atomic_flag,1> {
             public:
-            Pair() : Notify(), std::array<std::atomic_flag,1>{} {}
+            Pair() : Notify(), std::array<std::atomic_flag,1>() {}
             auto& getFirstRef() { return notify; }
             auto& getSecondRef() { return std::get<0>(*this); }
         };
@@ -25,8 +25,8 @@ namespace SOS{
             auto& getUpdatedRef() { return updated; }
             auto& getAcknowledgeRef() { return acknowledge; }
             protected:
-            std::atomic_flag updated {};
-            std::atomic_flag acknowledge {};
+            std::atomic_flag updated = ATOMIC_FLAG_INIT;
+            std::atomic_flag acknowledge = ATOMIC_FLAG_INIT;
         };
         template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
             using wire_names = enum class empty : unsigned char{} ;

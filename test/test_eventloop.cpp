@@ -3,7 +3,7 @@
 #define measurement_unit_in_ms 100
 
 int main (int argc, char *argv[]) {
-    auto waiterBus = SOS::MemoryView::BusShaker{};
+    SOS::MemoryView::BusShaker waiterBus{};
     TimerIF<milliseconds,measurement_unit_in_ms>* waiter = nullptr;
     unsigned long ticks = 0;
     if (argc == 2 && sscanf(argv[1], "%i", &ticks)==1)
@@ -11,7 +11,7 @@ int main (int argc, char *argv[]) {
     else
         waiter = new SystemTimer<milliseconds,measurement_unit_in_ms>(waiterBus.signal);
 
-    auto myBus = BusNotifier{};
+    BusNotifier myBus{};
     std::cout<<"Thread running for 10s..."<<std::endl;
     BlinkLoop* myHandler = new BlinkLoop(myBus.signal);
     const auto start = high_resolution_clock::now();

@@ -18,7 +18,7 @@ class Functor {
 using namespace std::chrono;
 
 int main(){
-    auto functor = Functor();
+    Functor functor{};
     auto loopstart = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
         const auto beginning = high_resolution_clock::now();
