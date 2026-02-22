@@ -175,15 +175,16 @@ namespace Protocol {
         volatile bool unsynced = false; // SerialProcessing thread
         bool transfer = false;
     };
-    template <unsigned int N>
-    struct DescriptorHelper : public std::array<DMADescriptor, N> {
+    struct DescriptorHelper : public std::array<DMADescriptor, SOS::Protocol::NUM_IDS> {
     public:
-        using std::array<DMADescriptor, N>::array;
+        using std::array<DMADescriptor, SOS::Protocol::NUM_IDS>::array;
         template <typename... T>
         void operator()(T&... obj_ref)
         {
+            count = 0;
             (assign(obj_ref), ...);//fold expression: cpp17
         }
+        std::size_t size() { return count; }
 
     private:
         template <typename T>

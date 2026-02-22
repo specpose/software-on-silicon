@@ -87,7 +87,7 @@ namespace Protocol {
         unsigned char writeOrigin = NUM_IDS;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
-        SOS::Protocol::DescriptorHelper<std::tuple_size<std::tuple<Objects...>>::value> descriptors {};
+        SOS::Protocol::DescriptorHelper descriptors {};
         std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter{0}; // DEBUG
         std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter{0}; // DEBUG
 
