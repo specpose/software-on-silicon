@@ -1,22 +1,16 @@
 namespace SOS {
 namespace MemoryView {
     template <typename ComIterator>
-    struct ComSize : private SOS::MemoryView::ConstCable<ComIterator, 4> {
-        ComSize(const ComIterator InStart, const ComIterator InEnd, const ComIterator OutStart, const ComIterator OutEnd)
-            : SOS::MemoryView::ConstCable<ComIterator, 4> { InStart, InEnd, OutStart, OutEnd }
-        {
-        }
+    struct ComSize : public SOS::MemoryView::ConstCable<ComIterator, 4> {
+        using SOS::MemoryView::ConstCable<ComIterator, 4>::ConstCable;
         auto& getInBufferStartRef() { return std::get<0>(*this); }
         auto& getInBufferEndRef() { return std::get<1>(*this); }
         auto& getOutBufferStartRef() { return std::get<2>(*this); }
         auto& getOutBufferEndRef() { return std::get<3>(*this); }
     };
     template <typename ComIterator>
-    struct ComOffset : private SOS::MemoryView::TaskCable<ComIterator, 2> {
-        ComOffset()
-            : SOS::MemoryView::TaskCable<ComIterator, 2> { 0, 0 }
-        {
-        }
+    struct ComOffset : public SOS::MemoryView::TaskCable<ComIterator, 2> {
+        using SOS::MemoryView::TaskCable<ComIterator, 2>::TaskCable;
         auto& getReadOffsetRef() { return std::get<0>(*this); }
         auto& getWriteOffsetRef() { return std::get<1>(*this); }
     };
@@ -29,9 +23,11 @@ namespace MemoryView {
         signal_type signal;
         using const_cables_type = std::tuple<ComSize<typename ComBufferType::iterator>>;
         using cables_type = std::tuple<ComOffset<typename ComBufferType::difference_type>>;
-        ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd)
-            : const_cables({ ComSize<typename ComBufferType::iterator>(inStart, inEnd, outStart, outEnd) })
+        ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd) :
+        const_cables{ ComSize<typename ComBufferType::iterator>({inStart, inEnd, outStart, outEnd}) }
         {
+            std::get<0>(cables).getReadOffsetRef() = 0;
+            std::get<0>(cables).getWriteOffsetRef() = 0;
             if (std::distance(inStart, inEnd) < 1)
                 SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
             if (std::distance(outStart, outEnd) < 1)
@@ -39,7 +35,7 @@ namespace MemoryView {
             if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
                 SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
         }
-        cables_type cables;
+        cables_type cables{};
         const_cables_type const_cables;
     };
 }

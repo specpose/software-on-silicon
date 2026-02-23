@@ -29,10 +29,12 @@ namespace SOS{
             std::atomic_flag acknowledge = ATOMIC_FLAG_INIT;
         };
         template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
+            ConstCable(const std::array<const T, N>& a) : std::array<const T, N>(a) {}
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
         template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
+            using std::array<std::atomic<T>,N>::array;
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };

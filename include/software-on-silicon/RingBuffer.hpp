@@ -1,12 +1,12 @@
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct WriteBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            WriteBufferSize(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
+            using SOS::MemoryView::ConstCable<ArithmeticType,2>::ConstCable;
             auto& getWriterStartRef(){return std::get<0>(*this);}
             auto& getWriterEndRef(){return std::get<1>(*this);}
         };
         template<typename ArithmeticType> struct RingBufferTaskCable : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
-            using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
+            using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
             auto& getCurrentRef(){return std::get<0>(*this);}
             auto& getThreadCurrentRef(){return std::get<1>(*this);}
         };
@@ -16,7 +16,7 @@ namespace SOS {
             using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type> >;
             using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
             RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
-            const_cables{WriteBufferSize<_pointer_type>(begin,afterlast)}
+            const_cables{ WriteBufferSize<_pointer_type>({begin, afterlast}) }
             {
                 if(std::distance(begin,afterlast)<2)
                     SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough,__FILE__,__func__);
@@ -25,7 +25,7 @@ namespace SOS {
                 auto next = begin;
                 std::get<0>(cables).getCurrentRef().store(++next);
             }
-            cables_type cables;
+            cables_type cables{};
             const_cables_type const_cables;
         };
     }

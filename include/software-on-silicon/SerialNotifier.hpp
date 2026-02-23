@@ -20,8 +20,9 @@ namespace MemoryView {
         auto& getSyncStopAcknowledgeRef(){return acknowledge;}
     };
     struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, 4> {
-        DestinationAndOrigin()
-        : SOS::MemoryView::TaskCable<std::size_t, 4> { 0, 0, 0, 0 } {}
+        DestinationAndOrigin() : SOS::MemoryView::TaskCable<std::size_t, 4>{} {
+            std::fill(std::begin(*this),std::end(*this),0);
+        }
     };
     struct bus_dma_shaker_tag{};
     struct BusDMAShaker : bus <
@@ -31,7 +32,7 @@ namespace MemoryView {
     bus_traits<Bus>::const_cables_type
     >{
         signal_type signal;
-        cables_type cables;
+        cables_type cables{};
         auto& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
         auto& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
         auto& syncStopId() { return std::get<2>(std::get<0>(cables)); }
@@ -209,7 +210,7 @@ namespace Protocol {
     //    using SOS::MemoryView::TaskCable<ArithmeticType, N>::TaskCable;
     //};
     template<typename ArithmeticType> struct Size : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
-        Size(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>{First,Second} {}
+        Size(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>({First, Second}) {}
     };
     template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof%3==0&&Sizeof%12!=0&&Sizeof%24!=0&&Sizeof%12288!=0, unsigned char>::type>
     class CharBusGenerator : public SOS::MemoryView::BusShaker {
