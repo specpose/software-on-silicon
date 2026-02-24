@@ -192,13 +192,18 @@ namespace Protocol {
         std::size_t size() { return count; }
 
     private:
+        template<typename First>
+        void assign(First& obj_ref)
+        {
+            (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
+            count++;
+        }
         template<typename First, typename... Others>
         void assign(First& obj_ref, Others&... objects)
         {
             (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
             count++;
-            if constexpr(sizeof...(Others) > 0)
-                assign(objects...);
+            assign(objects...);
         }
         std::size_t count = 0;
     };
