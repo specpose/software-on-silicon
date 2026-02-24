@@ -93,7 +93,7 @@ public:
 private:
     bus_type& _nBus;
     SOS::Protocol::CharBusGenerator<std::tuple_element<0,decltype(bus_type::objects)>::type> counterBus;
-    std::thread _thread = std::thread {};
+    std::thread _thread;
 };
 class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing {
 public:
@@ -148,7 +148,7 @@ public:
 private:
     bus_type& _nBus;
     SOS::Protocol::CharBusGenerator<std::tuple_element<0,decltype(bus_type::objects)>::type> counterBus;
-    std::thread _thread = std::thread {};
+    std::thread _thread;
 };
 class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColor, DMA, DMA> {
 public:
@@ -211,7 +211,7 @@ private:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
-    std::thread _thread = std::thread {};
+    std::thread _thread;
 };
 class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, TrueColor, DMA, DMA> {
 public:
@@ -278,5 +278,5 @@ private:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
-    std::thread _thread = std::thread {};
+    std::thread _thread;
 };

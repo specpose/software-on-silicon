@@ -32,5 +32,5 @@ class BlinkLoop : public SOS::Behavior::SimpleDummy<> {
     private:
     //ALWAYS has to be private
     //ALWAYS has to be member of the upper-most superclass where _thread.join() is
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
