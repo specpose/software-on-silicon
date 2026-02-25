@@ -29,13 +29,11 @@ enum SFA::util::error_code : unsigned char {
     InvalidAcknowledgeId,
     SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired,
     DMAObjectHasEnteredAnIllegalSyncState,
-    FoundATransferObjectWhichIsSynced,
+    FoundATransferObjectWhichIsUnsynced,
     FoundATransferObjectWhichIsReadlocked,
     PreviousObjectWriteHasNotBeenCompleted,
     PreviousReadobjectHasNotFinished,
     NoIdleReceivedAndNoReceivelockObtained,
-    DMADescriptorsInitializationFailed, //2x
-    FPGAProcessingSwitchThreadIsTooSlow,
     MCUProcessingSwitchRelaunchedAfterComHotplugAction,
     MCUProcessingSwitchThreadIsTooSlow,
     BitsetDoesNotFitIntoChararray,
@@ -47,6 +45,11 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
+    //MCUFPGA.cpp
+    WriteRequestHasBeenCanceledByOtherSide,
+    TypeOfFutureHasBeenModifiedDuringEdit,
+    //SymbolRateCounter.cpp
+    CounterMaxedOut,
     //RingBuffer.hpp
     RequestedRingbufferSizeNotBigEnough,
     //ringbuffer_hellpers.hpp
@@ -119,8 +122,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Synced status has not been overriden when readLock was acquired");
     case error_code::DMAObjectHasEnteredAnIllegalSyncState:
         return std::string("DMAObject has entered an illegal sync state");
-    case error_code::FoundATransferObjectWhichIsSynced:
-        return std::string("Found a transfer object which is synced");
+    case error_code::FoundATransferObjectWhichIsUnsynced:
+        return std::string("Found a transfer object which is unsynced");
     case error_code::FoundATransferObjectWhichIsReadlocked:
         return std::string("Found a transfer object which is readLocked");
     case error_code::PreviousObjectWriteHasNotBeenCompleted:
@@ -129,10 +132,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Previous read object has not finished");
     case error_code::NoIdleReceivedAndNoReceivelockObtained:
         return std::string("No idle received and no receive_lock obtained");
-    case error_code::DMADescriptorsInitializationFailed:
-        return std::string("DMADescriptors initialization failed");
-    case error_code::FPGAProcessingSwitchThreadIsTooSlow:
-        return std::string("FPGAProcessingSwitch thread is too slow");
     case error_code::MCUProcessingSwitchRelaunchedAfterComHotplugAction:
         return std::string("Testing MCU hotplug: MCU ProcessingSwitch relaunched after com_hotplug_action");
     case error_code::MCUProcessingSwitchThreadIsTooSlow:
@@ -167,6 +166,12 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Reads pending after Comthread destruction");
     case error_code::InvalidDMAObjectId:
         return std::string("Invalid DMA Object Id");
+    case error_code::WriteRequestHasBeenCanceledByOtherSide:
+        return std::string("Writerequest has been canceled by other side");
+    case error_code::TypeOfFutureHasBeenModifiedDuringEdit:
+        return std::string("The type of the Future has been modified during Edit");
+    case error_code::CounterMaxedOut:
+        return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:
         return std::string("No ReadBuffer supplied");
     case error_code::ContiguousInitializedIncorrectly:

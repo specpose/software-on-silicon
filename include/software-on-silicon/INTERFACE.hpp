@@ -5,37 +5,36 @@
 
 namespace SOS{
     namespace MemoryView {
-        class Notify : private std::array<std::atomic_flag,1> {
+        class Notify {
             public:
-            Notify() : std::array<std::atomic_flag,1>{} {//constexpr
-                std::get<0>(*this).test_and_set();
-            }
-            auto& getNotifyRef(){return std::get<0>(*this);}
+            Notify() { notify.test_and_set(); }
+            auto& getNotifyRef() { return notify; }
+            protected:
+            std::atomic_flag notify = ATOMIC_FLAG_INIT;
         };
-        class Pair;
+        class Pair : private Notify, public std::array<std::atomic_flag,1> {
+            public:
+            Pair() : Notify(), std::array<std::atomic_flag,1>() {}
+            auto& getFirstRef() { return notify; }
+            auto& getSecondRef() { return std::get<0>(*this); }
+        };
         //1+1=0
-        class HandShake : private std::array<std::atomic_flag,2> {
-            friend Pair;
+        class HandShake {
             public:
-            HandShake() : std::array<std::atomic_flag,2>{} {//constexpr
-                std::get<0>(*this).test_and_set();
-                std::get<1>(*this).test_and_set();
-            }
-            auto& getUpdatedRef(){return std::get<0>(*this);}
-            auto& getAcknowledgeRef(){return std::get<1>(*this);}
+            HandShake() { updated.test_and_set(); acknowledge.test_and_set(); }
+            auto& getUpdatedRef() { return updated; }
+            auto& getAcknowledgeRef() { return acknowledge; }
+            protected:
+            std::atomic_flag updated = ATOMIC_FLAG_INIT;
+            std::atomic_flag acknowledge = ATOMIC_FLAG_INIT;
         };
-        class Pair : private HandShake {
-        public:
-            using HandShake::HandShake;
-            auto& getFirstRef(){return std::get<0>(*this);}
-            auto& getSecondRef(){return std::get<1>(*this);}
-        };
-        struct bus_pair_tag{};
         template<typename T, size_t N> struct ConstCable : public std::array<const T,N>{
+            ConstCable(const std::array<const T, N>& a) : std::array<const T, N>(a) {}
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };
         template<typename T, size_t N> struct TaskCable : public std::array<std::atomic<T>,N>{
+            using std::array<std::atomic<T>,N>::array;
             using wire_names = enum class empty : unsigned char{} ;
             using cable_arithmetic = T;
         };

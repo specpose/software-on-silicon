@@ -32,7 +32,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleDummy<> {
             std::this_thread::sleep_for(milliseconds{666});
     };
     private:
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };
 
 //A RunLoop is not a Loop, because it does not have a signal
@@ -67,5 +67,5 @@ class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControl
     private:
     SOS::MemoryView::BusShaker waiterBus{};
     SystemTimer<milliseconds,measurement_unit_in_ms>* waiter;
-    std::thread _thread = std::thread{};
+    std::thread _thread;
 };

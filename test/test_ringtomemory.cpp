@@ -97,7 +97,7 @@ int main (){
 
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
-    auto functor2 = Functor2(readerBus);
+    Functor2 functor2{readerBus};
     BLOCK buffers{{{0},{0},{0},{0},{0}}};
     functor2.asyncRead(buffers, ara_offset);
 

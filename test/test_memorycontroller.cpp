@@ -27,7 +27,7 @@ int main(){
     BLOCK randomread{{{0},{0},{0},{0},{0}}};
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Writer writing "<<STORAGE_SIZE<<" times from start at rate 1/ms..." << std::endl;
-    auto functor = Functor(readerBus);
+    Functor functor{readerBus};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" times at position "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
     functor.asyncRead(randomread,ara_offset);
 

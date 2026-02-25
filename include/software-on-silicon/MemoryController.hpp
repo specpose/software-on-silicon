@@ -14,7 +14,7 @@ namespace SOS {
         template<typename OutputBuffer> struct ReaderBus : public SOS::MemoryView::BusShaker {
             using _pointer_type = typename OutputBuffer::iterator;
             using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< ReadOffset<_difference_type>,ReadSize<_pointer_type> >;
+            using cables_type = std::tuple< ReadOffset<_difference_type>, ReadSize<_pointer_type> >;
             using const_cables_type = std::tuple< >;
             ReaderBus()
             {
@@ -28,7 +28,7 @@ namespace SOS {
                 std::get<1>(cables).getReadBufferStartRef().store(buffer.begin());
                 std::get<1>(cables).getReadBufferAfterLastRef().store(buffer.end());
             }
-            cables_type cables;
+            cables_type cables{};
             const_cables_type const_cables;
         };
         template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
@@ -43,7 +43,7 @@ namespace SOS {
             auto& getReadingRef(){return getSecondRef();}
         };
         template<typename MemoryControllerType> struct BlockerBus : public bus <
-            bus_pair_tag,
+            bus_notifier_tag,
             SOS::MemoryView::RWNotify,
             bus_traits<Bus>::cables_type,
             bus_traits<Bus>::const_cables_type
@@ -55,14 +55,14 @@ namespace SOS {
                 std::get<0>(cables).getBKStartRef().store(start);
                 std::get<0>(cables).getBKEndRef().store(start);
             }
-            cables_type cables;
+            cables_type cables{};
         };
     }
     namespace Behavior {
         template<typename S, typename... Others> class PassthruAsyncController : public Controller<S>, public Loop {
             public:
             PassthruAsyncController(typename S::bus_type& passThru, Others&... args) :
-            Controller<S>(), Loop(), _foreign(passThru), _child(S{_foreign, args...}) {}
+            Controller<S>(), Loop(), _foreign(passThru), _child(_foreign, args...) {}
             protected:
             typename S::bus_type& _foreign;
             private:
@@ -75,7 +75,7 @@ namespace SOS {
             Loop(),
             SimpleSubController(signal),
             _foreign(passThru),
-            _child(S{_foreign, args...})
+            _child(_foreign, args...)
             {}
             protected:
             typename S::bus_type& _foreign;
@@ -90,7 +90,7 @@ namespace SOS {
             Loop(),
             EventSubController(signal),
             _foreign(passThru),
-            _child(S{_foreign, args...})
+            _child(_foreign, args...)
             {}
             protected:
             typename S::bus_type& _foreign;
@@ -152,7 +152,7 @@ namespace SOS {
         template<typename MemoryControllerType> class WriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask(){
+            WriteTask() : memorycontroller{}, _blocker(memorycontroller.begin(),memorycontroller.end()), writerPos(std::get<0>(_blocker.cables).getBKStartRef().load()) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
@@ -166,9 +166,9 @@ namespace SOS {
                 }
                 _blocker.signal.getWritingRef().test_and_set();
             }
-            bus_type _blocker = bus_type(this->memorycontroller.begin(),this->memorycontroller.end());
-            typename MemoryControllerType::iterator writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
-            MemoryControllerType memorycontroller = MemoryControllerType{};
+            MemoryControllerType memorycontroller;
+            bus_type _blocker;
+            typename MemoryControllerType::iterator writerPos;
         };
     }
 }

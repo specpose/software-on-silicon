@@ -27,7 +27,7 @@ int main(){
     RING_BUFFER::value_type sample{{{0}}};
     BLINK_T channelBuffers32{RING_BUFFER::value_type{{{0}}},RING_BUFFER::value_type{{{1}}},RING_BUFFER::value_type{{{2}}},RING_BUFFER::value_type{{{3}}},RING_BUFFER::value_type{{{4}}},RING_BUFFER::value_type{{{5}}},RING_BUFFER::value_type{{{6}}},RING_BUFFER::value_type{{{7}}},RING_BUFFER::value_type{{{8}}}};
     //BLINK_T channelBuffers32{{{{0}}},{{{1}}},{{{2}}},{{{3}}},{{{4}}},{{{5}}},{{{6}}},{{{7}}},{{{8}}}};
-    auto functor = Functor();
+    Functor functor{};
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
