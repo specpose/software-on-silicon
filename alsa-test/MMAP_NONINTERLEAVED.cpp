@@ -116,10 +116,10 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
                 const auto channel_config = check_noninterleaved(areas);
                 for (std::size_t j=0; j<NUM_CHANNELS;j++){
                     for (std::size_t i=0;i<(frames);i++) {
-                        audio_data[offset+i][j]=*(std::get<0>(channel_config[j]) +
+                        audio_data[frames_read+i][j]=*(std::get<0>(channel_config[j]) +
                         i *
                         std::get<1>(channel_config[j]));
-                        //fprintf(stdout, ",%04d", audio_data[offset+i][j]);
+                        //fprintf(stdout, ",%04d", audio_data[frames_read+i][j]);
                     }
                 }
             }
