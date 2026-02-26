@@ -5,11 +5,12 @@
 #include <tuple>
 #include <array>
 
+#define NUM_CHANNELS 2
 #define INTEL 1
 #if INTEL
-#define MAX_READ 32 //<8192
+const unsigned int rate = 48000;
 #else
-#define MAX_READ 8 //<8192
+const unsigned int rate = 8000;
 #endif
 
 template<typename T> T rc(T err){
@@ -19,13 +20,16 @@ template<typename T> T rc(T err){
     return err;
 }
 
-std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_uframes_t* frames){
+std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_uframes_t* frames, snd_pcm_access_t format, bool hw = true){
     snd_pcm_t *handle;
-    rc(snd_pcm_open(&handle, "hw:0,0", SND_PCM_STREAM_CAPTURE, 0));
+    if (hw)
+        rc(snd_pcm_open(&handle, "hw:0,0", SND_PCM_STREAM_CAPTURE, 0));
+    else
+        rc(snd_pcm_open(&handle, "plughw:0,0", SND_PCM_STREAM_CAPTURE, 0));
     snd_pcm_hw_params_t *params;
     rc(snd_pcm_hw_params_malloc(&params));
     rc(snd_pcm_hw_params_any(handle, params));
-    rc(snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_MMAP_INTERLEAVED));
+    rc(snd_pcm_hw_params_set_access(handle, params, format));
     rc(snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE));
     assert(snd_pcm_format_big_endian(SND_PCM_FORMAT_S16_LE)!=1);
     rc(snd_pcm_hw_params_set_channels(handle, params, NUM_CHANNELS));

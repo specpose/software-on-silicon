@@ -1,11 +1,15 @@
 using SAMPLE_SIZE = short;
-#define NUM_CHANNELS 2
 #include "software-on-silicon/alsa_helpers.hpp"
 #include <chrono>
 #include <thread>
 #include <vector>
 //#include <poll.h>
 
+#if INTEL
+#define MAX_READ 32 //<8192
+#else
+#define MAX_READ 8 //<8192
+#endif
 #if INTEL
 #define BLOCK_SIZE 48000
 #else
@@ -73,11 +77,6 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
 
 int main(){
     static_assert(BLOCK_SIZE%MAX_READ==0);
-#if INTEL
-    const unsigned int rate = 48000;
-#else
-    const unsigned int rate = 8000;
-#endif
     assert((NUM_CHANNELS*rate)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
     const int seconds = 10;
@@ -95,7 +94,7 @@ int main(){
     std::size_t frames_read = 0;
     snd_pcm_uframes_t max = 0;
 
-    auto driver = init(rate, &period_size);
+    auto driver = init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
     auto poll = init_poll(std::get<0>(driver));
     start_pcm(std::get<0>(driver));
     auto start = std::chrono::high_resolution_clock::now();
