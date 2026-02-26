@@ -80,13 +80,15 @@ int main(){
 #endif
     assert((NUM_CHANNELS*rate)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
-    buffer.push_back(RING_BUFFER::value_type{});
-    buffer.push_back(RING_BUFFER::value_type{});
-    const RING_BUFFER::value_type::value_type sample{{0xFE,0xFE}};
-    for (std::size_t j=0;j<buffer.size();j++)
-        for (std::size_t i=0;i<BLOCK_SIZE;i++){
-            buffer[j][i]=sample;
-        }
+    const int seconds = 10;
+    for (std::size_t i = 0; i < seconds; i++){
+        buffer.push_back(RING_BUFFER::value_type{});
+        const RING_BUFFER::value_type::value_type sample{{0xFE,0xFE}};
+        for (std::size_t j=0;j<buffer.size();j++)
+            for (std::size_t i=0;i<BLOCK_SIZE;i++){
+                buffer[j][i]=sample;
+            }
+    }
     std::size_t ringbuffer_index = 0;
     snd_pcm_uframes_t period_size = MAX_READ;//NUM_CHANNELS * 27;//notification interval
 
@@ -99,13 +101,14 @@ int main(){
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
         record_block(std::get<0>(driver), buffer[ringbuffer_index], frames_read, std::get<0>(poll), std::get<1>(poll), max);
-        ringbuffer_index = ringbuffer_index == 0 ? 1 : 0;
+        ringbuffer_index = ringbuffer_index == 9 ? 0 : ++ringbuffer_index;
     }
     destroy(driver);
     destroy_poll(poll);
-    for(std::size_t i=0;i<BLOCK_SIZE;i++)
-        for (std::size_t j=0;j<NUM_CHANNELS;j++)
-            fprintf(stdout, ",%04d", buffer[ringbuffer_index == 0 ? 1 : 0][i][j]);
+    for (std::size_t k = 0; k < seconds; k++)
+        for(std::size_t i=0;i<BLOCK_SIZE;i++)
+            for (std::size_t j=0;j<NUM_CHANNELS;j++)
+                fprintf(stdout, ",%04d", buffer[k][i][j]);
     fprintf(stdout, "\n");
-    fprintf(stdout,"Maximum read backlog %d\n",max);
+    //fprintf(stdout,"Maximum read backlog %d\n",max);
 }
