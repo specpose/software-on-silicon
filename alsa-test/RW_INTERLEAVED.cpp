@@ -1,28 +1,15 @@
-//arecord -D hw:0,0 --dump-hw-params
-//amixer -D hw:0
-#include <alsa/asoundlib.h>
-#include <stdio.h>
-#include <tuple>
+using SAMPLE_SIZE = short;
+#include "software-on-silicon/alsa_helpers.hpp"
 #include <vector>
-#include <array>
 
-#define NUM_CHANNELS 2
 #define MAX_READ 4
-#define INTEL 0
 #if INTEL
 #define BLOCK_SIZE 480000
 #else
 #define BLOCK_SIZE 80000
 #endif
 
-template<typename T> T rc(T err){
-    if (err < 0) {
-        fprintf(stderr, "ASOUND ERROR: %s\n", snd_strerror(err));
-    }
-    return err;
-}
-
-std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_uframes_t* frames){
+/*std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_uframes_t* frames){
     snd_pcm_t *handle;
     rc(snd_pcm_open(&handle, "hw:0,0", SND_PCM_STREAM_CAPTURE, 0));
     snd_pcm_hw_params_t *params;
@@ -30,6 +17,7 @@ std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_ufra
     rc(snd_pcm_hw_params_any(handle, params));
     rc(snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED));
     rc(snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE));
+    assert(snd_pcm_format_big_endian(SND_PCM_FORMAT_S16_LE)!=1);
     rc(snd_pcm_hw_params_set_channels(handle, params, NUM_CHANNELS));
     int dir = 0;
     rc(snd_pcm_hw_params_set_rate_near(handle, params, &rate, &dir));
@@ -37,24 +25,18 @@ std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_ufra
         fprintf(stderr, "PROGRAM ERROR: rate %d not supported, dir: %d\n", rate, dir);
         abort();
     }
+#if INTEL
     snd_pcm_uframes_t notification_interval = rate/(*frames);
     rc(snd_pcm_hw_params_set_period_size_near(handle, params, &notification_interval, &dir));
     if (dir != 0){
-        fprintf(stderr, "PROGRAM ERROR: dir: %d, period_size forced to %d\n", dir, *frames);
+        fprintf(stderr, "PROGRAM ERROR: dir: %d, period_size forced to %d\n", dir, notification_interval);
         abort();
     }
+#endif
     rc(snd_pcm_hw_params(handle, params));
     return std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*>{handle, params};
-}
+}*/
 
-void destroy(std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> driver){
-    rc(snd_pcm_drop(std::get<0>(driver)));
-    snd_pcm_hw_params_free(std::get<1>(driver));
-    std::get<1>(driver) = nullptr;
-    rc(snd_pcm_close(std::get<0>(driver)));
-}
-
-using SAMPLE_SIZE = short;
 using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_SIZE,NUM_CHANNELS>,BLOCK_SIZE>>;
 
 void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t total_frames) {
@@ -89,11 +71,6 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
 
 int main(){
     static_assert(BLOCK_SIZE%MAX_READ==0);
-#if INTEL
-    const unsigned int rate = 48000;
-#else
-    const unsigned int rate = 8000;
-#endif
     const int seconds = 10;
     assert((rate*seconds)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
@@ -104,7 +81,7 @@ int main(){
     }
     snd_pcm_uframes_t period_size = MAX_READ;
 
-    auto driver = init(rate, &period_size);
+    auto driver = init(rate, &period_size, SND_PCM_ACCESS_RW_INTERLEAVED, true);
     recording_loop(std::get<0>(driver), buffer[0], BLOCK_SIZE);
     destroy(driver);
     for(std::size_t i=0;i<BLOCK_SIZE;i++)

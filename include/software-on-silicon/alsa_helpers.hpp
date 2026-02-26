@@ -40,11 +40,13 @@ std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*> init(unsigned int rate, snd_pcm_ufra
         abort();
     }
 #if INTEL
+    if (hw) {
     snd_pcm_uframes_t notification_interval = rate/(*frames);
     rc(snd_pcm_hw_params_set_period_size_near(handle, params, &notification_interval, &dir));
     if (dir != 0){
         fprintf(stderr, "PROGRAM ERROR: dir: %d, period_size forced to %d\n", dir, notification_interval);
         abort();
+    }
     }
 #endif
     rc(snd_pcm_hw_params(handle, params));
