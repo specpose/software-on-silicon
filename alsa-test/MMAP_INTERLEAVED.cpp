@@ -18,20 +18,11 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
     snd_pcm_uframes_t offset = 0;
 
     std::size_t frames_read = 0;
-    snd_pcm_state_t state;
     snd_pcm_uframes_t avail = 0;
     snd_pcm_uframes_t frames = 0;
 
     bool first = true;
     while (frames_read < total_frames) {
-        state = rc(snd_pcm_state(handle));
-        if (state!=SND_PCM_STATE_RUNNING)
-            if (SND_PCM_STATE_RUNNING)
-                rc(snd_pcm_start(handle));
-            else{
-                fprintf(stderr,"ASOUND ERROR: %d\n", state);
-                abort();
-            }
         avail = snd_pcm_avail(handle);
         if (avail < MAX_READ) {
             if (avail < 0) {
@@ -84,6 +75,7 @@ int main(){
     snd_pcm_uframes_t period_size = MAX_READ;
 
     auto driver = init(rate, &period_size);
+    start_pcm(std::get<0>(driver));
     recording_loop(std::get<0>(driver), buffer[0], seconds * rate);
     destroy(driver);
     for(std::size_t i=0;i<seconds * rate;i++)

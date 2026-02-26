@@ -93,6 +93,7 @@ int main(){
 
     auto driver = init(rate, &period_size);
     auto poll = init_poll(std::get<0>(driver));
+    start_pcm(std::get<0>(driver));
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
         record_block(std::get<0>(driver), buffer[ringbuffer_index], offset, std::get<0>(poll), std::get<1>(poll), max);

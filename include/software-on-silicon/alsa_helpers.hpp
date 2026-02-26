@@ -5,7 +5,7 @@
 #include <tuple>
 #include <array>
 
-#define INTEL 0
+#define INTEL 1
 #if INTEL
 #define MAX_READ 32 //<8192
 #else
@@ -62,8 +62,18 @@ std::tuple<pollfd*,unsigned int> init_poll(snd_pcm_t *handle){
     }
     pollfd* ufds = (pollfd*)malloc(sizeof(pollfd) * fd_count);
     rc(snd_pcm_poll_descriptors(handle, ufds, fd_count));
-    rc(snd_pcm_start(handle));
     return std::tuple<pollfd*,int>{ufds, fd_count};
+}
+
+void start_pcm(snd_pcm_t *handle){
+    snd_pcm_state_t state = rc(snd_pcm_state(handle));
+    if (state!=SND_PCM_STATE_RUNNING)
+        if (SND_PCM_STATE_RUNNING)
+            rc(snd_pcm_start(handle));
+    else{
+        fprintf(stderr,"ASOUND ERROR: %d\n", state);
+        abort();
+    }
 }
 
 void destroy_poll(std::tuple<pollfd*,int> poll){
