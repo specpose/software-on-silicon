@@ -14,17 +14,18 @@ using SAMPLE_SIZE = short;
 
 using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_SIZE,NUM_CHANNELS>,BLOCK_SIZE>>;
 
-void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, snd_pcm_uframes_t& offset, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
+void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t& frames_read, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
     const snd_pcm_channel_area_t* areas = nullptr;
+    snd_pcm_uframes_t offset = 0;
 
     snd_pcm_uframes_t avail = 0;
     snd_pcm_uframes_t frames = 0;
-    snd_pcm_uframes_t read = 0;
 
     unsigned short revents;
     auto start = std::chrono::high_resolution_clock::now();
 
     snd_pcm_uframes_t chunk = BLOCK_SIZE;
+    auto block_offset = frames_read % BLOCK_SIZE;
     while (chunk>0) {
         rc(poll(ufds, fd_count, -1));
         rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
@@ -38,21 +39,21 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, snd_pc
                 frames = MAX_READ;
                 rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
                 if (areas){
-                    const auto block_offset = offset % BLOCK_SIZE;
                     const auto channel_config = check_interleaved(areas);
                     for (std::size_t j=0; j<NUM_CHANNELS;j++){
-                        for (std::size_t i=0;i<MAX_READ;i++) {
+                        for (std::size_t i=0;i<frames;i++) {
                             audio_data[block_offset+i][j]=*(std::get<0>(channel_config[j]) +
                             i *
                             std::get<1>(channel_config[j]));
                             //fprintf(stdout, ",%04d", audio_data[block_offset+i][j]);
                         }
                     }
+                    block_offset += frames;
                 } else {
                     fprintf(stderr, "PROGRAM ERROR: invalid mmap areas\n");
                     abort();
                 }
-                read = rc(snd_pcm_mmap_commit(handle, offset, MAX_READ));
+                snd_pcm_uframes_t read = rc(snd_pcm_mmap_commit(handle, offset, frames));
                 if (read < 0) {
                     fprintf(stderr, "PROGRAM ERROR: mmap read count is %d\n", read);
                     abort();
@@ -67,6 +68,7 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, snd_pc
         }
         std::this_thread::yield();
     }
+    frames_read += BLOCK_SIZE;
 }
 
 int main(){
@@ -88,7 +90,7 @@ int main(){
     std::size_t ringbuffer_index = 0;
     snd_pcm_uframes_t period_size = MAX_READ;//NUM_CHANNELS * 27;//notification interval
 
-    snd_pcm_uframes_t offset = 0;
+    std::size_t frames_read = 0;
     snd_pcm_uframes_t max = 0;
 
     auto driver = init(rate, &period_size);
@@ -96,7 +98,7 @@ int main(){
     start_pcm(std::get<0>(driver));
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
-        record_block(std::get<0>(driver), buffer[ringbuffer_index], offset, std::get<0>(poll), std::get<1>(poll), max);
+        record_block(std::get<0>(driver), buffer[ringbuffer_index], frames_read, std::get<0>(poll), std::get<1>(poll), max);
         ringbuffer_index = ringbuffer_index == 0 ? 1 : 0;
     }
     destroy(driver);

@@ -21,7 +21,6 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
     snd_pcm_uframes_t avail = 0;
     snd_pcm_uframes_t frames = 0;
 
-    bool first = true;
     while (frames_read < total_frames) {
         avail = snd_pcm_avail(handle);
         if (avail < MAX_READ) {
@@ -49,8 +48,8 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
                     }
                 }
             }
-            if (auto commitres = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
-                rc(commitres >= 0 ? -EPIPE : commitres);
+            if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
+                rc(read >= 0 ? -EPIPE : read);
             chunk -= frames;
         }
         frames_read += MAX_READ;
