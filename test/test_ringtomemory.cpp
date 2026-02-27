@@ -1,5 +1,10 @@
+#define SAMPLE_RATE 1000
+#define SAMPLE_TYPE float
+#define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
+
+#define TOTAL_TIME 9
 
 using BLINK_T = std::array<std::tuple_element<0,RING_BUFFER::value_type>::type,1>;
 
@@ -24,7 +29,7 @@ class Functor1 {
         const std::size_t numSamples = 333;//std::tuple_size<BLINK_T>{}
         auto loopstart = high_resolution_clock::now();
         //try {
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<9) {
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
             const auto beginning = high_resolution_clock::now();
             switch(count){
                 case 0:
@@ -110,7 +115,7 @@ int main (){
 
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<6) {
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-3) {
 
         if (functor2() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
             beginning = high_resolution_clock::now();

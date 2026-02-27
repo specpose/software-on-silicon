@@ -4,17 +4,16 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
+#include "Sample.cpp"
 #include <chrono>
 
 using namespace std::chrono;
 
-#include "Sample.cpp"
-#define SAMPLE_TYPE float
-#define NUM_CHANNELS 1
 #define MAX_BLINK 333
-using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,std::size_t>,4>;//400//INTERLEAVED
+#define BLOCK_SIZE 1000
+using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,std::size_t>,4>;//32 * 32768 => Stack Maximum
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;//ara_samplesPerChannel = 1000
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;//ara_samplesPerChannel = 1000
 
 //main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
@@ -73,6 +72,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
     ara_sampleCount(0) {
+        memorycontroller.reserve(old_reserve);
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
         _blocker.signal.getWritingRef().test_and_set();
@@ -80,7 +80,6 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     ~WriteTaskImpl(){}
     virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
         _blocker.signal.getWritingRef().clear();
-        memorycontroller.reserve(newsize);
         while(memorycontroller.size()<newsize){
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
         }
@@ -93,6 +92,11 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     //not inherited: overload
     protected:
     virtual void write(RING_BUFFER::value_type& character) final {//takes absolutePosition out of Ringbuffer
+        const auto now = high_resolution_clock::now();
+        if (std::chrono::duration_cast<std::chrono::seconds>(last - now).count() > 0) {
+            memorycontroller.reserve(old_reserve+SAMPLE_RATE);
+            last = now;
+        }
         resize(std::get<1>(character)+std::size(std::get<0>(character)));//offset + length
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
         std::get<1>(character)+std::size(std::get<0>(character)))
@@ -102,6 +106,9 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(std::get<0>(character)[i]);
         }
     }
+    private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> last = high_resolution_clock::now();
+    std::size_t old_reserve = SAMPLE_RATE;
 };
 //multiple inheritance: destruction order
 class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, public WriteTaskImpl {
