@@ -1,4 +1,6 @@
 #define SAMPLE_RATE 1000
+#define MAX_BLINK 333
+#define BLOCK_SIZE 1000
 #define SAMPLE_TYPE float
 #define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
@@ -26,7 +28,7 @@ class Functor1 {
     }
     void test_loop(){
         std::size_t actualSamplePosition = 0;
-        const std::size_t numSamples = 333;//std::tuple_size<BLINK_T>{}
+        const std::size_t numSamples = 333*SAMPLE_RATE/1000;//std::tuple_size<BLINK_T>{}
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
@@ -46,7 +48,7 @@ class Functor1 {
                     break;
             }
             actualSamplePosition += std::tuple_size<BLINK_T>{};//vst actualSamplePosition
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{std::tuple_size<BLINK_T>{}}));
+            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
         }
         //} catch (std::exception& e) {
         //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
@@ -98,7 +100,7 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t ara_offset = 2996;
+    const std::size_t ara_offset = 2996*SAMPLE_RATE/1000;
 
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
@@ -110,7 +112,7 @@ int main (){
             buffers[i].channels[j] = BLOCK::value_type::sample_type(0);
     functor2.asyncRead(buffers, ara_offset);
 
-    std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
+    std::cout << "Writer writing (10s) from start at rate 1/ms..." << std::endl;
     auto functor1 = Functor1(readerBus);
 
     auto loopstart = high_resolution_clock::now();
@@ -119,7 +121,7 @@ int main (){
 
         if (functor2() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
             beginning = high_resolution_clock::now();
-            for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i++)
+            for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i+=SAMPLE_RATE/1000)
                 std::cout << buffers[i].channels[0];//HACK: hard-coded channel 0
             std::cout << std::endl;
             functor2.asyncRead(buffers, ara_offset);

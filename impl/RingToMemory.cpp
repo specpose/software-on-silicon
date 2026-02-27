@@ -9,11 +9,9 @@
 
 using namespace std::chrono;
 
-#define MAX_BLINK 333
-#define BLOCK_SIZE 1000
-using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,std::size_t>,4>;//32 * 32768 => Stack Maximum
+using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,std::size_t>,4>;//333 * sample * 32768 => Stack Maximum
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;//ara_samplesPerChannel = 1000
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 //main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
