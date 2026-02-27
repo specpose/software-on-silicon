@@ -7,13 +7,11 @@
 #include <chrono>
 
 #include "Sample.cpp"
-#define STORAGE_SIZE 10000
-#define SAMPLE_TYPE float
-#define NUM_CHANNELS 5
+
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;//INTERLEAVED
 //API: NOTCONST void* const* buffers: target
 //size_t Speczilla::ARAAudioSource::read(void * buffers[], size_t offset, size_t samplesPerChannel)
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;//INTERLEAVED
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;//INTERLEAVED
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:

@@ -21,9 +21,9 @@ using namespace std::chrono;
 int main(){
     BLINK_T channelBuffers32{};
     //initialise channel of sample to its channel number
-    for (std::size_t i = 0; i < std::size(channelBuffers32); i++)
-        for (std::size_t j = 0; j < std::size(channelBuffers32[i]); j++)
-            channelBuffers32[i][j].channels[0] = BLINK_T::value_type::value_type::sample_type(i);
+    for (std::size_t i = 0; i < std::tuple_size<BLINK_T>{}; i++)
+        for (std::size_t j = 0; j < std::tuple_size<RING_BUFFER::value_type>{}; j++)
+            channelBuffers32[i][j].channels[0] = RING_BUFFER::value_type::value_type::sample_type(i);
     Functor functor{};
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;

@@ -1,3 +1,7 @@
+#define SAMPLE_TYPE float
+#define NUM_CHANNELS 5
+#define STORAGE_SIZE 10000
+#define BLOCK_SIZE 1000
 #include "MemoryController.cpp"
 
 class Functor {
@@ -26,7 +30,7 @@ int main(){
     const std::size_t ara_offset=6992;
     BLOCK randomread{};
     //initialize entire block to zero on all channels
-    for (std::size_t i = 0; i < std::size(randomread); i++)
+    for (std::size_t i = 0; i < std::tuple_size<BLOCK>{}; i++)
         for (std::size_t j = 0; j < BLOCK::value_type::num_channels; j++)
             randomread[i].channels[j] = BLOCK::value_type::sample_type(0);
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
