@@ -4,12 +4,12 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
-#include "Sample.cpp"
 #include <chrono>
 
 using namespace std::chrono;
 
-using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,std::size_t>,4>;//333 * sample * 32768 => Stack Maximum
+#include "Sample.cpp"
+using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK+1>,std::size_t>,4>;//333 * sample * 32768 => Stack Maximum
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;//INTERLEAVED
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
