@@ -24,7 +24,11 @@ using namespace std::chrono;
 
 int main(){
     const std::size_t ara_offset=6992;
-    BLOCK randomread{{{0},{0},{0},{0},{0}}};
+    BLOCK randomread{};
+    //initialize entire block to zero on all channels
+    for (std::size_t i = 0; i < std::size(randomread); i++)
+        for (std::size_t j = 0; j < BLOCK::value_type::num_channels; j++)
+            randomread[i].channels[j] = BLOCK::value_type::sample_type(0);
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Writer writing "<<STORAGE_SIZE<<" times from start at rate 1/ms..." << std::endl;
     Functor functor{readerBus};

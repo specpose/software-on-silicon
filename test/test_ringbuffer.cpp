@@ -19,14 +19,11 @@ class Functor {
 using namespace std::chrono;
 
 int main(){
-    //const SAMPLE_TYPE channel_first[9]={0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0};
-    //const SAMPLE_TYPE* channel_ptrs[1] = {channel_first};
-    //const SAMPLE_TYPE** channelBuffers32 = static_cast<const SAMPLE_TYPE**>(channel_ptrs);
-    //notconst Sample32(=float) **   channelBuffers32
-    //std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK> sample{{{0}}};
-    RING_BUFFER::value_type sample{{{0}}};
-    BLINK_T channelBuffers32{RING_BUFFER::value_type{{{0}}},RING_BUFFER::value_type{{{1}}},RING_BUFFER::value_type{{{2}}},RING_BUFFER::value_type{{{3}}},RING_BUFFER::value_type{{{4}}},RING_BUFFER::value_type{{{5}}},RING_BUFFER::value_type{{{6}}},RING_BUFFER::value_type{{{7}}},RING_BUFFER::value_type{{{8}}}};
-    //BLINK_T channelBuffers32{{{{0}}},{{{1}}},{{{2}}},{{{3}}},{{{4}}},{{{5}}},{{{6}}},{{{7}}},{{{8}}}};
+    BLINK_T channelBuffers32{};
+    //initialise channel of sample to its channel number
+    for (std::size_t i = 0; i < std::size(channelBuffers32); i++)
+        for (std::size_t j = 0; j < std::size(channelBuffers32[i]); j++)
+            channelBuffers32[i][j].channels[0] = BLINK_T::value_type::value_type::sample_type(i);
     Functor functor{};
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;

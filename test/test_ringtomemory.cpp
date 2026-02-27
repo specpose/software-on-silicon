@@ -98,7 +98,11 @@ int main (){
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
     Functor2 functor2{readerBus};
-    BLOCK buffers{{{0},{0},{0},{0},{0}}};
+    BLOCK buffers{};
+    //initialize entire block to zero on all channels
+    for (std::size_t i = 0; i < std::size(buffers); i++)
+        for (std::size_t j = 0; j < BLOCK::value_type::num_channels; j++)
+            buffers[i].channels[j] = BLOCK::value_type::sample_type(0);
     functor2.asyncRead(buffers, ara_offset);
 
     std::cout << "Writer writing 9990 times (10s) from start at rate 1/ms..." << std::endl;
