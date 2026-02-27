@@ -1,8 +1,8 @@
-using SAMPLE_SIZE = short;
+#define SAMPLE_TYPE short
 #include "software-on-silicon/alsa_helpers.hpp"
 #include <vector>
 
-#define MAX_READ 4
+#define MAX_BLINK 4
 #if INTEL
 #define BLOCK_SIZE 480000
 #else
@@ -37,7 +37,7 @@ using SAMPLE_SIZE = short;
     return std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*>{handle, params};
 }*/
 
-using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_SIZE,NUM_CHANNELS>,BLOCK_SIZE>>;
+using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,BLOCK_SIZE>>;
 
 void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t total_frames) {
     std::size_t frames_read = 0;
@@ -51,16 +51,16 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
             audio_data[frames_read][1]=0xFF;
             read = 2;
         }
-        else if (frames_read==total_frames-MAX_READ && end){
+        else if (frames_read==total_frames-MAX_BLINK && end){
             end = false;
-            audio_data[frames_read+MAX_READ-1][0]=0xFF;
-            audio_data[frames_read+MAX_READ-1][1]=0xFF;
+            audio_data[frames_read+MAX_BLINK-1][0]=0xFF;
+            audio_data[frames_read+MAX_BLINK-1][1]=0xFF;
             read = 2;
         }
         else {
-            read = rc(snd_pcm_readi(handle, &audio_data[frames_read][0], MAX_READ));
+            read = rc(snd_pcm_readi(handle, &audio_data[frames_read][0], MAX_BLINK));
         }
-        if (read==MAX_READ) {
+        if (read==MAX_BLINK) {
             frames_read += read;
         } else {
             //fprintf(stderr, "PROGRAM ERROR: no read");
@@ -70,7 +70,7 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
 }
 
 int main(){
-    static_assert(BLOCK_SIZE%MAX_READ==0);
+    static_assert(BLOCK_SIZE%MAX_BLINK==0);
     const int seconds = 10;
     assert((rate*seconds)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
@@ -79,7 +79,7 @@ int main(){
     for (std::size_t i=0;i<BLOCK_SIZE;i++){
         buffer[0][i]=sample;
     }
-    snd_pcm_uframes_t period_size = MAX_READ;
+    snd_pcm_uframes_t period_size = MAX_BLINK;
 
     auto driver = init(rate, &period_size, SND_PCM_ACCESS_RW_INTERLEAVED, true);
     recording_loop(std::get<0>(driver), buffer[0], BLOCK_SIZE);

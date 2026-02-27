@@ -91,20 +91,40 @@ void destroy_poll(std::tuple<pollfd*,int> poll){
         free(std::get<0>(poll));
 }
 
-std::array<std::tuple<SAMPLE_SIZE*,std::size_t>,NUM_CHANNELS> check_interleaved(const snd_pcm_channel_area_t* areas){
-    std::array<std::tuple<SAMPLE_SIZE*,std::size_t>,NUM_CHANNELS> channel_config{{{nullptr,0}}};
+std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> check_interleaved(const snd_pcm_channel_area_t* areas){
+    std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> channel_config{{{nullptr,0}}};
     for (std::size_t i = 0; i < NUM_CHANNELS; i++) {
-        if (areas[i].first != i * sizeof(SAMPLE_SIZE) * 8){
+        if (areas[i].first != i * sizeof(SAMPLE_TYPE) * 8){
             fprintf(stderr,"PROGRAM ERROR: channel offset of %d bits is not according to interleaved mode.\n", areas[i].first);
             abort();
         }
-        if ((areas[i].step / (NUM_CHANNELS*sizeof(SAMPLE_SIZE)*8) ) != 1){
+        if ((areas[i].step / (NUM_CHANNELS*sizeof(SAMPLE_TYPE)*8) ) != 1){
             fprintf(stderr,"PROGRAM ERROR: step size of %d bits is not for interleaved mode.\n", areas[i].step);
             abort();
         }
-        channel_config[i] = std::tuple<SAMPLE_SIZE*,std::size_t>{
-            (SAMPLE_SIZE*)areas[i].addr+i,
+        channel_config[i] = std::tuple<SAMPLE_TYPE*,std::size_t>{
+            (SAMPLE_TYPE*)areas[i].addr+i,
             NUM_CHANNELS
+        };
+    }
+    return channel_config;
+}
+
+std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> check_noninterleaved(const snd_pcm_channel_area_t* areas){
+    std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> channel_config{{{nullptr,0}}};
+    const auto previous = areas[0].first;
+    for (std::size_t i = 0; i < NUM_CHANNELS; i++) {
+        if (areas[i].first % (sizeof(SAMPLE_TYPE)*8) != 0 | areas[i].first != previous){
+            fprintf(stderr,"PROGRAM ERROR: channel offset of %d bits is not according to noninterleaved mode.\n", areas[i].first);
+            abort();
+        }
+        if ((areas[i].step / (sizeof(SAMPLE_TYPE)*8) ) != 1){
+            fprintf(stderr,"PROGRAM ERROR: step size of %d bits is not for noninterleaved mode.\n", areas[i].step);
+            abort();
+        }
+        channel_config[i] = std::tuple<SAMPLE_TYPE*,std::size_t>{
+            (SAMPLE_TYPE*)areas[i].addr+areas[i].first/(sizeof(SAMPLE_TYPE)*8),
+            1
         };
     }
     return channel_config;

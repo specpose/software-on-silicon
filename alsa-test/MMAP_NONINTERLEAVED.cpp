@@ -1,10 +1,10 @@
-using SAMPLE_SIZE = short;
+#define SAMPLE_TYPE short
 #include "software-on-silicon/alsa_helpers.hpp"
 #include <chrono>
 #include <thread>
 #include <vector>
 
-#define MAX_READ 8
+#define MAX_BLINK 8
 #if INTEL
 #define BLOCK_SIZE 480000
 #else
@@ -39,27 +39,7 @@ using SAMPLE_SIZE = short;
     return std::tuple<snd_pcm_t*,snd_pcm_hw_params_t*>{handle, params};
 }*/
 
-std::array<std::tuple<SAMPLE_SIZE*,std::size_t>,NUM_CHANNELS> check_noninterleaved(const snd_pcm_channel_area_t* areas){
-    std::array<std::tuple<SAMPLE_SIZE*,std::size_t>,NUM_CHANNELS> channel_config{{{nullptr,0}}};
-    const auto previous = areas[0].first;
-    for (std::size_t i = 0; i < NUM_CHANNELS; i++) {
-        if (areas[i].first % (sizeof(SAMPLE_SIZE)*8) != 0 | areas[i].first != previous){
-            fprintf(stderr,"PROGRAM ERROR: channel offset of %d bits is not according to noninterleaved mode.\n", areas[i].first);
-            abort();
-        }
-        if ((areas[i].step / (sizeof(SAMPLE_SIZE)*8) ) != 1){
-            fprintf(stderr,"PROGRAM ERROR: step size of %d bits is not for noninterleaved mode.\n", areas[i].step);
-            abort();
-        }
-        channel_config[i] = std::tuple<SAMPLE_SIZE*,std::size_t>{
-            (SAMPLE_SIZE*)areas[i].addr+areas[i].first/(sizeof(SAMPLE_SIZE)*8),
-            1
-        };
-    }
-    return channel_config;
-}
-
-using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_SIZE,NUM_CHANNELS>,BLOCK_SIZE>>;
+using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,BLOCK_SIZE>>;
 
 void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t total_frames) {
     const snd_pcm_channel_area_t* areas = nullptr;
@@ -83,7 +63,7 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
         // 1. Update the local view of available buffer space
         avail = snd_pcm_avail_update(handle);//not hardware synced
         //avail = snd_pcm_avail(handle);
-        if (avail < MAX_READ) {
+        if (avail < MAX_BLINK) {
             if (avail < 0) {
                 // 2. Handle errors like -EPIPE (underrun)
                 rc(avail);
@@ -93,7 +73,7 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
             //std::this_thread::sleep_for(std::chrono::milliseconds{39});//37 to 38ms
             continue;
         }
-        snd_pcm_uframes_t chunk = MAX_READ;
+        snd_pcm_uframes_t chunk = MAX_BLINK;
         while (chunk>0) {
             frames = chunk;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
@@ -112,12 +92,12 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
                 rc(commitres >= 0 ? -EPIPE : commitres);
             chunk -= frames;
         }
-        frames_read += MAX_READ;
+        frames_read += MAX_BLINK;
     }
 }
 
 int main(){
-    static_assert(BLOCK_SIZE%MAX_READ==0);
+    static_assert(BLOCK_SIZE%MAX_BLINK==0);
     const int seconds = 10;
     assert((NUM_CHANNELS*rate*seconds)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
