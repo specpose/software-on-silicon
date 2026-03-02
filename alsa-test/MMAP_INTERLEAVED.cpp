@@ -5,9 +5,11 @@
 #include <vector>
 
 #if INTEL
-#define MAX_BLINK 32 //<8192
+#define MAX_READ 32 //<8192
+#define MAX_BLINK 1
 #else
-#define MAX_BLINK 8 //<8192
+#define MAX_READ 8 //<8192
+#define MAX_BLINK 1
 #endif
 #if INTEL
 #define BLOCK_SIZE 480000
@@ -27,7 +29,7 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
 
     while (frames_read < total_frames) {
         avail = snd_pcm_avail(handle);
-        if (avail < MAX_BLINK) {
+        if (avail < MAX_READ) {
             if (avail < 0) {
                 // 2. Handle errors like -EPIPE (underrun)
                 rc(avail);
@@ -37,10 +39,11 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
             //std::this_thread::sleep_for(std::chrono::milliseconds{39});//37 to 38ms
             continue;
         }
-        snd_pcm_uframes_t chunk = MAX_BLINK;
+        snd_pcm_uframes_t chunk = MAX_BLINK * MAX_READ;
         while (chunk>0) {
-            frames = chunk;
+            frames = MAX_READ;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
+            if (frames<=chunk){
             if (areas){
                 const auto channel_config = check_interleaved(areas);
                 for (std::size_t j=0; j<NUM_CHANNELS;j++){
@@ -55,13 +58,17 @@ void recording_loop(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std:
             if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
                 rc(read >= 0 ? -EPIPE : read);
             chunk -= frames;
+            } else {
+                fprintf(stderr, "PROGRAM ERROR: read %d", frames);
+                abort();
+            }
         }
-        frames_read += MAX_BLINK;
+        frames_read += MAX_BLINK * MAX_READ;
     }
 }
 
 int main(){
-    static_assert(BLOCK_SIZE%MAX_BLINK==0);
+    static_assert(BLOCK_SIZE%(MAX_BLINK*MAX_READ)==0);
     const int seconds = 10;
     assert((NUM_CHANNELS*rate*seconds)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
@@ -70,7 +77,7 @@ int main(){
     for (std::size_t i=0;i<BLOCK_SIZE;i++){
         buffer[0][i]=sample;
     }
-    snd_pcm_uframes_t period_size = MAX_BLINK;
+    snd_pcm_uframes_t period_size = MAX_READ;
 
     auto driver = init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
     start_pcm(std::get<0>(driver));

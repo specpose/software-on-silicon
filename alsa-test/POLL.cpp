@@ -6,9 +6,9 @@
 //#include <poll.h>
 
 #if INTEL
-#define MAX_BLINK 32 //<8192
+#define MAX_READ 32 //<8192
 #else
-#define MAX_BLINK 8 //<8192
+#define MAX_READ 8 //<8192
 #endif
 #if INTEL
 #define BLOCK_SIZE 48000
@@ -39,9 +39,10 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
         }
         if (revents & POLLIN){
             auto avail = rc(snd_pcm_avail(handle));
-            if (avail >= MAX_BLINK) {
-                frames = MAX_BLINK;
+            if (avail >= MAX_READ) {
+                frames = MAX_READ;
                 rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
+                if (frames<=chunk) {
                 if (areas){
                     const auto channel_config = check_interleaved(areas);
                     for (std::size_t j=0; j<NUM_CHANNELS;j++){
@@ -62,11 +63,15 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
                     fprintf(stderr, "PROGRAM ERROR: mmap read count is %d\n", read);
                     abort();
                     read = 0;
-                } else if (read != MAX_BLINK){
-                    fprintf(stderr, "PROGRAM ERROR: frames dropped %d\n", MAX_BLINK - read);
+                } else if (read != MAX_READ){
+                    fprintf(stderr, "PROGRAM ERROR: frames dropped %d\n", MAX_READ - read);
                     abort();
                 }
-                chunk -= read;
+                chunk -= frames;
+                } else {
+                    fprintf(stderr, "PROGRAM ERROR: read %d", frames);
+                    abort();
+                }
             }
             max = max < avail ? avail : max;
         }
@@ -76,7 +81,7 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
 }
 
 int main(){
-    static_assert(BLOCK_SIZE%MAX_BLINK==0);
+    static_assert(BLOCK_SIZE%MAX_READ==0);
     assert((NUM_CHANNELS*rate)%BLOCK_SIZE==0);
     auto buffer = RING_BUFFER{};
     const int seconds = 10;
@@ -89,7 +94,7 @@ int main(){
             }
     }
     std::size_t ringbuffer_index = 0;
-    snd_pcm_uframes_t period_size = MAX_BLINK;//NUM_CHANNELS * 27;//notification interval
+    snd_pcm_uframes_t period_size = MAX_READ;//NUM_CHANNELS * 27;//notification interval
 
     std::size_t frames_read = 0;
     snd_pcm_uframes_t max = 0;
