@@ -55,7 +55,7 @@ namespace SOS {
                     }
                 }
             }
-            virtual void transfer(typename RingBufferType::value_type& character)=0;
+            virtual void transfer(const typename RingBufferType::value_type& character)=0;
             cable_type& _item;
             const_cable_type& _bounds;
         };

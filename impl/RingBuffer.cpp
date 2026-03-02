@@ -6,7 +6,7 @@
 #include "Sample.cpp"
 #define SAMPLE_TYPE float
 #define MAX_BLINK 1
-using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;//INTERLEAVED
+using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;
 
 using namespace SOS::MemoryView;
 
@@ -16,7 +16,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> 
     using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
     RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
     private:
-    virtual void transfer(RING_BUFFER::value_type& character) final {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
+    virtual void transfer(const RING_BUFFER::value_type& character) final {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
 };
 class RingBufferImpl : public SOS::Behavior::SimpleDummy<>, private RingBufferTaskImpl {
     public:

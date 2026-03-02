@@ -103,7 +103,6 @@ namespace SOS {
             using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
-            //needs _blocked.signal.getNotifyRef()
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             virtual void read()=0;
@@ -160,6 +159,7 @@ namespace SOS {
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
             WriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.cables).getBKStartRef().load()) {
                 _blocker.signal.getWritingRef().test_and_set();
+                _blocker.signal.getResizingRef().test_and_set();
             };
             protected:
             virtual void write(const typename MemoryControllerType::value_type& character) {

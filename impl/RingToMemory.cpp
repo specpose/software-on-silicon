@@ -4,6 +4,7 @@
 #include "software-on-silicon/RingBuffer.hpp"
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/MemoryController.hpp"
+#include <vector>
 #include <chrono>
 
 using namespace std::chrono;
@@ -11,7 +12,7 @@ using namespace std::chrono;
 #include "Sample.cpp"
 using BLINK_T = std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
 using RING_BUFFER=std::array<BLINK_T,2>;
-using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;//INTERLEAVED
+using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 //main branch: Copy Start from MemoryController.cpp
@@ -95,7 +96,6 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         ara_sampleCount = std::size(memorycontroller);
     };
     MEMORY_CONTROLLER::difference_type ara_sampleCount;
-    //not inherited: overload
     protected:
     virtual void write(const RING_BUFFER::value_type& character) final {
         const auto now = high_resolution_clock::now();
@@ -126,7 +126,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     private:
     //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
-    virtual void transfer(RING_BUFFER::value_type& character) final {
+    virtual void transfer(const RING_BUFFER::value_type& character) final {
         WriteTaskImpl::write(character);
     }
 };

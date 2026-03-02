@@ -1,7 +1,7 @@
-#define SAMPLE_RATE 1000
 #define MAX_BLINK 333
 #define BLOCK_SIZE 1000
 #define SAMPLE_TYPE float
+#define SAMPLE_RATE 1000
 #define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
@@ -11,7 +11,7 @@
 //Helper classes
 class Functor1 {
     public:
-    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), buffer(RingBufferImpl{ringbufferbus,_readerBus}) {
+    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), buffer(ringbufferbus,_readerBus) {
         std::fill(std::begin(blink),std::end(blink),BLINK_T::value_type{{2}});
         std::fill(std::begin(noblink),std::end(noblink),BLINK_T::value_type{{1}});
         _thread = std::thread{std::mem_fn(&Functor1::test_loop),this};
@@ -25,7 +25,6 @@ class Functor1 {
     }
     void test_loop(){
         auto loopstart = high_resolution_clock::now();
-        //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
             const auto now = high_resolution_clock::now();
             if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count() > std::tuple_size<BLINK_T>{} ) {
@@ -47,9 +46,6 @@ class Functor1 {
             }
             std::this_thread::yield();
         }
-        //} catch (std::exception& e) {
-        //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
-        //}
     }
     MEMORY_CONTROLLER::difference_type ara_sampleCount() {
         return buffer.ara_sampleCount;
@@ -63,12 +59,9 @@ class Functor1 {
 
     RING_BUFFER hostmemory = RING_BUFFER{{{0}}};//offset
     SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
-    //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
-    //=>Piecewriter needs readerimpl running
     RingBufferImpl buffer;
 
     unsigned int count = 0;
-    //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
 class Functor2 {

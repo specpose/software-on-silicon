@@ -7,8 +7,8 @@
 #include <chrono>
 
 #include "Sample.cpp"
-using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;//INTERLEAVED
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
@@ -69,7 +69,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     }
     ~WriteTaskImpl(){}
     protected:
-    virtual void write(MEMORY_CONTROLLER::value_type& character) final {
+    virtual void write(const MEMORY_CONTROLLER::value_type& character) final {
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
     }
 };

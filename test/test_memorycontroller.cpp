@@ -1,12 +1,12 @@
-#define SAMPLE_TYPE float
-#define NUM_CHANNELS 5
 #define STORAGE_SIZE 10000
 #define BLOCK_SIZE 1000
+#define SAMPLE_TYPE float
+#define NUM_CHANNELS 5
 #include "MemoryController.cpp"
 
 class Functor {
     public:
-    Functor(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), controller(readerBus) {}
+    Functor(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), controller(_readerBus) {}
     void asyncRead(BLOCK& buffer, const std::size_t offset){
         _readerBus.setReadBuffer(buffer);
         _readerBus.setOffset(offset);//FIFO has to be called before each getUpdatedRef().clear();
@@ -43,11 +43,11 @@ int main(){
     auto start_tp = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
         if (functor() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_tp).count() > 0)) {
-            start_tp = high_resolution_clock::now();
-            for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
-                std::cout<< randomread[i].channels[4];
-            std::cout<<std::endl;
-            functor.asyncRead(randomread,ara_offset);
+        start_tp = high_resolution_clock::now();
+        for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
+            std::cout<< randomread[i].channels[4];
+        std::cout<<std::endl;
+        functor.asyncRead(randomread,ara_offset);
         }
         std::this_thread::yield();
     }

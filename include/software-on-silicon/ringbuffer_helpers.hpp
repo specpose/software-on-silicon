@@ -5,7 +5,6 @@ template<typename Target, typename InputBlock> void WriteInterleaved(SOS::Memory
     //std::cout<<"=";
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             //write directly to HOSTmemory
-            std::cout<<"write directly to HOSTmemory "<<std::tuple_size<InputBlock>{}<<std::endl;
             for (std::size_t sample=0;sample<std::tuple_size<InputBlock>{};sample++)
                 (*current)[sample]=buffer[sample];
             ++current;
@@ -15,7 +14,6 @@ template<typename Target, typename InputBlock> void WriteInterleaved(SOS::Memory
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
-            std::cout<<"write directly to HOSTmemory "<<std::tuple_size<InputBlock>{}<<std::endl;
             for (std::size_t sample=0;sample<std::tuple_size<InputBlock>{};sample++)
                 (*current)[sample]=buffer[sample];
             //current invalid => do not advance
