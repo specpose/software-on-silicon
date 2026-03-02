@@ -47,9 +47,6 @@ class Functor1 {
             std::this_thread::yield();
         }
     }
-    MEMORY_CONTROLLER::difference_type ara_sampleCount() {
-        return buffer.ara_sampleCount;
-    }
     private:
     std::chrono::time_point<high_resolution_clock> last = high_resolution_clock::now();
     BLINK_T blink{};
@@ -98,13 +95,13 @@ int main (){
     Functor2 functor2{readerBus};
     BLOCK buffers{};
     //initialize entire block to zero on all channels
-    for (std::size_t i = 0; i < std::size(buffers); i++)
+    for (std::size_t i = 0; i < std::tuple_size<BLOCK>{}; i++)
         for (std::size_t j = 0; j < BLOCK::value_type::num_channels; j++)
             buffers[i].channels[j] = BLOCK::value_type::sample_type(0);
     functor2.asyncRead(buffers, ara_offset);
 
     std::cout << "Writer writing (10s) from start at rate 1/ms..." << std::endl;
-    auto functor1 = Functor1(readerBus);
+    Functor1 functor1{readerBus};
 
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;

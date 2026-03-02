@@ -70,8 +70,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
 };
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
-    ara_sampleCount(0) {
+    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
         resize(old_reserve);
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
@@ -93,9 +92,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
         std::get<0>(_blocker.cables).getBKEndRef().store(std::end(memorycontroller));
         _blocker.signal.getResizingRef().test_and_set();//not needed
-        ara_sampleCount = std::size(memorycontroller);
     };
-    MEMORY_CONTROLLER::difference_type ara_sampleCount;
     protected:
     virtual void write(const RING_BUFFER::value_type& character) final {
         const auto now = high_resolution_clock::now();
@@ -104,12 +101,12 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
             resize(old_reserve);
             last = now;
         }
-        grow(std::size(character));
-        if ( std::distance(writerPos,std::end(memorycontroller)) < std::size(character) )
+        grow(std::tuple_size<RING_BUFFER::value_type>{});
+        if ( std::distance(writerPos,std::end(memorycontroller)) < std::tuple_size<RING_BUFFER::value_type>{} )
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
         std::cout<<"Offset: "<<std::distance(std::begin(memorycontroller),writerPos)<<std::endl;
         std::cout<<"BKLength size: "<< std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<<std::endl;
-        for(std::size_t i=0;i<std::size(character);i++){
+        for(std::size_t i=0;i<std::tuple_size<RING_BUFFER::value_type>{};i++){
             SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character[i]);
         }
     }
