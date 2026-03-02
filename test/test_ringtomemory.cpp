@@ -1,10 +1,17 @@
+#define MAX_BLINK 1
+#define STORAGE_SIZE 10000
+#define BLOCK_SIZE 1000
+#define SAMPLE_TYPE char
+#define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
+
+#define TOTAL_TIME 9
 
 //Helper classes
 class Functor1 {
     public:
-    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus){
+    Functor1(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus), buffer(ringbufferbus,_readerBus) {
         _thread = std::thread{std::mem_fn(&Functor1::operator()),this};
     }
     ~Functor1(){
@@ -13,9 +20,10 @@ class Functor1 {
     }
     void operator()(){
         auto loopstart = high_resolution_clock::now();
-        //try {
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<4) {
-            const auto beginning = high_resolution_clock::now();
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
+            const auto now = high_resolution_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count() > std::tuple_size<BLINK_T>{} ) {
+            last = now;
             RING_BUFFER::value_type blink{};
             switch(count){
                 case 0:
@@ -24,38 +32,30 @@ class Functor1 {
                     break;
                 case 1:
                     blink={'_'};
-                    count++;
-                    break;
-                case 2:
-                    blink={'_'};
                     count=0;
                     break;
             }
-            for (std::size_t i=0;i<std::tuple_size<RING_BUFFER>{}-1;i++)
-                WriteInterleaved<decltype(hostmemory)>(ringbufferbus,blink);
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{std::tuple_size<RING_BUFFER>{}-1}));
+            WriteInterleaved<decltype(hostmemory)>(ringbufferbus,blink);
+            std::this_thread::yield();
+            }
         }
-        //} catch (std::exception& e) {
-        //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
-        //}
     }
     private:
+    std::chrono::time_point<high_resolution_clock> last = high_resolution_clock::now();
+
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
     RING_BUFFER hostmemory = RING_BUFFER{{0}};
     SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
-    //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
-    //=>Piecewriter needs readerimpl running
-    RingBufferImpl buffer{ringbufferbus,_readerBus};
+    RingBufferImpl buffer;
 
     unsigned int count = 0;
-    //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
 class Functor2 {
     public:
     Functor2(const std::size_t readOffset=0) : _readOffset(readOffset) {
-        readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+        readerBus.setOffset(_readOffset);
         readerBus.signal.getUpdatedRef().clear();
         _thread = std::thread{std::mem_fn(&Functor2::operator()),this};
     }
@@ -64,7 +64,7 @@ class Functor2 {
     }
     void operator()() {
         auto loopstart = high_resolution_clock::now();
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<5) {
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
         const auto beginning = high_resolution_clock::now();
         if(!readerBus.signal.getAcknowledgeRef().test_and_set()){
             readerBus.signal.getUpdatedRef().clear();//offset change omitted

@@ -9,11 +9,10 @@
 using namespace std::chrono;
 
 #include "Sample.cpp"
-#define SAMPLE_TYPE char
-#define NUM_CHANNELS 1
-using RING_BUFFER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,334>;//INTERLEAVED
-using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,10000>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;
+using BLINK_T=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
+using RING_BUFFER=std::array<BLINK_T,334>;
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 //main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
@@ -66,12 +65,15 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill(MEMORY_CONTROLLER::value_type{'-'});
+        _blocker.signal.getWritingRef().clear();
+        std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
+        _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
     protected:
-    virtual void write(RING_BUFFER::value_type& character) final {
-        SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
+    virtual void write(const RING_BUFFER::value_type& character) final {
+        for(std::size_t i=0;i<std::tuple_size<RING_BUFFER::value_type>{};i++)
+            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character[i]);
     }
 };
 //multiple inheritance: destruction order
@@ -83,7 +85,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
     private:
     //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
-    virtual void transfer(RING_BUFFER::value_type& character) final {
+    virtual void transfer(const RING_BUFFER::value_type& character) final {
         WriteTaskImpl::write(character);
     }
 };

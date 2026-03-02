@@ -100,7 +100,6 @@ namespace SOS {
             using reader_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::const_cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::const_cables_type>::type;
-            //only use cables in Tasks
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
             protected:
             virtual void read()=0;
@@ -150,11 +149,11 @@ namespace SOS {
         template<typename MemoryControllerType> class WriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask() : memorycontroller{}, _blocker(memorycontroller.begin(),memorycontroller.end()), writerPos(std::get<0>(_blocker.const_cables).getBKStartRef()) {
+            WriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.const_cables).getBKStartRef()) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
-            virtual void write(typename MemoryControllerType::value_type& character) {
+            virtual void write(const typename MemoryControllerType::value_type& character) {
                 _blocker.signal.getWritingRef().clear();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
                     *writerPos=character;

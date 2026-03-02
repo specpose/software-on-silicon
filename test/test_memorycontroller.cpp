@@ -1,9 +1,13 @@
+#define STORAGE_SIZE 10000
+#define BLOCK_SIZE 1000
+#define SAMPLE_TYPE char
+#define NUM_CHANNELS 1
 #include "MemoryController.cpp"
 
 class Functor {
     public:
-    Functor(const std::size_t readOffset=0) : _readOffset(readOffset) {
-        _readerBus.setOffset(_readOffset);//FIFO has to be called before each getUpdatedRef().clear()
+    Functor(const std::size_t readOffset=0) : _readOffset(readOffset), randomread(), _readerBus(randomread.begin(),randomread.end()), controller(_readerBus) {
+        _readerBus.setOffset(_readOffset);
         _readerBus.signal.getUpdatedRef().clear();
     }
     void operator()(){
@@ -17,9 +21,9 @@ class Functor {
     }
     private:
     const std::size_t _readOffset;
-    BLOCK randomread{};
-    SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus{randomread.begin(),randomread.end()};
-    WritePriorityImpl controller{_readerBus};
+    BLOCK randomread;
+    SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus;
+    WritePriorityImpl controller;
 };
 
 using namespace std::chrono;
@@ -29,9 +33,12 @@ int main(){
     Functor functor(6992);
     std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
     auto loopstart = high_resolution_clock::now();
+    auto start_tp = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
-        const auto start_tp = high_resolution_clock::now();
+        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_tp).count() > 0) {
+        start_tp = high_resolution_clock::now();
         functor();
-        std::this_thread::sleep_until(start_tp + duration_cast<high_resolution_clock::duration>(seconds{1}));
+        }
+        std::this_thread::yield();
     }
 }

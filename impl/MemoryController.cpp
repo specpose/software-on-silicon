@@ -7,11 +7,8 @@
 #include <chrono>
 
 #include "Sample.cpp"
-#define STORAGE_SIZE 10000
-#define SAMPLE_TYPE char
-#define NUM_CHANNELS 1
-using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;//INTERLEAVED
-using BLOCK=std::array<MEMORY_CONTROLLER::value_type,1000>;//INTERLEAVED
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
+using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
@@ -62,11 +59,13 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
 class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
-        this->memorycontroller.fill(MEMORY_CONTROLLER::value_type{'-'});
+        _blocker.signal.getWritingRef().clear();
+        std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
+        _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
     protected:
-    virtual void write(MEMORY_CONTROLLER::value_type& character) final {
+    virtual void write(const MEMORY_CONTROLLER::value_type& character) final {
         SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
     }
 };
