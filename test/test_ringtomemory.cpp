@@ -8,8 +8,6 @@
 
 #define TOTAL_TIME 9
 
-using BLINK_T = std::array<std::tuple_element<0,RING_BUFFER::value_type>::type,1>;
-
 //Helper classes
 class Functor1 {
     public:
@@ -22,33 +20,32 @@ class Functor1 {
         _thread.join();
         //_readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
-    void operator()(BLINK_T& channel_ptrs, const std::size_t actualSamplePosition){
-        for (std::size_t i=0; i<std::tuple_size<BLINK_T>{}; i++)
-            WriteInterleaved<decltype(hostmemory),BLINK_T::value_type>(ringbufferbus,channel_ptrs[i], actualSamplePosition);
+    void operator()(const BLINK_T& channel_ptrs){
+        WriteInterleaved<decltype(hostmemory),BLINK_T>(ringbufferbus,channel_ptrs);
     }
     void test_loop(){
-        std::size_t actualSamplePosition = 0;
-        const std::size_t numSamples = 333*SAMPLE_RATE/1000;//std::tuple_size<BLINK_T>{}
         auto loopstart = high_resolution_clock::now();
         //try {
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
-            const auto beginning = high_resolution_clock::now();
+            const auto now = high_resolution_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count() > std::tuple_size<BLINK_T>{} ) {
+            last = now;
             switch(count){
                 case 0:
-                    operator()(blink,actualSamplePosition);//lock free write
+                    operator()(blink);//lock free write
                     count++;
                     break;
                 case 1:
-                    operator()(noblink,actualSamplePosition);//lock free write
+                    operator()(noblink);//lock free write
                     count++;
                     break;
                 case 2:
-                    operator()(noblink,actualSamplePosition);//lock free write
+                    operator()(noblink);//lock free write
                     count=0;
                     break;
             }
-            actualSamplePosition += std::tuple_size<BLINK_T>{};//vst actualSamplePosition
-            std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1}));
+            }
+            std::this_thread::yield();
         }
         //} catch (std::exception& e) {
         //std::cout<<std::endl<<"RingBuffer Shutdown"<<std::endl;
@@ -58,12 +55,13 @@ class Functor1 {
         return buffer.ara_sampleCount;
     }
     private:
+    std::chrono::time_point<high_resolution_clock> last = high_resolution_clock::now();
     BLINK_T blink{};
     BLINK_T noblink{};
 
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
-    RING_BUFFER hostmemory = RING_BUFFER{{{{0},0}}};//offset
+    RING_BUFFER hostmemory = RING_BUFFER{{{0}}};//offset
     SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     //if RingBufferImpl<ReaderImpl> shuts down too early, Piecewriter is catching up
     //=>Piecewriter needs readerimpl running
@@ -100,7 +98,7 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t ara_offset = 2996*SAMPLE_RATE/1000;
+    const std::size_t ara_offset = 2996*SAMPLE_RATE/1000;//2996
 
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;

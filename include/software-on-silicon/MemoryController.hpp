@@ -36,15 +36,16 @@ namespace SOS {
             auto& getBKStartRef(){return std::get<0>(*this);}
             auto& getBKEndRef(){return std::get<1>(*this);}
         };
-        class RWNotify : private Pair {
+        class RWResizeNotify : private Notify, public std::array<std::atomic_flag,2> {
         public:
-            using Pair::Pair;
-            auto& getWritingRef(){return getFirstRef();}
-            auto& getReadingRef(){return getSecondRef();}
+            RWResizeNotify() : Notify(), std::array<std::atomic_flag,2>() {}
+            auto& getWritingRef(){ return notify; }
+            auto& getReadingRef(){ return std::get<0>(*this); }
+            auto& getResizingRef(){ return std::get<1>(*this); }
         };
         template<typename MemoryControllerType> struct BlockerBus : public bus <
             bus_notifier_tag,
-            SOS::MemoryView::RWNotify,
+            SOS::MemoryView::RWResizeNotify,
             bus_traits<Bus>::cables_type,
             bus_traits<Bus>::const_cables_type
         >{
@@ -136,12 +137,17 @@ namespace SOS {
             private:
             virtual void read()=0;
             virtual bool wait() {
+                if (!_blocked_signal.getResizingRef().test_and_set()) {
+                    _blocked_signal.getResizingRef().clear();
+                    return true;
+                } else {
                 if (!_blocked_signal.getWritingRef().test_and_set()) {//intermittent wait when write
                     _blocked_signal.getWritingRef().clear();
                     return true;
                 } else {
                     _blocked_signal.getReadingRef().clear();//started individual read
                     return false;
+                }
                 }
             }
             virtual void wait_acknowledge() {
@@ -152,11 +158,15 @@ namespace SOS {
         template<typename MemoryControllerType> class WriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask() : memorycontroller{}, _blocker(memorycontroller.begin(),memorycontroller.end()), writerPos(std::get<0>(_blocker.cables).getBKStartRef().load()) {
+            WriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.cables).getBKStartRef().load()) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
-            virtual void write(typename MemoryControllerType::value_type& character) {
+            virtual void write(const typename MemoryControllerType::value_type& character) {
+                if (!_blocker.signal.getResizingRef().test_and_set()) {
+                    _blocker.signal.getResizingRef().clear();
+                    SFA::util::logic_error(SFA::util::error_code::ResizingDuringWriteOccurred,__FILE__,__func__);
+                } else {
                 _blocker.signal.getWritingRef().clear();
                 if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
                     *writerPos=character;
@@ -165,6 +175,7 @@ namespace SOS {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
                 _blocker.signal.getWritingRef().test_and_set();
+                }
             }
             MemoryControllerType memorycontroller;
             bus_type _blocker;

@@ -9,7 +9,8 @@
 using namespace std::chrono;
 
 #include "Sample.cpp"
-using RING_BUFFER=std::array<std::tuple<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK+1>,std::size_t>,4>;//333 * sample * 32768 => Stack Maximum
+using BLINK_T = std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
+using RING_BUFFER=std::array<BLINK_T,2>;
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;//INTERLEAVED
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
@@ -70,43 +71,51 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     public:
     WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>(),
     ara_sampleCount(0) {
-        memorycontroller.reserve(old_reserve);
+        resize(old_reserve);
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
         _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
-    virtual void resize(MEMORY_CONTROLLER::difference_type newsize){
-        _blocker.signal.getWritingRef().clear();
-        while(memorycontroller.size()<newsize){
+    virtual void resize(std::size_t newsize){
+        _blocker.signal.getResizingRef().clear();
+        const auto offset = std::distance(std::begin(memorycontroller),writerPos);
+        memorycontroller.reserve(newsize);
+        std::get<0>(_blocker.cables).getBKStartRef().store(std::begin(memorycontroller));
+        std::get<0>(_blocker.cables).getBKEndRef().store(std::end(memorycontroller));
+        writerPos = std::begin(memorycontroller) + offset;
+        _blocker.signal.getResizingRef().test_and_set();
+    }
+    virtual void grow(MEMORY_CONTROLLER::difference_type add){
+        _blocker.signal.getResizingRef().clear();//not needed
+        for (std::size_t i = 0; i < add; i++)
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
-        }
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
-        ara_sampleCount = memorycontroller.size();
-        _blocker.signal.getWritingRef().test_and_set();
+        std::get<0>(_blocker.cables).getBKEndRef().store(std::end(memorycontroller));
+        _blocker.signal.getResizingRef().test_and_set();//not needed
+        ara_sampleCount = std::size(memorycontroller);
     };
     MEMORY_CONTROLLER::difference_type ara_sampleCount;
     //not inherited: overload
     protected:
-    virtual void write(RING_BUFFER::value_type& character) final {//takes absolutePosition out of Ringbuffer
+    virtual void write(const RING_BUFFER::value_type& character) final {
         const auto now = high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(last - now).count() > 0) {
-            memorycontroller.reserve(old_reserve+SAMPLE_RATE);
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
+            old_reserve+=SAMPLE_RATE;
+            resize(old_reserve);
             last = now;
         }
-        resize(std::get<1>(character)+std::size(std::get<0>(character)));//offset + length
-        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<
-        std::get<1>(character)+std::size(std::get<0>(character)))
+        grow(std::size(character));
+        if ( std::distance(writerPos,std::end(memorycontroller)) < std::size(character) )
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
-        writerPos = std::get<0>(_blocker.cables).getBKStartRef().load() + std::get<1>(character);
-        for(std::size_t i=0;i<std::size(std::get<0>(character));i++){
-            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(std::get<0>(character)[i]);
+        std::cout<<"Offset: "<<std::distance(std::begin(memorycontroller),writerPos)<<std::endl;
+        std::cout<<"BKLength size: "<< std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<<std::endl;
+        for(std::size_t i=0;i<std::size(character);i++){
+            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character[i]);
         }
     }
     private:
     std::chrono::time_point<std::chrono::high_resolution_clock> last = high_resolution_clock::now();
-    std::size_t old_reserve = SAMPLE_RATE;
+    std::size_t old_reserve = 2 * SAMPLE_RATE;
 };
 //multiple inheritance: destruction order
 class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, public WriteTaskImpl {
