@@ -32,8 +32,8 @@ namespace SOS {
         };
         template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
             using SOS::MemoryView::ConstCable<ArithmeticType,2>::ConstCable;
-            auto& getBKStartRef(){return std::get<0>(*this);}
-            auto& getBKEndRef(){return std::get<1>(*this);}
+            auto& getMCStartRef(){return std::get<0>(*this);}
+            auto& getMCEndRef(){return std::get<1>(*this);}
         };
         class RWNotify : private Pair {
         public:
@@ -146,16 +146,16 @@ namespace SOS {
             }
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
-        template<typename MemoryControllerType> class WriteTask {
+        template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.const_cables).getBKStartRef()) {
+            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.const_cables).getMCStartRef()) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 _blocker.signal.getWritingRef().clear();
-                if (writerPos!=std::get<0>(_blocker.const_cables).getBKEndRef()) {
+                if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
                     *writerPos=character;
                     writerPos++;
                 } else {

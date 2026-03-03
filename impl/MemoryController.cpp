@@ -21,10 +21,10 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
         const auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
-        if (std::distance(_memorycontroller_size.getBKStartRef(),_memorycontroller_size.getBKEndRef())
+        if (std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_size.getMCEndRef())
         <(std::distance(current,end)+readOffset))
             SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
-        auto readerPos = _memorycontroller_size.getBKStartRef()+readOffset;
+        auto readerPos = _memorycontroller_size.getMCStartRef()+readOffset;
         while (current!=end){
             if (!wait()) {
                 *(current++) = *(readerPos++);
@@ -56,9 +56,9 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
         _blocker.signal.getWritingRef().test_and_set();
@@ -66,7 +66,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
     ~WriteTaskImpl(){}
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type& character) final {
-        SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
+        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(character);
     }
 };
 using namespace std::chrono;
