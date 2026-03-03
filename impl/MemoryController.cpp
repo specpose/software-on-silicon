@@ -79,8 +79,6 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
         {
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
             //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
-            //std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.data());
-            //std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.data());
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){

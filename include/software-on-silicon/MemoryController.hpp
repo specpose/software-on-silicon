@@ -164,11 +164,12 @@ namespace SOS {
             };
             protected:
             virtual void block(std::size_t length) final {
-                const std::size_t tmp = std::distance(std::get<0>(_blocker.const_cables).getMCStartRef(),std::get<0>(_blocker.const_cables).getMCEndRef());
+                const std::size_t tmp = std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.const_cables).getMCEndRef());
                 const std::size_t tmp2 = std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load());
-                //std::cout<<"tmp "<<tmp<<", tmp2 "<<tmp2<<", length "<<length<<std::endl;
                 if ( tmp2 + length <= tmp)
                     std::get<0>(_blocker.cables).getBKEndRef().store(std::get<0>(_blocker.cables).getBKEndRef().load()+length);
+                else
+                    SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
             }
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 _blocker.signal.getWritingRef().clear();
