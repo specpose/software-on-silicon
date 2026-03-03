@@ -30,8 +30,8 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                const auto bk_start = _memorycontroller_size.getBKStartRef().load();
-                const auto bk_end = _memorycontroller_size.getBKEndRef().load();
+                const auto bk_start = _memorycontroller_size.getMCStartRef().load();
+                const auto bk_end = _memorycontroller_size.getMCEndRef().load();
                 if (std::distance(start,current) >= std::distance(bk_start,bk_end)-readOffset){
                     //SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                     *(current++) = BLOCK::value_type{{0}};
@@ -68,9 +68,9 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
         resize(old_reserve);
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
@@ -81,8 +81,8 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getResizingRef().clear();
         const auto offset = std::distance(std::begin(memorycontroller),writerPos);
         memorycontroller.reserve(newsize);
-        std::get<0>(_blocker.cables).getBKStartRef().store(std::begin(memorycontroller));
-        std::get<0>(_blocker.cables).getBKEndRef().store(std::end(memorycontroller));
+        std::get<0>(_blocker.cables).getMCStartRef().store(std::begin(memorycontroller));
+        std::get<0>(_blocker.cables).getMCEndRef().store(std::end(memorycontroller));
         writerPos = std::begin(memorycontroller) + offset;
         _blocker.signal.getResizingRef().test_and_set();
     }
@@ -90,7 +90,7 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         _blocker.signal.getResizingRef().clear();//not needed
         for (std::size_t i = 0; i < add; i++)
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
-        std::get<0>(_blocker.cables).getBKEndRef().store(std::end(memorycontroller));
+        std::get<0>(_blocker.cables).getMCEndRef().store(std::end(memorycontroller));
         _blocker.signal.getResizingRef().test_and_set();//not needed
     };
     protected:
@@ -105,10 +105,9 @@ class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
         if ( std::distance(writerPos,std::end(memorycontroller)) < std::tuple_size<RING_BUFFER::value_type>{} )
             SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
         std::cout<<"Offset: "<<std::distance(std::begin(memorycontroller),writerPos)<<std::endl;
-        std::cout<<"BKLength size: "<< std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())<<std::endl;
-        for(std::size_t i=0;i<std::tuple_size<RING_BUFFER::value_type>{};i++){
-            SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character[i]);
-        }
+        std::cout<<"BKLength size: "<< std::distance(std::get<0>(_blocker.cables).getMCStartRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<std::endl;
+        for(std::size_t i=0;i<std::tuple_size<RING_BUFFER::value_type>{};i++)
+            SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(character[i]);
     }
     private:
     std::chrono::time_point<std::chrono::high_resolution_clock> last = high_resolution_clock::now();

@@ -24,8 +24,8 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                const auto bk_start = _memorycontroller_size.getBKStartRef().load();
-                const auto bk_end = _memorycontroller_size.getBKEndRef().load();
+                const auto bk_start = _memorycontroller_size.getMCStartRef().load();
+                const auto bk_end = _memorycontroller_size.getMCEndRef().load();
                 if (std::distance(start, end) + readOffset > std::distance(bk_start, bk_end))
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                 *(current++) = *(bk_start+readOffset);
@@ -58,19 +58,19 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::WriteTask<MEMORY_CONTROLLER> {
+class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
-    WriteTaskImpl() : SOS::Behavior::WriteTask<MEMORY_CONTROLLER>() {
+    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(this->memorycontroller),std::end(this->memorycontroller),MEMORY_CONTROLLER::value_type{{0,0,0,0,0}});
-        std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.begin());
-        std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.end());
+        std::get<0>(_blocker.cables).getMCStartRef().store(memorycontroller.begin());
+        std::get<0>(_blocker.cables).getMCEndRef().store(memorycontroller.end());
         _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
     protected:
     virtual void write(const MEMORY_CONTROLLER::value_type& character) final {
-        SOS::Behavior::WriteTask<MEMORY_CONTROLLER>::write(character);
+        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(character);
     }
 };
 using namespace std::chrono;

@@ -33,8 +33,8 @@ namespace SOS {
         };
         template<typename ArithmeticType> struct MemoryControllerBufferSize : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
             using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-            auto& getBKStartRef(){return std::get<0>(*this);}
-            auto& getBKEndRef(){return std::get<1>(*this);}
+            auto& getMCStartRef(){return std::get<0>(*this);}
+            auto& getMCEndRef(){return std::get<1>(*this);}
         };
         class RWResizeNotify : private Notify, public std::array<std::atomic_flag,2> {
         public:
@@ -53,8 +53,8 @@ namespace SOS {
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) {
-                std::get<0>(cables).getBKStartRef().store(start);
-                std::get<0>(cables).getBKEndRef().store(start);
+                std::get<0>(cables).getMCStartRef().store(start);
+                std::get<0>(cables).getMCEndRef().store(start);
             }
             cables_type cables{};
         };
@@ -154,10 +154,10 @@ namespace SOS {
             }
             typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& _blocked_signal;
         };
-        template<typename MemoryControllerType> class WriteTask {
+        template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            WriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.cables).getBKStartRef().load()) {
+            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.cables).getMCStartRef().load()) {
                 _blocker.signal.getWritingRef().test_and_set();
                 _blocker.signal.getResizingRef().test_and_set();
             };
@@ -168,7 +168,7 @@ namespace SOS {
                     SFA::util::logic_error(SFA::util::error_code::ResizingDuringWriteOccurred,__FILE__,__func__);
                 } else {
                 _blocker.signal.getWritingRef().clear();
-                if (writerPos!=std::get<0>(_blocker.cables).getBKEndRef().load()) {
+                if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
                     *writerPos=character;
                     writerPos++;
                 } else {
