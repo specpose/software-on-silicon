@@ -63,6 +63,8 @@ enum SFA::util::error_code : unsigned char {
     ArachannelInitializationError, //2x
     //RingToMemory.cpp
     WriterTriedToWriteBeyondMemorycontrollerBounds,
+    UnexpectedWritesLeft,
+    WroteTooMuchOrTooLittle,
     //test_ringtomemory.cpp
     NoReadbufferSupplied,
     ContiguousInitializedIncorrectly,
@@ -182,6 +184,10 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("FIFO read call already in progress");
     case error_code::WriterTriedToWriteBeyondMemorycontrollerBounds:
         return std::string("Writer tried to write beyond memorycontroller bounds");
+    case error_code::UnexpectedWritesLeft:
+        return std::string("Unexpected writes left");
+    case error_code::WroteTooMuchOrTooLittle:
+        return std::string("Wrote too much or too little");
     case error_code::ArachannelInitializationError:
         return std::string("ARAChannel initialization error");
     }

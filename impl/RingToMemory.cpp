@@ -70,11 +70,6 @@ class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTR
         _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
-    protected:
-    virtual void write(const RING_BUFFER::value_type& character) final {
-        for(std::size_t i=0;i<std::tuple_size<RING_BUFFER::value_type>{};i++)
-            SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(character[i]);
-    }
 };
 //multiple inheritance: destruction order
 class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
@@ -82,11 +77,27 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
     RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {
+            //std::get<0>(_blocker.cables).getBKStartRef().store(memorycontroller.data());
+            //std::get<0>(_blocker.cables).getBKEndRef().store(memorycontroller.data());
+        }
     private:
     //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
     virtual void transfer(const RING_BUFFER::value_type& character) final {
-        WriteTaskImpl::write(character);
+        std::size_t count = 0;
+        block(std::tuple_size<RING_BUFFER::value_type>{});//=>grow
+        auto c = std::begin(character);
+        //while (count<std::tuple_size<RING_BUFFER::value_type>{}){
+        while(std::get<0>(_blocker.cables).getBKStartRef().load()!=std::get<0>(_blocker.cables).getBKEndRef().load()){
+            WriteTaskImpl::write(*c++);
+            count++;
+        }
+        //std::cout<<"Reserved "<<std::tuple_size<RING_BUFFER::value_type>{}<<", wrote "<<count<<std::endl;
+        if (count!=std::tuple_size<RING_BUFFER::value_type>{})
+            SFA::util::logic_error(SFA::util::error_code::WroteTooMuchOrTooLittle,__FILE__,__func__);
+        if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())!=0)
+            fprintf(stderr,"Reads left: %d",std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load()));
+            //SFA::util::logic_error(SFA::util::error_code::UnexpectedWritesLeft,__FILE__,__func__);
     }
 };
 //multiple inheritance: destruction order

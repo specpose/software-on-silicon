@@ -35,6 +35,11 @@ namespace SOS {
             auto& getMCStartRef(){return std::get<0>(*this);}
             auto& getMCEndRef(){return std::get<1>(*this);}
         };
+        template<typename ArithmeticType> struct MemoryControllerWriteRange : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
+            using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
+            auto& getBKStartRef(){return std::get<0>(*this);}
+            auto& getBKEndRef(){return std::get<1>(*this);}
+        };
         class RWNotify : private Pair {
         public:
             using Pair::Pair;
@@ -49,10 +54,15 @@ namespace SOS {
         >{
             signal_type signal;
             using _arithmetic_type = typename MemoryControllerType::iterator;
+            using cables_type = std::tuple< MemoryControllerWriteRange<_arithmetic_type> >;
             using const_cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type> >;
             BlockerBus(const _arithmetic_type start, const _arithmetic_type end) :
             const_cables{ MemoryControllerBufferSize<_arithmetic_type>({start, end}) }
-            {}
+            {
+                std::get<0>(cables).getBKStartRef().store(start);
+                std::get<0>(cables).getBKEndRef().store(start);
+            }
+            cables_type cables{};
             const_cables_type const_cables;
         };
     }
@@ -149,15 +159,23 @@ namespace SOS {
         template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)), writerPos(std::get<0>(_blocker.const_cables).getMCStartRef()) {
+            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
+            virtual void block(std::size_t length) final {
+                const std::size_t tmp = std::distance(std::get<0>(_blocker.const_cables).getMCStartRef(),std::get<0>(_blocker.const_cables).getMCEndRef());
+                const std::size_t tmp2 = std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load());
+                //std::cout<<"tmp "<<tmp<<", tmp2 "<<tmp2<<", length "<<length<<std::endl;
+                if ( tmp2 + length <= tmp)
+                    std::get<0>(_blocker.cables).getBKEndRef().store(std::get<0>(_blocker.cables).getBKEndRef().load()+length);
+            }
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 _blocker.signal.getWritingRef().clear();
+                auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
                     *writerPos=character;
-                    writerPos++;
+                    std::get<0>(_blocker.cables).getBKStartRef().store(++writerPos);
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
@@ -165,7 +183,6 @@ namespace SOS {
             }
             MemoryControllerType memorycontroller;
             bus_type _blocker;
-            typename MemoryControllerType::iterator writerPos;
         };
     }
 }
