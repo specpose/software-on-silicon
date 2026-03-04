@@ -24,11 +24,11 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
             if (!wait()) {
-                const auto bk_start = _memorycontroller_size.getMCStartRef().load();
-                const auto bk_end = _memorycontroller_size.getMCEndRef().load();
-                if (std::distance(start, end) + readOffset > std::distance(bk_start, bk_end))
+                const auto mc_start = _memorycontroller_size.getMCStartRef().load();
+                const auto mc_end = _memorycontroller_size.getMCEndRef().load();
+                if (std::distance(start, end) + readOffset > std::distance(mc_start, mc_end))
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
-                *(current++) = *(bk_start+readOffset);
+                *(current++) = *(mc_start+readOffset);
                 readOffset++;
                 wait_acknowledge();
             }
@@ -67,13 +67,11 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<BLOCK>& passThruHostMem
         ) :
-        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(),
+        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller),
         PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)
         {
             _blocker.signal.getWritingRef().clear();
-            std::fill(std::begin(this->memorycontroller),std::end(this->memorycontroller),MEMORY_CONTROLLER::value_type{{0,0,0,0,0}});
-            std::get<0>(_blocker.cables).getMCStartRef().store(memorycontroller.begin());
-            std::get<0>(_blocker.cables).getMCEndRef().store(memorycontroller.end());
+            std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{{0,0,0,0,0}});
             _blocker.signal.getWritingRef().test_and_set();
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
             //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
@@ -105,5 +103,8 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     private:
     int counter = 0;
     bool blink = true;
+
+    MEMORY_CONTROLLER memorycontroller;
+
     std::thread _thread;
 };

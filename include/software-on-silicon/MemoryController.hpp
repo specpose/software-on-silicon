@@ -166,20 +166,18 @@ namespace SOS {
         template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
+            NonBlockingWriteTask(MemoryControllerType& memorycontroller) : _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
                 _blocker.signal.getWritingRef().test_and_set();
                 _blocker.signal.getResizingRef().test_and_set();
             };
             protected:
             virtual void block(std::size_t length) final {
-                auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
-                if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
-                    if ( length <= std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load()) )
-                        std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+length);
-                    else
-                        SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                if ( length <= std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load()) ){
+                    //std::cout<<"Distance: "<<std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<", Length: "<<length<<std::endl;
+                    std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+length);
                 } else {
-                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
+                    //std::cout<<"Distance: "<<std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<", Length: "<<length<<std::endl;
+                    SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
                 }
             }
             virtual void write(const typename MemoryControllerType::value_type& character) {
@@ -198,7 +196,6 @@ namespace SOS {
                 _blocker.signal.getWritingRef().test_and_set();
                 }
             }
-            MemoryControllerType memorycontroller;
             bus_type _blocker;
         };
     }
