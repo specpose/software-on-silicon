@@ -56,27 +56,21 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
-    public:
-    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
-        _blocker.signal.getWritingRef().clear();
-        std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
-        _blocker.signal.getWritingRef().test_and_set();
-    }
-    ~WriteTaskImpl(){}
-};
 using namespace std::chrono;
 
 //multiple inheritance: destruction order
-class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private WriteTaskImpl {
+class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
     //multiple inheritance: construction order
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<BLOCK>& passThruHostMem
         ) :
-        WriteTaskImpl(),
+        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(),
         PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)
         {
+            _blocker.signal.getWritingRef().clear();
+            std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
+            _blocker.signal.getWritingRef().test_and_set();
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
             //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
             _thread = start(this);

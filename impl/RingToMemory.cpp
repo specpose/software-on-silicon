@@ -62,22 +62,17 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
-    public:
-    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
-        _blocker.signal.getWritingRef().clear();
-        std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
-        _blocker.signal.getWritingRef().test_and_set();
-    }
-    ~WriteTaskImpl(){}
-};
 //multiple inheritance: destruction order
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected WriteTaskImpl {
+class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
     RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {}
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
+            _blocker.signal.getWritingRef().clear();
+            std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
+            _blocker.signal.getWritingRef().test_and_set();
+        }
     private:
     //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
     virtual void transfer(const RING_BUFFER::value_type& character) final {
@@ -85,7 +80,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         block(std::tuple_size<RING_BUFFER::value_type>{});
         auto c = std::begin(character);
         while(std::get<0>(_blocker.cables).getBKStartRef().load()!=std::get<0>(_blocker.cables).getBKEndRef().load()){
-            WriteTaskImpl::write(*c++);
+            SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(*c++);
             count++;
         }
         if (count!=std::tuple_size<RING_BUFFER::value_type>{})
