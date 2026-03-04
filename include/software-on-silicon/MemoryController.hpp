@@ -58,12 +58,12 @@ namespace SOS {
             using _arithmetic_type = typename MemoryControllerType::iterator;
             using cables_type = std::tuple< MemoryControllerBufferSize<_arithmetic_type>, MemoryControllerWriteRange<_arithmetic_type> >;
             using const_cables_type = std::tuple< >;
-            BlockerBus(const _arithmetic_type start, const _arithmetic_type end, const _arithmetic_type uninitialised_vector_start)
+            BlockerBus(const _arithmetic_type start, const _arithmetic_type end)
             {
                 std::get<0>(cables).getMCStartRef().store(start);
-                std::get<0>(cables).getMCEndRef().store(start);
-                std::get<1>(cables).getBKStartRef().store(uninitialised_vector_start);
-                std::get<1>(cables).getBKEndRef().store(uninitialised_vector_start);
+                std::get<0>(cables).getMCEndRef().store(end);
+                std::get<1>(cables).getBKStartRef().store(start);
+                std::get<1>(cables).getBKEndRef().store(start);
             }
             cables_type cables{};
         };
@@ -166,19 +166,21 @@ namespace SOS {
         template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller),std::begin(memorycontroller)) {
+            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
                 _blocker.signal.getWritingRef().test_and_set();
                 _blocker.signal.getResizingRef().test_and_set();
             };
             protected:
             virtual void block(std::size_t length) final {
-                const std::size_t tmp = std::distance(std::get<0>(_blocker.cables).getMCStartRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load());
-                const std::size_t tmp2 = std::distance(std::get<0>(_blocker.cables).getMCStartRef().load(),std::get<1>(_blocker.cables).getBKEndRef().load());
-                std::cout<<"tmp "<<tmp<<", tmp2 "<<tmp2<<", length "<<length<<std::endl;
-                if ( tmp2 + length <= tmp)
-                    std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+length);
-                else
-                    SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
+                if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
+                    if ( length <= std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load()) )
+                        std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+length);
+                    else
+                        SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
+                }
             }
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 if (!_blocker.signal.getResizingRef().test_and_set()) {

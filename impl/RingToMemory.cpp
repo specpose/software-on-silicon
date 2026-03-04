@@ -68,23 +68,17 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
-class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
-    public:
-    WriteTaskImpl() : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
-        _blocker.signal.getWritingRef().clear();
-        std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
-        _blocker.signal.getWritingRef().test_and_set();
-    }
-    ~WriteTaskImpl(){}
-};
 //multiple inheritance: destruction order
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, public WriteTaskImpl {
+class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
     RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), WriteTaskImpl{} {
+    ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>() {
             resize(old_reserve);
+            _blocker.signal.getWritingRef().clear();
+            std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
+            _blocker.signal.getWritingRef().test_and_set();
         }
     private:
     virtual void resize(std::size_t newsize){
@@ -127,7 +121,7 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
                 SFA::util::runtime_error(SFA::util::error_code::WriterTriedToWriteBeyondMemorycontrollerBounds,__FILE__,__func__);
             std::cout<<"Offset: "<<std::distance(std::begin(memorycontroller),writerPos)<<std::endl;
             std::cout<<"BKLength size: "<< std::distance(std::get<0>(_blocker.cables).getMCStartRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<std::endl;*/
-            WriteTaskImpl::write(*c++);
+            SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(*c++);
             count++;
         }
         if (count!=std::tuple_size<RING_BUFFER::value_type>{})
