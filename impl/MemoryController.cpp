@@ -68,10 +68,6 @@ class WriteTaskImpl : protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTR
         _blocker.signal.getWritingRef().test_and_set();
     }
     ~WriteTaskImpl(){}
-    protected:
-    virtual void write(const MEMORY_CONTROLLER::value_type& character) final {
-        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(character);
-    }
 };
 using namespace std::chrono;
 
@@ -100,6 +96,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
             data = MEMORY_CONTROLLER::value_type{{0,0,0,0,1}};
         else
             data = MEMORY_CONTROLLER::value_type{{0,0,0,0,0}};
+        block(1);
         write(data);
         counter++;
         if (blink && counter==333){
