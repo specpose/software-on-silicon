@@ -26,7 +26,7 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
             if (!wait()) {
                 const auto mc_start = _memorycontroller_size.getMCStartRef().load();
                 const auto mc_end = _memorycontroller_size.getMCEndRef().load();
-                if (std::distance(start, end) + readOffset > std::distance(mc_start, mc_end))
+                if ( std::distance(mc_start, mc_end) < std::distance(start, end) + readOffset )
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
                 *(current++) = *(mc_start+readOffset);
                 readOffset++;
