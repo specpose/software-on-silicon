@@ -12,7 +12,7 @@ using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
-    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
     {}
     protected:
     virtual void read() {
@@ -26,10 +26,17 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
             SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
         auto readerPos = _memorycontroller_size.getMCStartRef()+readOffset;
         while (current!=end){
-            if (!wait()) {
-                *(current++) = *(readerPos++);
-                wait_acknowledge();
-            }
+            !wait();
+                const auto pos = std::distance(_memorycontroller_size.getMCStartRef(),readerPos);
+                if (pos < std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_block.getBKStartRef().load())
+                    || pos > std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_block.getBKEndRef().load())
+                ) {
+                    *(current++) = *(readerPos++);
+                } else {
+                    *(current++) = MEMORY_CONTROLLER::value_type{'X'};
+                    readerPos++;
+                }
+            wait_acknowledge();
             std::this_thread::yield();
         }
     }
@@ -40,8 +47,8 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
     SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside, blockerbus),
-    ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables)),
-    SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables))
+    ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables)),
+    SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables))
     {
         //multiple inheritance: not ambiguous
         //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER>::start(this);
