@@ -18,23 +18,22 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
     virtual void read() {
         auto current = _size.getReadBufferStartRef();
         const auto end = _size.getReadBufferAfterLastRef();
-        const auto readOffset = _offset.getReadOffsetRef().load();
+        auto readOffset = _offset.getReadOffsetRef().load();
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         if (std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_size.getMCEndRef())
         <(std::distance(current,end)+readOffset))
             SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
-        auto readerPos = _memorycontroller_size.getMCStartRef()+readOffset;
         while (current!=end){
             !wait();
-                const auto pos = std::distance(_memorycontroller_size.getMCStartRef(),readerPos);
-                if (pos < std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_block.getBKStartRef().load())
-                    || pos > std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_block.getBKEndRef().load())
+                const auto mc_start = _memorycontroller_size.getMCStartRef();
+                if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
+                    || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
                 ) {
-                    *(current++) = *(readerPos++);
+                    *(current++) = *(mc_start+readOffset++);
                 } else {
                     *(current++) = MEMORY_CONTROLLER::value_type{'X'};
-                    readerPos++;
+                    readOffset++;
                 }
             wait_acknowledge();
             std::this_thread::yield();
