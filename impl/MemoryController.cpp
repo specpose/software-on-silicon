@@ -10,35 +10,17 @@
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
-class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
+class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
     {}
     protected:
-    virtual void read(){
-        const auto start = _size.getReadBufferStartRef().load();
-        auto current = start;
-        const auto end = _size.getReadBufferAfterLastRef().load();
-        auto readOffset = _offset.getReadOffsetRef().load();
-        if (readOffset<0)
-            SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
-        while (current!=end){
-            !wait();
-                const auto mc_start = _memorycontroller_size.getMCStartRef().load();
-                const auto mc_end = _memorycontroller_size.getMCEndRef().load();
-                if ( std::distance(mc_start, mc_end) < std::distance(start, end) + readOffset )
-                    SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
-                if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
-                    || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
-                ) {
-                    *(current++) = *(mc_start+readOffset++);
-                } else {
-                    *(current++) = MEMORY_CONTROLLER::value_type{{0,0,0,0,9}};
-                    readOffset++;
-                }
-            wait_acknowledge();
-            std::this_thread::yield();
-        }
+    virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) final {
+        SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
+    };
+    virtual void busy(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) final {
+        *(current++) = MEMORY_CONTROLLER::value_type{{0,0,0,0,9}};
+        offset++;
     }
 };
 
