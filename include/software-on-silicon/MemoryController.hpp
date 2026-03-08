@@ -3,11 +3,13 @@
 namespace SOS {
     namespace MemoryView {
         template<typename ArithmeticType> struct ReadSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
+            using arithmetic_type = ArithmeticType;
             using SOS::MemoryView::ConstCable<ArithmeticType,2>::ConstCable;
             auto& getReadBufferStartRef(){return std::get<0>(*this);}
             auto& getReadBufferAfterLastRef(){return std::get<1>(*this);}
         };
         template<typename ArithmeticType> struct ReadOffset : private SOS::MemoryView::TaskCable<ArithmeticType,1> {
+            using arithmetic_type = ArithmeticType;
             using SOS::MemoryView::TaskCable<ArithmeticType,1>::TaskCable;
             auto& getReadOffsetRef(){return std::get<0>(*this);}
         };
@@ -113,7 +115,31 @@ namespace SOS {
             using blocker_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker) : _size(Length),_offset(Offset), _memorycontroller_size(Memory), _memorycontroller_block(Blocker) {}
             protected:
-            virtual void read()=0;
+            virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
+            virtual void busy(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
+            virtual void read() {
+                auto current = _size.getReadBufferStartRef();
+                const auto end = _size.getReadBufferAfterLastRef();
+                auto readOffset = _offset.getReadOffsetRef().load();
+                if (readOffset<0)
+                    SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
+                if (std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_size.getMCEndRef())
+                    <(std::distance(current,end)+readOffset))
+                    outOfBounds(current, readOffset);
+                while (current!=end){
+                    !wait();
+                    const auto mc_start = _memorycontroller_size.getMCStartRef();
+                    if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
+                        || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
+                    ) {
+                        *(current++) = *(mc_start+readOffset++);
+                    } else {
+                        busy(current, readOffset);
+                    }
+                    wait_acknowledge();
+                    std::this_thread::yield();
+                }
+            }
             virtual bool wait()=0;
             virtual void wait_acknowledge()=0;
             //virtual bool exit_loop()=0;
