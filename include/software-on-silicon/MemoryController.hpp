@@ -112,7 +112,8 @@ namespace SOS {
             using reader_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using reader_offset_ct = typename std::tuple_element<0,typename SOS::MemoryView::ReaderBus<OutputBuffer>::cables_type>::type;
             using memorycontroller_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
-            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) : _size(Length),_offset(Offset), _memorycontroller_size(blockercable) {}
+            using blocker_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
+            ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker) : _size(Length),_offset(Offset), _memorycontroller_size(Memory), _memorycontroller_block(Blocker) {}
             protected:
             virtual void read()=0;
             virtual bool wait()=0;
@@ -121,6 +122,7 @@ namespace SOS {
             reader_length_ct& _size;
             reader_offset_ct& _offset;
             memorycontroller_length_ct& _memorycontroller_size;
+            blocker_length_ct& _memorycontroller_block;
         };
         template<typename OutputBuffer, typename MemoryControllerType> class Reader : public SOS::Behavior::EventDummy<>,
         public virtual SOS::Behavior::ReadTask<OutputBuffer, MemoryControllerType> {

@@ -12,7 +12,7 @@ using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
-    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& blockercable) 
+    ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
     {}
     protected:
     virtual void read(){
@@ -23,15 +23,20 @@ class ReadTaskImpl : private virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTRO
         if (readOffset<0)
             SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
         while (current!=end){
-            if (!wait()) {
+            !wait();
                 const auto mc_start = _memorycontroller_size.getMCStartRef().load();
                 const auto mc_end = _memorycontroller_size.getMCEndRef().load();
                 if ( std::distance(mc_start, mc_end) < std::distance(start, end) + readOffset )
                     SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds, __FILE__, __func__);
-                *(current++) = *(mc_start+readOffset);
-                readOffset++;
-                wait_acknowledge();
-            }
+                if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
+                    || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
+                ) {
+                    *(current++) = *(mc_start+readOffset++);
+                } else {
+                    *(current++) = MEMORY_CONTROLLER::value_type{{0,0,0,0,9}};
+                    readOffset++;
+                }
+            wait_acknowledge();
             std::this_thread::yield();
         }
     }
@@ -42,8 +47,8 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
     SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside, blockerbus),
-    ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables)),
-    SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables))
+    ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables)),
+    SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables))
     {
         //multiple inheritance: not ambiguous
         //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER>::start(this);

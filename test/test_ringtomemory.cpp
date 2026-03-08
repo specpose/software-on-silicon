@@ -6,7 +6,7 @@
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
-#define TOTAL_TIME 9
+#define TOTAL_TIME 10
 
 //Helper classes
 class Functor1 {
