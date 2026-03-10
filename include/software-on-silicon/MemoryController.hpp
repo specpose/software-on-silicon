@@ -115,28 +115,37 @@ namespace SOS {
             using blocker_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker) : _size(Length),_offset(Offset), _memorycontroller_size(Memory), _memorycontroller_block(Blocker) {}
             protected:
-            virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
-            virtual void busy(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
+            virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current) = 0;
+            virtual void busy(typename reader_length_ct::arithmetic_type& current) = 0;
             virtual void read() {
-                auto current = _size.getReadBufferStartRef();
-                const auto end = _size.getReadBufferAfterLastRef();
-                auto readOffset = _offset.getReadOffsetRef().load();
+                const auto rb_start = _size.getReadBufferStartRef();
+                const auto rb_bstart = rb_start - 1;
+                const auto rb_end = _size.getReadBufferAfterLastRef();
+                const auto rb_length = std::distance(rb_start, rb_end);
+                auto rb = rb_end - 1;
+                const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
-                if (std::distance(_memorycontroller_size.getMCStartRef(),_memorycontroller_size.getMCEndRef())
-                    <(std::distance(current,end)+readOffset))
-                    outOfBounds(current, readOffset);
-                while (current!=end){
-                    !wait();
-                    const auto mc_start = _memorycontroller_size.getMCStartRef();
-                    if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
-                        || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
-                    ) {
-                        *(current++) = *(mc_start+readOffset++);
-                    } else {
-                        busy(current, readOffset);
+                const auto mc_start = _memorycontroller_size.getMCStartRef();
+                auto mc = mc_start + readOffset + rb_length;
+                --mc;
+
+                const auto mc_end = _memorycontroller_size.getMCEndRef();
+                if ( std::distance(mc_start,mc_end) < rb_length + readOffset )
+                    outOfBounds(rb);
+                while (rb!=rb_bstart) {
+                    if (!wait()) {
+                        const auto bk_end = _memorycontroller_block.getBKEndRef().load();
+                        const auto bk_start = _memorycontroller_block.getBKStartRef().load();
+                        const auto mc_pos = std::distance(mc_start,mc);
+                        if ( mc_pos < std::distance(mc_start,bk_start) || mc_pos > std::distance(mc_start,bk_end) )
+                            *(rb) = *(mc);
+                        else
+                            busy(rb);
+                        rb--;
+                        mc--;
+                        wait_acknowledge();
                     }
-                    wait_acknowledge();
                     std::this_thread::yield();
                 }
             }
@@ -194,24 +203,29 @@ namespace SOS {
             virtual void block(std::size_t length) final {
                 auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
-                    if ( length <= std::distance(std::get<0>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.const_cables).getMCEndRef()) )
-                        std::get<0>(_blocker.cables).getBKEndRef().store(std::get<0>(_blocker.cables).getBKEndRef().load()+length);
-                    else
+                    auto tmp = std::get<0>(_blocker.cables).getBKEndRef().load();
+                    if ( length <= std::distance(tmp, std::get<0>(_blocker.const_cables).getMCEndRef()) ) {
+                        _blocker.signal.getWritingRef().clear();
+                        tmp += length;
+                        std::get<0>(_blocker.cables).getBKEndRef().store(tmp);
+                        _blocker.signal.getWritingRef().test_and_set();
+                    } else {
                         SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                    }
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
             }
             virtual void write(const typename MemoryControllerType::value_type& character) {
-                _blocker.signal.getWritingRef().clear();
                 auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
                     *writerPos=character;
+                    _blocker.signal.getWritingRef().clear();
                     std::get<0>(_blocker.cables).getBKStartRef().store(++writerPos);
+                    _blocker.signal.getWritingRef().test_and_set();
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
-                _blocker.signal.getWritingRef().test_and_set();
             }
             MemoryControllerType memorycontroller;
             bus_type _blocker;
