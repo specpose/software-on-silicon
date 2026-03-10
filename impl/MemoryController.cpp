@@ -74,7 +74,6 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
             data = MEMORY_CONTROLLER::value_type{'*'};
         else
             data = MEMORY_CONTROLLER::value_type{'_'};
-        block(1);
         write(data);
         counter++;
         if (blink && counter==333){

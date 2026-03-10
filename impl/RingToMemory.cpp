@@ -62,19 +62,26 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
             _blocker.signal.getWritingRef().test_and_set();
         }
     private:
-    //overrides RingBufferTask::transfer and remaps to WriteTaskImpl::write
-    virtual void transfer(const RING_BUFFER::value_type& character) final {
-        std::size_t count = 0;
-        block(std::tuple_size<RING_BUFFER::value_type>{});
-        auto c = std::begin(character);
-        while(std::get<0>(_blocker.cables).getBKStartRef().load()!=std::get<0>(_blocker.cables).getBKEndRef().load()){
-            SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>::write(*c++);
-            count++;
+    virtual void write(const typename RING_BUFFER::value_type& character) {
+        const auto bk_end = std::get<0>(_blocker.cables).getBKEndRef().load();
+        if ( std::tuple_size<RING_BUFFER::value_type>{} <= std::distance(bk_end, std::get<0>(_blocker.const_cables).getMCEndRef()) ) {
+            _blocker.signal.getWritingRef().clear();
+            std::get<0>(_blocker.cables).getBKEndRef().store(bk_end+std::tuple_size<RING_BUFFER::value_type>{});
+            _blocker.signal.getWritingRef().test_and_set();
+            auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
+            std::copy(std::begin(character),std::end(character),writerPos);
+            _blocker.signal.getWritingRef().clear();
+            std::get<0>(_blocker.cables).getBKStartRef().store(writerPos+std::tuple_size<RING_BUFFER::value_type>{});
+            _blocker.signal.getWritingRef().test_and_set();
+        } else {
+            SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
         }
-        if (count!=std::tuple_size<RING_BUFFER::value_type>{})
-            SFA::util::logic_error(SFA::util::error_code::WroteTooMuchOrTooLittle,__FILE__,__func__);
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())!=0)
             SFA::util::logic_error(SFA::util::error_code::UnexpectedWritesLeft,__FILE__,__func__);
+    }
+    //overrides RingBufferTask::transfer
+    virtual void transfer(const RING_BUFFER::value_type& character) final {
+        write(character);
     }
 };
 //multiple inheritance: destruction order

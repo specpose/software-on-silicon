@@ -197,27 +197,12 @@ namespace SOS {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
-            virtual void block(std::size_t length) final {
-                auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
-                if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
-                    auto tmp = std::get<0>(_blocker.cables).getBKEndRef().load();
-                    if ( length <= std::distance(tmp, std::get<0>(_blocker.const_cables).getMCEndRef()) ) {
-                        _blocker.signal.getWritingRef().clear();
-                        tmp += length;
-                        std::get<0>(_blocker.cables).getBKEndRef().store(tmp);
-                        _blocker.signal.getWritingRef().test_and_set();
-                    } else {
-                        SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
-                    }
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
-                }
-            }
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 auto writerPos = std::get<0>(_blocker.cables).getBKStartRef().load();
                 if (writerPos!=std::get<0>(_blocker.const_cables).getMCEndRef()) {
-                    *writerPos=character;
                     _blocker.signal.getWritingRef().clear();
+                    std::get<0>(_blocker.cables).getBKEndRef().store(std::get<0>(_blocker.cables).getBKEndRef().load()+1);
+                    *writerPos=character;
                     std::get<0>(_blocker.cables).getBKStartRef().store(++writerPos);
                     _blocker.signal.getWritingRef().test_and_set();
                 } else {
