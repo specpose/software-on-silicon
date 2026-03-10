@@ -64,6 +64,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         }
     private:
     void reserve(std::size_t add){
+        while (!_blocker.signal.getReadingRef().test_and_set()){
+            _blocker.signal.getReadingRef().clear();
+            std::this_thread::yield();
+        }
         _blocker.signal.getResizingRef().clear();
         const auto bk_start = std::distance(std::begin(memorycontroller),std::get<1>(_blocker.cables).getBKStartRef().load());
         const auto bk_end = std::distance(std::begin(memorycontroller),std::get<1>(_blocker.cables).getBKEndRef().load());
