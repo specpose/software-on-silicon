@@ -62,8 +62,6 @@ enum SFA::util::error_code : unsigned char {
     WriterBufferFull,
     ArachannelInitializationError, //2x
     //RingToMemory.cpp
-    ResizingDuringWriteOccurred,
-    ResizingDuringBlockOccurred,
     UnexpectedWritesLeft,
     WroteTooMuchOrTooLittle,
     CharacterWriteRangeFailed,
@@ -184,8 +182,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("operator=() used incorrectly");
     case error_code::FifoReadcallAlreadyInProgress:
         return std::string("FIFO read call already in progress");
-    case error_code::ResizingDuringWriteOccurred:
-        return std::string("Resizing during write occurred");
     case error_code::UnexpectedWritesLeft:
         return std::string("Unexpected writes left");
     case error_code::WroteTooMuchOrTooLittle:

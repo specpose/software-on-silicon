@@ -207,10 +207,6 @@ namespace SOS {
             };
             protected:
             virtual void write(const typename MemoryControllerType::value_type& character) {
-                if (!_blocker.signal.getResizingRef().test_and_set()) {
-                    _blocker.signal.getResizingRef().clear();
-                    SFA::util::logic_error(SFA::util::error_code::ResizingDuringWriteOccurred,__FILE__,__func__);
-                }
                 auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
                 if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
                     _blocker.signal.getWritingRef().clear();

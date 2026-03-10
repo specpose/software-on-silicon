@@ -58,8 +58,6 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
         ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), memorycontroller{}, SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller) {
-            std::cout<<"MemoryController size: "<<memorycontroller.size();
-            reserve(2*SAMPLE_RATE);
             _blocker.signal.getWritingRef().clear();
             std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
             _blocker.signal.getWritingRef().test_and_set();
@@ -85,10 +83,6 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         std::cout<<"Grown to: "<<memorycontroller.size()<<std::endl;
     };
     virtual void write(const typename RING_BUFFER::value_type& character) {
-        if (!_blocker.signal.getResizingRef().test_and_set()) {
-            _blocker.signal.getResizingRef().clear();
-            SFA::util::logic_error(SFA::util::error_code::ResizingDuringWriteOccurred,__FILE__,__func__);
-        }
         const auto bk_end = std::get<1>(_blocker.cables).getBKEndRef().load();
         if ( std::tuple_size<RING_BUFFER::value_type>{} <= std::distance(bk_end, std::get<0>(_blocker.cables).getMCEndRef().load()) ) {
             _blocker.signal.getWritingRef().clear();
@@ -108,11 +102,15 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
     //overrides RingBufferTask::transfer
     virtual void transfer(const RING_BUFFER::value_type& character) final {
         const auto now = high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
+        if (firstRun) {
+            reserve(2*SAMPLE_RATE);
+            last = now;
+        } else if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
             reserve(SAMPLE_RATE);
             last = now;
         }
         grow(std::tuple_size<RING_BUFFER::value_type>{});
+        std::cout<<"MemoryController size: "<<memorycontroller.size()<<std::endl;
         if (firstRun) {
             _blocker.signal.getResizingRef().clear();
             std::get<0>(_blocker.cables).getMCStartRef().store(std::begin(memorycontroller));
@@ -122,7 +120,6 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
             _blocker.signal.getResizingRef().test_and_set();
             firstRun = false;
         }
-        std::cout<<"MemoryController size: "<<memorycontroller.size()<<std::endl;
         write(character);
     }
     bool firstRun = true;
