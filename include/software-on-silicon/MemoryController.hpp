@@ -115,35 +115,32 @@ namespace SOS {
             using blocker_length_ct = typename std::tuple_element<0,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker) : _size(Length),_offset(Offset), _memorycontroller_size(Memory), _memorycontroller_block(Blocker) {}
             protected:
-            virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current) = 0;
-            virtual void busy(typename reader_length_ct::arithmetic_type& current) = 0;
+            virtual void outOfBounds(const typename reader_length_ct::arithmetic_type& current) = 0;
+            virtual void busy(const typename reader_length_ct::arithmetic_type& current) = 0;
             virtual void read() {
                 const auto rb_start = _size.getReadBufferStartRef();
-                const auto rb_bstart = rb_start - 1;
-                const auto rb_end = _size.getReadBufferAfterLastRef();
-                const auto rb_length = std::distance(rb_start, rb_end);
-                auto rb = rb_end - 1;
+                auto rb = _size.getReadBufferAfterLastRef();
+                const auto rb_length = std::distance(rb_start, rb);
                 const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
                 const auto mc_start = _memorycontroller_size.getMCStartRef();
-                auto mc = mc_start + readOffset + rb_length;
-                --mc;
+                auto mc = readOffset + rb_length;
 
                 const auto mc_end = _memorycontroller_size.getMCEndRef();
-                if ( std::distance(mc_start,mc_end) < rb_length + readOffset )
+                if ( std::distance(mc_start,mc_end) < mc ) {
                     outOfBounds(rb);
-                while (rb!=rb_bstart) {
+                }
+                while (rb!=rb_start) {
                     if (!wait()) {
                         const auto bk_end = _memorycontroller_block.getBKEndRef().load();
                         const auto bk_start = _memorycontroller_block.getBKStartRef().load();
-                        const auto mc_pos = std::distance(mc_start,mc);
-                        if ( mc_pos < std::distance(mc_start,bk_start) || mc_pos > std::distance(mc_start,bk_end) )
-                            *(rb) = *(mc);
-                        else
-                            busy(rb);
                         rb--;
                         mc--;
+                        if ( mc < std::distance(mc_start,bk_start) || mc > std::distance(mc_start,bk_end) )
+                            *(rb) = *(mc_start + mc);
+                        else
+                            busy(rb);
                         wait_acknowledge();
                     }
                     std::this_thread::yield();

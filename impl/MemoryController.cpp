@@ -15,10 +15,10 @@ class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONT
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
     {}
     protected:
-    virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current) final {
+    virtual void outOfBounds(const typename reader_length_ct::arithmetic_type& current) final {
         SFA::util::runtime_error(SFA::util::error_code::ReadindexOutOfBounds,__FILE__,__func__);
     };
-    virtual void busy(typename reader_length_ct::arithmetic_type& current) final {
+    virtual void busy(const typename reader_length_ct::arithmetic_type& current) final {
         *(current) = MEMORY_CONTROLLER::value_type{'X'};
     }
 };
