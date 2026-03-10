@@ -64,6 +64,7 @@ enum SFA::util::error_code : unsigned char {
     //RingToMemory.cpp
     WriterTriedToWriteBeyondMemorycontrollerBounds,
     ResizingDuringWriteOccurred,
+    ResizingDuringBlockOccurred,
     UnexpectedWritesLeft,
     WroteTooMuchOrTooLittle,
     CharacterWriteRangeFailed,

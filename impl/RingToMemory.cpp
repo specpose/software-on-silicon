@@ -21,13 +21,11 @@ class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONT
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
     {}
     protected:
-    virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) final {
-        *(current++) = MEMORY_CONTROLLER::value_type{{0}};
-        offset++;
+    virtual void outOfBounds(const typename reader_length_ct::arithmetic_type& current) final {
+        *(current) = MEMORY_CONTROLLER::value_type{{0}};
     };
-    virtual void busy(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) final {
-        *(current++) = MEMORY_CONTROLLER::value_type{{9}};
-        offset++;
+    virtual void busy(const typename reader_length_ct::arithmetic_type& current) final {
+        *(current) = MEMORY_CONTROLLER::value_type{{9}};
     }
 };
 //main branch: Copy End from MemoryController.cpp

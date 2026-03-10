@@ -117,31 +117,35 @@ namespace SOS {
             using blocker_length_ct = typename std::tuple_element<1,typename SOS::MemoryView::BlockerBus<MemoryControllerType>::cables_type>::type;
             ReadTask(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker) : _size(Length),_offset(Offset), _memorycontroller_size(Memory), _memorycontroller_block(Blocker) {}
             protected:
-            virtual void outOfBounds(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
-            virtual void busy(typename reader_length_ct::arithmetic_type& current, typename reader_offset_ct::arithmetic_type& offset) = 0;
-            virtual void read(){
-                const auto start = _size.getReadBufferStartRef().load();
-                auto current = start;
-                const auto end = _size.getReadBufferAfterLastRef().load();
-                auto readOffset = _offset.getReadOffsetRef().load();
+            virtual void outOfBounds(const typename reader_length_ct::arithmetic_type& current) = 0;
+            virtual void busy(const typename reader_length_ct::arithmetic_type& current) = 0;
+            virtual void read() {
+                const auto rb_start = _size.getReadBufferStartRef().load();
+                auto rb = _size.getReadBufferAfterLastRef().load();
+                const auto rb_length = std::distance(rb_start, rb);
+                const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
-                while (current!=end){
-                    !wait();
-                    const auto mc_start = _memorycontroller_size.getMCStartRef().load();
-                    const auto mc_end = _memorycontroller_size.getMCEndRef().load();
-                    if ( std::distance(mc_start, mc_end) < std::distance(start, end) + readOffset ) {
-                        outOfBounds(current, readOffset);
-                    } else {
-                        if (readOffset < std::distance(mc_start,_memorycontroller_block.getBKStartRef().load())
-                            || readOffset > std::distance(mc_start,_memorycontroller_block.getBKEndRef().load())
-                        ) {
-                            *(current++) = *(mc_start+readOffset++);
+                auto mc = readOffset + rb_length;
+
+                while (rb!=rb_start) {
+                    if (!wait()) {
+                        const auto mc_start = _memorycontroller_size.getMCStartRef().load();
+                        const auto mc_end = _memorycontroller_size.getMCEndRef().load();
+                        rb--;
+                        mc--;
+                        if ( std::distance(mc_start,mc_end) < mc ) {
+                            outOfBounds(rb);
                         } else {
-                            busy(current, readOffset);
+                            const auto bk_end = _memorycontroller_block.getBKEndRef().load();
+                            const auto bk_start = _memorycontroller_block.getBKStartRef().load();
+                            if ( mc < std::distance(mc_start,bk_start) || mc > std::distance(mc_start,bk_end) )
+                                *(rb) = *(mc_start + mc);
+                            else
+                                busy(rb);
                         }
+                        wait_acknowledge();
                     }
-                    wait_acknowledge();
                     std::this_thread::yield();
                 }
             }
@@ -203,12 +207,24 @@ namespace SOS {
             };
             protected:
             virtual void block(std::size_t length) final {
-                if ( length <= std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load()) ){
-                    //std::cout<<"Distance: "<<std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<", Length: "<<length<<std::endl;
-                    std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+length);
+                if (!_blocker.signal.getResizingRef().test_and_set()) {
+                    _blocker.signal.getResizingRef().clear();
+                    SFA::util::logic_error(SFA::util::error_code::ResizingDuringBlockOccurred,__FILE__,__func__);
                 } else {
-                    //std::cout<<"Distance: "<<std::distance(std::get<1>(_blocker.cables).getBKEndRef().load(),std::get<0>(_blocker.cables).getMCEndRef().load())<<", Length: "<<length<<std::endl;
-                    SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                    auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
+                    if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
+                        auto tmp = std::get<1>(_blocker.cables).getBKEndRef().load();
+                        if ( length <= std::distance(tmp, std::get<0>(_blocker.cables).getMCEndRef().load()) ) {
+                            _blocker.signal.getWritingRef().clear();
+                            tmp += length;
+                            std::get<1>(_blocker.cables).getBKEndRef().store(tmp);
+                            _blocker.signal.getWritingRef().test_and_set();
+                        } else {
+                            SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
+                        }
+                    } else {
+                        SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
+                    }
                 }
             }
             virtual void write(const typename MemoryControllerType::value_type& character) {
@@ -216,15 +232,15 @@ namespace SOS {
                     _blocker.signal.getResizingRef().clear();
                     SFA::util::logic_error(SFA::util::error_code::ResizingDuringWriteOccurred,__FILE__,__func__);
                 } else {
-                _blocker.signal.getWritingRef().clear();
-                auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
-                if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
-                    *writerPos=character;
-                    std::get<1>(_blocker.cables).getBKStartRef().store(++writerPos);
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
-                }
-                _blocker.signal.getWritingRef().test_and_set();
+                    auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
+                    if (writerPos!=std::get<0>(_blocker.cables).getMCEndRef().load()) {
+                        *writerPos=character;
+                        _blocker.signal.getWritingRef().clear();
+                        std::get<1>(_blocker.cables).getBKStartRef().store(++writerPos);
+                        _blocker.signal.getWritingRef().test_and_set();
+                    } else {
+                        SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
+                    }
                 }
             }
             bus_type _blocker;
