@@ -87,15 +87,15 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         std::cout<<"Grown to: "<<memorycontroller.size()<<std::endl;
     };
     virtual void write(const typename RING_BUFFER::value_type& character) {
-        const auto bk_end = std::get<1>(_blocker.cables).getBKEndRef().load();
-        if ( std::tuple_size<RING_BUFFER::value_type>{} <= std::distance(bk_end, std::get<0>(_blocker.cables).getMCEndRef().load()) ) {
+        const auto bk_start = std::get<1>(_blocker.cables).getBKStartRef().load();
+        if ( std::tuple_size<RING_BUFFER::value_type>{} <= std::distance(bk_start, std::get<0>(_blocker.cables).getMCEndRef().load()) ) {
             _blocker.signal.getWritingRef().clear();
-            std::get<1>(_blocker.cables).getBKEndRef().store(bk_end+std::tuple_size<RING_BUFFER::value_type>{});
+            std::get<1>(_blocker.cables).getBKEndRef().store(bk_start+std::tuple_size<RING_BUFFER::value_type>{});
             _blocker.signal.getWritingRef().test_and_set();
             auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
-            std::copy(std::begin(character),std::end(character),writerPos);
+            writerPos = std::copy(std::begin(character),std::end(character),writerPos);
             _blocker.signal.getWritingRef().clear();
-            std::get<1>(_blocker.cables).getBKStartRef().store(writerPos+std::tuple_size<RING_BUFFER::value_type>{});
+            std::get<1>(_blocker.cables).getBKStartRef().store(writerPos);
             _blocker.signal.getWritingRef().test_and_set();
         } else {
             SFA::util::logic_error(SFA::util::error_code::CharacterWriteRangeFailed,__FILE__,__func__);
