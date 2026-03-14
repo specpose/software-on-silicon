@@ -6,7 +6,7 @@
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
-#define TOTAL_TIME 10
+#define TOTAL_TIME 7
 
 //Helper classes
 class Functor1 {
@@ -27,7 +27,7 @@ class Functor1 {
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
             const auto now = high_resolution_clock::now();
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count() > std::tuple_size<BLINK_T>{} ) {
+            if (std::chrono::duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(SAMPLE_RATE)) {
             last = now;
             switch(count){
                 case 0:
@@ -88,31 +88,32 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t ara_offset = 2996*SAMPLE_RATE/1000;//2996
+    const std::size_t ara_offset = 3995*SAMPLE_RATE/1000;//2996
 
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
-    Functor2 functor2{readerBus};
+    auto functor2 = new Functor2(readerBus);
     BLOCK buffers{};
     //initialize entire block to zero on all channels
     for (std::size_t i = 0; i < std::tuple_size<BLOCK>{}; i++)
         for (std::size_t j = 0; j < BLOCK::value_type::num_channels; j++)
             buffers[i].channels[j] = BLOCK::value_type::sample_type(0);
-    functor2.asyncRead(buffers, ara_offset);
+    functor2->asyncRead(buffers, ara_offset);
 
-    std::cout << "Writer writing (10s) from start at rate 1/ms..." << std::endl;
+    std::cout << "Writer writing "<<TOTAL_TIME<<"s from start at rate "<<std::tuple_size<BLINK_T>{}<<"/"<<SAMPLE_RATE<<"..." << std::endl;
     Functor1 functor1{readerBus};
 
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-3) {
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-1) {
 
-        if (functor2() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
+        if ((*functor2)() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
             beginning = high_resolution_clock::now();
-            for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i+=SAMPLE_RATE/1000)
+            for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i+=SAMPLE_RATE/1000)//HACK
                 std::cout << buffers[i].channels[0];//HACK: hard-coded channel 0
             std::cout << std::endl;
-            functor2.asyncRead(buffers, ara_offset);
+            functor2->asyncRead(buffers, ara_offset);
         }
     }
+    delete functor2;
 }
