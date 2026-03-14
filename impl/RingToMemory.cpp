@@ -10,7 +10,7 @@ using namespace std::chrono;
 
 #include "Sample.cpp"
 using BLINK_T=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
-using RING_BUFFER=std::array<BLINK_T,334>;
+using RING_BUFFER=std::array<BLINK_T,2>;
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 

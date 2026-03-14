@@ -29,9 +29,10 @@ class Functor {
 using namespace std::chrono;
 
 int main(){
+    const std::size_t ara_offset = 6992;
     std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
-    Functor functor(6992);
-    std::cout << "Reader reading 1000 times at tail of memory at rate 1/s..." << std::endl;
+    Functor functor(ara_offset);
+    std::cout << "Reader reading 1000 times from offset "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
     auto loopstart = high_resolution_clock::now();
     auto start_tp = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){

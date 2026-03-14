@@ -1,12 +1,12 @@
 #define MAX_BLINK 1
-#define STORAGE_SIZE 10000
+#define STORAGE_SIZE 5000
 #define BLOCK_SIZE 1000
 #define SAMPLE_TYPE char
 #define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
-#define TOTAL_TIME 10
+#define TOTAL_TIME 7
 
 //Helper classes
 class Functor1 {
@@ -20,9 +20,9 @@ class Functor1 {
     }
     void operator()(){
         auto loopstart = high_resolution_clock::now();
-        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
+        while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-2) {
             const auto now = high_resolution_clock::now();
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count() > std::tuple_size<BLINK_T>{} ) {
+            if (std::chrono::duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(BLOCK_SIZE)) {
             last = now;
             RING_BUFFER::value_type blink{};
             switch(count){
@@ -73,7 +73,7 @@ class Functor2 {
                 std::cout << (print++)->channels[0];
             std::cout << std::endl;
         }
-        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(milliseconds{1000}));
+        std::this_thread::sleep_until(beginning + duration_cast<high_resolution_clock::duration>(seconds{1}));
         }
     }
     private:
@@ -89,9 +89,10 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t ara_offset = 2996;
+    const std::size_t ara_offset = 3995;
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
-    Functor2 functor2(ara_offset);
-    std::cout << "Writer writing 4995 times (5s) from start at rate 1/ms..." << std::endl;
-    Functor1 functor1(functor2.readerBus);
+    auto functor2 = new Functor2(ara_offset);
+    std::cout << "Writer writing "<<TOTAL_TIME-2<<"s from start at rate "<<std::tuple_size<BLINK_T>{}<<"/"<<BLOCK_SIZE<<"..." << std::endl;
+    Functor1 functor1(functor2->readerBus);
+    delete functor2;
 }
