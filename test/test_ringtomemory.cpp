@@ -105,7 +105,7 @@ int main (){
 
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-1) {
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
 
         if ((*functor2)() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
             beginning = high_resolution_clock::now();
