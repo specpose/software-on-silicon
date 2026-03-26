@@ -193,7 +193,7 @@ namespace SOS {
         template<typename MemoryControllerType> class NonBlockingWriteTask {
             public:
             using bus_type = SOS::MemoryView::BlockerBus<MemoryControllerType>;//not a controller: bus_type is for superclass
-            NonBlockingWriteTask() : memorycontroller{}, _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
+            NonBlockingWriteTask(MemoryControllerType& memorycontroller) : _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
                 _blocker.signal.getWritingRef().test_and_set();
             };
             protected:
@@ -209,7 +209,6 @@ namespace SOS {
                     SFA::util::logic_error(SFA::util::error_code::WriterBufferFull,__FILE__,__func__);
                 }
             }
-            MemoryControllerType memorycontroller;
             bus_type _blocker;
         };
     }

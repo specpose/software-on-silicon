@@ -54,7 +54,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<BLOCK>& passThruHostMem
         ) :
-        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(),
+        SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller),
         PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER> >(passThruHostMem,_blocker)
         {
             _blocker.signal.getWritingRef().clear();
@@ -89,5 +89,7 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
     private:
     int counter = 0;
     bool blink = true;
+    MEMORY_CONTROLLER memorycontroller{};
+
     std::thread _thread;
 };
