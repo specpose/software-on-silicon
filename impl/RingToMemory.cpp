@@ -14,7 +14,6 @@ using RING_BUFFER=std::array<BLINK_T,2>;
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
-//main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
@@ -27,13 +26,12 @@ class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONT
         *(current) = MEMORY_CONTROLLER::value_type{'X'};
     }
 };
-//main branch: Copy End from MemoryController.cpp
 
 class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside.signal, blockerbus.signal),
     ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables)),
     SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables))
     {
@@ -50,8 +48,9 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
+
 //multiple inheritance: destruction order
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
+class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
     RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
@@ -61,6 +60,10 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
             std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{'-'});
             _blocker.signal.getWritingRef().test_and_set();
         }
+    protected:
+    virtual void transfer(const RING_BUFFER::value_type& character) {
+        write(character);
+    }
     private:
     virtual void write(const typename RING_BUFFER::value_type& character) {
         const auto bk_start = std::get<0>(_blocker.cables).getBKStartRef().load();
@@ -79,32 +82,30 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         if (std::distance(std::get<0>(_blocker.cables).getBKStartRef().load(),std::get<0>(_blocker.cables).getBKEndRef().load())!=0)
             SFA::util::logic_error(SFA::util::error_code::UnexpectedWritesLeft,__FILE__,__func__);
     }
-    //overrides RingBufferTask::transfer
-    virtual void transfer(const RING_BUFFER::value_type& character) final {
-        write(character);
-    }
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public RingBufferTaskImpl {
+class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>> {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<BLOCK>& rd) :
+    SOS::Behavior::RingBuffer<RING_BUFFER>(rB.signal),
     RingBufferTaskImpl(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    RingBufferTask(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl
-        //_thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
         _thread = start(this);
     }
-    ~RingBufferImpl() final{
+    ~RingBufferImpl() {
         destroy(_thread);
     }
-    //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
-    void event_loop(){
-            if(!_intrinsic.getNotifyRef().test_and_set()){
-                this->read_loop();
-            }
-            std::this_thread::yield();
+    //using SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop;
+    virtual void event_loop() final {
+        SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop();
+    }
+    //using RingBufferTaskImpl::transfer;
+    virtual void transfer(const RING_BUFFER::value_type& character) final {
+        RingBufferTaskImpl::transfer(character);
     }
     private:
     //ALWAYS has to be private
