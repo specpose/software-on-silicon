@@ -28,9 +28,9 @@ int main(){
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-        if ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)) {
-        beginning = high_resolution_clock::now();
-        functor(channelBuffers32);
+        if (duration_cast<milliseconds>(high_resolution_clock::now()-beginning).count()>0) {
+            beginning = high_resolution_clock::now();
+            functor(channelBuffers32);
         }
         std::this_thread::yield();
     }

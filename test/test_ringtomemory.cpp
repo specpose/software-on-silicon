@@ -65,9 +65,7 @@ class Functor2 {
     public:
     Functor2(SOS::MemoryView::ReaderBus<BLOCK>& readerBus) : _readerBus(readerBus) {}
     ~Functor2(){
-        //while(_readerBus.signal.getAcknowledgeRef().test_and_set())
-        //    std::this_thread::yield();
-        //_readerBus.signal.getUpdatedRef().test_and_set();
+        _readerBus.signal.getUpdatedRef().test_and_set();
     };
     void asyncRead(BLOCK& buffer, const std::size_t offset){
         _readerBus.setReadBuffer(buffer);
@@ -75,11 +73,10 @@ class Functor2 {
         _readerBus.signal.getUpdatedRef().clear();
     }
     bool operator()() {
-        if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
-            return false;
-        } else {
+        if (!_readerBus.signal.getAcknowledgeRef().test_and_set())
             return true;
-        }
+        else
+            return false;
     }
     private:
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
@@ -88,7 +85,7 @@ class Functor2 {
 using namespace std::chrono;
 
 int main (){
-    const std::size_t ara_offset = 3995*SAMPLE_RATE/1000;//2996
+    const std::size_t ara_offset = 3995*SAMPLE_RATE/BLOCK_SIZE;
 
     SOS::MemoryView::ReaderBus<BLOCK> readerBus{};
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" characters per second at position " << ara_offset << "..." << std::endl;
@@ -103,17 +100,19 @@ int main (){
     std::cout << "Writer writing "<<TOTAL_TIME<<"s from start at rate "<<std::tuple_size<BLINK_T>{}<<"/"<<SAMPLE_RATE<<"..." << std::endl;
     Functor1 functor1{readerBus};
 
-    auto loopstart = high_resolution_clock::now();
+    const auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
-
-        if ((*functor2)() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)){
-            beginning = high_resolution_clock::now();
-            for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i+=SAMPLE_RATE/1000)//HACK
-                std::cout << buffers[i].channels[0];//HACK: hard-coded channel 0
-            std::cout << std::endl;
-            functor2->asyncRead(buffers, ara_offset);
+        if (duration_cast<seconds>(high_resolution_clock::now()-beginning).count()>0) {
+            if ((*functor2)()) {
+                beginning = high_resolution_clock::now();
+                for (std::size_t i=0; i<std::tuple_size<BLOCK>{}; i+=SAMPLE_RATE/BLOCK_SIZE)
+                    std::cout << buffers[i].channels[0];//HACK: hard-coded channel 0
+                std::cout << std::endl;
+                functor2->asyncRead(buffers, ara_offset);
+            }
         }
+        std::this_thread::yield();
     }
     delete functor2;
 }

@@ -13,11 +13,10 @@ class Functor {
         _readerBus.signal.getUpdatedRef().clear();
     }
     bool operator()(){
-        if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
-            return false;
-        } else {
+        if(!_readerBus.signal.getAcknowledgeRef().test_and_set())
             return true;
-        }
+        else
+            return false;
     }
     private:
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
@@ -39,15 +38,17 @@ int main(){
     std::cout << "Reader reading "<<std::tuple_size<BLOCK>{}<<" times from offset "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
     functor.asyncRead(randomread,ara_offset);
 
-    auto loopstart = high_resolution_clock::now();
-    auto start_tp = loopstart;
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
-        if (functor() && (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_tp).count() > 0)) {
-        start_tp = high_resolution_clock::now();
-        for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
-            std::cout<< randomread[i].channels[4];
-        std::cout<<std::endl;
-        functor.asyncRead(randomread,ara_offset);
+    const auto loopstart = high_resolution_clock::now();
+    auto beginning = loopstart;
+    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11) {
+        if (duration_cast<seconds>(high_resolution_clock::now()-beginning).count()>0) {
+            if (functor()) {
+                beginning = high_resolution_clock::now();
+                for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
+                    std::cout<< randomread[i].channels[4];
+                std::cout<<std::endl;
+                functor.asyncRead(randomread,ara_offset);
+            }
         }
         std::this_thread::yield();
     }
