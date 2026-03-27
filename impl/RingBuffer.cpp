@@ -10,33 +10,28 @@ using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,M
 
 using namespace SOS::MemoryView;
 
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER> {
+class RingBufferTaskImpl : private virtual SOS::Behavior::RingBufferTask<RING_BUFFER> {
     public:
-    using cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::cables_type>::type;
-    using const_cable_type = std::tuple_element<0,RingBufferBus<RING_BUFFER>::const_cables_type>::type;
-    RingBufferTaskImpl(cable_type& indices, const_cable_type& bounds) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds){}
-    private:
-    virtual void transfer(const RING_BUFFER::value_type& character) final {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
+    using SOS::Behavior::RingBufferTask<RING_BUFFER>::RingBufferTask;
+    protected:
+    virtual void transfer(const RING_BUFFER::value_type& character) {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
 };
-class RingBufferImpl : public SOS::Behavior::SimpleDummy<>, private RingBufferTaskImpl {
+class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::Loop {
     public:
-    RingBufferImpl(RingBufferBus<RING_BUFFER>& bus) :
-    SOS::Behavior::SimpleDummy<>(bus.signal),
-    RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables))
+    RingBufferImpl(bus_type& bus) :
+    SOS::Behavior::RingBuffer<RING_BUFFER>(bus.signal),
+    RingBufferTaskImpl(std::get<0>(bus.cables),std::get<0>(bus.const_cables)),
+    SOS::Behavior::RingBufferTask<RING_BUFFER>(std::get<0>(bus.cables),std::get<0>(bus.const_cables)),
+    SOS::Behavior::Loop()
     {
         _thread = start(this);
     }
-    ~RingBufferImpl() final{
+    ~RingBufferImpl() {
         destroy(_thread);
     }
-    void event_loop(){
-        //while(is_running()){
-            if(!_intrinsic.getNotifyRef().test_and_set()){
-                this->read_loop();
-            }
-            std::this_thread::yield();
-        //}
-        //finished();
+    //using SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop;
+    virtual void event_loop() final {
+        SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop();
     }
     private:
     //ALWAYS has to be private

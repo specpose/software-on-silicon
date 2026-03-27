@@ -39,7 +39,7 @@ namespace SOS {
             _bounds(bounds)
             {}
             protected:
-            virtual void read_loop() final {
+            virtual void read_hook() final {
                 auto threadcurrent = _item.getThreadCurrentRef().load();
                 auto current = _item.getCurrentRef().load();
                 bool stop = false;
@@ -59,6 +59,20 @@ namespace SOS {
             cable_type& _item;
             const_cable_type& _bounds;
         };
-        //There is no RingBufferLoop because the caller feeds its own memory which is then processed by the RingBufferTask
+        template<typename RingBufferType> class RingBuffer : public SOS::Behavior::SimpleSubController, protected virtual SOS::Behavior::RingBufferTask<RingBufferType>
+        {
+            public:
+            using bus_type = SOS::MemoryView::RingBufferBus<RingBufferType>;
+            RingBuffer(typename bus_type::signal_type& signal): SOS::Behavior::SimpleSubController(signal) {
+            }
+            ~RingBuffer(){
+            }
+            virtual void event_loop() {
+                if(!_intrinsic.getNotifyRef().test_and_set()){
+                    SOS::Behavior::RingBufferTask<RingBufferType>::read_hook();
+                }
+                std::this_thread::yield();
+            }
+        };
     }
 }

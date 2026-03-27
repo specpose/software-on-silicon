@@ -15,7 +15,6 @@ using RING_BUFFER=std::array<BLINK_T,2>;
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
-//main branch: Copy Start from MemoryController.cpp
 class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
     public:
     ReadTaskImpl(reader_length_ct& Length,reader_offset_ct& Offset,memorycontroller_length_ct& Memory,blocker_length_ct& Blocker)
@@ -28,13 +27,12 @@ class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONT
         *(current) = MEMORY_CONTROLLER::value_type{{9}};
     }
 };
-//main branch: Copy End from MemoryController.cpp
 
 class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
                     private virtual ReadTaskImpl {
     public:
     ReaderImpl(bus_type& outside, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>& blockerbus):
-    SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside, blockerbus),
+    SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>(outside.signal, blockerbus.signal),
     ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables)),
     SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables))
     {
@@ -51,17 +49,41 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     };
     std::thread _thread;
 };
+
 //multiple inheritance: destruction order
-class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
+class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, protected SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
     public:
     RingBufferTaskImpl(
         SOS::Behavior::RingBufferTask<RING_BUFFER>::cable_type& indices,
         SOS::Behavior::RingBufferTask<RING_BUFFER>::const_cable_type& bounds
-        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), memorycontroller{}, SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller) {
+        ) : SOS::Behavior::RingBufferTask<RING_BUFFER>(indices, bounds), SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller) {
             _blocker.signal.getWritingRef().clear();
             std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{0});
             _blocker.signal.getWritingRef().test_and_set();
         }
+    protected:
+    virtual void transfer(const RING_BUFFER::value_type& character) {
+        const auto now = high_resolution_clock::now();
+        if (firstRun) {
+            reserve(2*SAMPLE_RATE);
+            last = now;
+        } else if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
+            reserve(SAMPLE_RATE);
+            last = now;
+        }
+        grow(std::tuple_size<RING_BUFFER::value_type>{});
+        std::cout<<"MemoryController size: "<<memorycontroller.size()<<std::endl;
+        if (firstRun) {
+            _blocker.signal.getResizingRef().clear();
+            std::get<0>(_blocker.cables).getMCStartRef().store(std::begin(memorycontroller));
+            std::get<0>(_blocker.cables).getMCEndRef().store(std::end(memorycontroller));
+            std::get<1>(_blocker.cables).getBKStartRef().store(std::begin(memorycontroller));
+            std::get<1>(_blocker.cables).getBKEndRef().store(std::begin(memorycontroller));
+            _blocker.signal.getResizingRef().test_and_set();
+            firstRun = false;
+        }
+        write(character);
+    }
     private:
     void reserve(std::size_t add){
         while (!_blocker.signal.getReadingRef().test_and_set()){
@@ -103,56 +125,35 @@ class RingBufferTaskImpl : protected SOS::Behavior::RingBufferTask<RING_BUFFER>,
         if (std::distance(std::get<1>(_blocker.cables).getBKStartRef().load(),std::get<1>(_blocker.cables).getBKEndRef().load())!=0)
             SFA::util::logic_error(SFA::util::error_code::UnexpectedWritesLeft,__FILE__,__func__);
     }
-    //overrides RingBufferTask::transfer
-    virtual void transfer(const RING_BUFFER::value_type& character) final {
-        const auto now = high_resolution_clock::now();
-        if (firstRun) {
-            reserve(2*SAMPLE_RATE);
-            last = now;
-        } else if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
-            reserve(SAMPLE_RATE);
-            last = now;
-        }
-        grow(std::tuple_size<RING_BUFFER::value_type>{});
-        std::cout<<"MemoryController size: "<<memorycontroller.size()<<std::endl;
-        if (firstRun) {
-            _blocker.signal.getResizingRef().clear();
-            std::get<0>(_blocker.cables).getMCStartRef().store(std::begin(memorycontroller));
-            std::get<0>(_blocker.cables).getMCEndRef().store(std::end(memorycontroller));
-            std::get<1>(_blocker.cables).getBKStartRef().store(std::begin(memorycontroller));
-            std::get<1>(_blocker.cables).getBKEndRef().store(std::begin(memorycontroller));
-            _blocker.signal.getResizingRef().test_and_set();
-            firstRun = false;
-        }
-        write(character);
-    }
     bool firstRun = true;
     std::chrono::time_point<std::chrono::high_resolution_clock> last = high_resolution_clock::now();
 
     std::size_t _reserve = 0;
-    MEMORY_CONTROLLER memorycontroller;
+    MEMORY_CONTROLLER memorycontroller{};
 };
 //multiple inheritance: destruction order
-class RingBufferImpl : public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, public RingBufferTaskImpl {
+class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>> {
     public:
     //multiple inheritance: construction order
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB,SOS::MemoryView::ReaderBus<BLOCK>& rd) :
+    SOS::Behavior::RingBuffer<RING_BUFFER>(rB.signal),
     RingBufferTaskImpl(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
+    RingBufferTask(std::get<0>(rB.cables),std::get<0>(rB.const_cables)),
     SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal,rd,_blocker)
     {
         //multiple inheritance: PassthruSimpleController, not ReaderImpl
-        //_thread = SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
         _thread = start(this);
     }
-    ~RingBufferImpl() final{
+    ~RingBufferImpl() {
         destroy(_thread);
     }
-    //multiple inheritance: Overriding RingBufferImpl, not ReaderImpl
-    void event_loop(){
-            if(!_intrinsic.getNotifyRef().test_and_set()){
-                this->read_loop();
-            }
-            std::this_thread::yield();
+    //using SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop;
+    virtual void event_loop() final {
+        SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop();
+    }
+    //using RingBufferTaskImpl::transfer;
+    virtual void transfer(const RING_BUFFER::value_type& character) final {
+        RingBufferTaskImpl::transfer(character);
     }
     private:
     //ALWAYS has to be private
