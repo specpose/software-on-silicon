@@ -165,9 +165,6 @@ namespace SOS {
             _blocked_signal(bB_signal),
             SOS::Behavior::EventDummy<>(rB_signal)
             {}
-            ~Reader(){
-                _blocked_signal.getReadingRef().test_and_set();
-            }
             public:
             virtual void event_loop() {
                     if (!_intrinsic.getUpdatedRef().test_and_set()){//random access call, FIFO
@@ -204,6 +201,7 @@ namespace SOS {
             NonBlockingWriteTask(MemoryControllerType& memorycontroller) : _blocker(std::begin(memorycontroller),std::end(memorycontroller)) {
                 _blocker.signal.getWritingRef().test_and_set();
                 _blocker.signal.getResizingRef().test_and_set();
+                _blocker.signal.getReadingRef().test_and_set();
             };
             protected:
             virtual void write(const typename MemoryControllerType::value_type& character) {
