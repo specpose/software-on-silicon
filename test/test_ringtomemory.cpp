@@ -114,6 +114,5 @@ int main (){
         }
         std::this_thread::yield();
     }
-    readerBus.signal.getAcknowledgeRef().clear();
     delete functor2;
 }
