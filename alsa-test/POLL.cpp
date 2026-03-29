@@ -6,9 +6,11 @@
 //#include <poll.h>
 
 #if INTEL
-#define MAX_READ 32 //<8192
+#define MAX_BLINK 300
+#define MAX_READ 32
 #else
-#define MAX_READ 8 //<8192
+#define MAX_BLINK 1200
+#define MAX_READ 8
 #endif
 #if INTEL
 #define BLOCK_SIZE 48000
@@ -16,80 +18,18 @@
 #define BLOCK_SIZE 8000
 #endif
 
-using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,BLOCK_SIZE>>;
-
-void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t& frames_read, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
-    const snd_pcm_channel_area_t* areas = nullptr;
-    snd_pcm_uframes_t offset = 0;
-
-    snd_pcm_uframes_t avail = 0;
-    snd_pcm_uframes_t frames = 0;
-
-    unsigned short revents;
-    auto start = std::chrono::high_resolution_clock::now();
-
-    snd_pcm_uframes_t chunk = BLOCK_SIZE;
-    auto block_offset = frames_read % BLOCK_SIZE;
-    while (chunk>0) {
-        rc(poll(ufds, fd_count, -1));
-        rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
-        if (revents & POLLERR){
-            fprintf(stderr, "POLLERR\n");
-            abort();
-        }
-        if (revents & POLLIN){
-            auto avail = rc(snd_pcm_avail(handle));
-            if (avail >= MAX_READ) {
-                frames = MAX_READ;
-                rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
-                if (frames<=chunk) {
-                if (areas){
-                    const auto channel_config = check_interleaved(areas);
-                    for (std::size_t j=0; j<NUM_CHANNELS;j++){
-                        for (std::size_t i=0;i<frames;i++) {
-                            audio_data[block_offset+i][j]=*(std::get<0>(channel_config[j]) +
-                            i *
-                            std::get<1>(channel_config[j]));
-                            //fprintf(stdout, ",%04d", audio_data[block_offset+i][j]);
-                        }
-                    }
-                    block_offset += frames;
-                } else {
-                    fprintf(stderr, "PROGRAM ERROR: invalid mmap areas\n");
-                    abort();
-                }
-                snd_pcm_uframes_t read = rc(snd_pcm_mmap_commit(handle, offset, frames));
-                if (read < 0) {
-                    fprintf(stderr, "PROGRAM ERROR: mmap read count is %d\n", read);
-                    abort();
-                    read = 0;
-                } else if (read != MAX_READ){
-                    fprintf(stderr, "PROGRAM ERROR: frames dropped %d\n", MAX_READ - read);
-                    abort();
-                }
-                chunk -= frames;
-                } else {
-                    fprintf(stderr, "PROGRAM ERROR: read %d", frames);
-                    abort();
-                }
-            }
-            max = max < avail ? avail : max;
-        }
-        std::this_thread::yield();
-    }
-    frames_read += BLOCK_SIZE;
-}
+using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK*MAX_READ>>;
+#include "software-on-silicon/alsa_ringbuffer.hpp"
 
 int main(){
-    static_assert(BLOCK_SIZE%MAX_READ==0);
-    assert((NUM_CHANNELS*rate)%BLOCK_SIZE==0);
+    assert(rate%(MAX_BLINK*MAX_READ)==0);
     auto buffer = RING_BUFFER{};
     const int seconds = 10;
     for (std::size_t i = 0; i < seconds; i++){
         buffer.push_back(RING_BUFFER::value_type{});
         const RING_BUFFER::value_type::value_type sample{{0xFE,0xFE}};
         for (std::size_t j=0;j<buffer.size();j++)
-            for (std::size_t i=0;i<BLOCK_SIZE;i++){
+            for (std::size_t i=0;i<(MAX_BLINK*MAX_READ);i++){
                 buffer[j][i]=sample;
             }
     }
@@ -110,7 +50,7 @@ int main(){
     destroy(driver);
     destroy_poll(poll);
     for (std::size_t k = 0; k < seconds; k++)
-        for(std::size_t i=0;i<BLOCK_SIZE;i++)
+        for(std::size_t i=0;i<(MAX_BLINK*MAX_READ);i++)
             for (std::size_t j=0;j<NUM_CHANNELS;j++)
                 fprintf(stdout, ",%04d", buffer[k][i][j]);
     fprintf(stdout, "\n");
