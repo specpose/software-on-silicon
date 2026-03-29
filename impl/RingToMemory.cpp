@@ -11,7 +11,7 @@ using namespace std::chrono;
 
 #include "Sample.cpp"
 using BLINK_T = std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
-using RING_BUFFER=std::array<BLINK_T,2>;
+using RING_BUFFER=std::array<BLINK_T,16>;
 using MEMORY_CONTROLLER=std::vector<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
@@ -66,7 +66,7 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
         if (firstRun) {
             reserve(2*SAMPLE_RATE);
         } else if (character_count==character_threshold) {
-            reserve(SAMPLE_RATE);
+            reserve(1*SAMPLE_RATE);
             character_count=0;
         }
         grow(std::tuple_size<RING_BUFFER::value_type>{});
@@ -123,7 +123,7 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
     }
     bool firstRun = true;
     std::size_t character_count = 0;
-    const std::size_t character_threshold = SAMPLE_RATE/std::tuple_size<RING_BUFFER::value_type>{};
+    const std::size_t character_threshold = (SAMPLE_RATE-std::tuple_size<RING_BUFFER::value_type>{})/std::tuple_size<RING_BUFFER::value_type>{};
 
     std::size_t _reserve = 0;
     MEMORY_CONTROLLER memorycontroller{};
