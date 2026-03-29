@@ -203,6 +203,9 @@ namespace SOS {
                 _blocker.signal.getResizingRef().test_and_set();
                 _blocker.signal.getReadingRef().test_and_set();
             };
+            ~NonBlockingWriteTask(){
+                _blocker.signal.getReadingRef().test_and_set();
+            }
             protected:
             virtual void write(const typename MemoryControllerType::value_type& character) {
                 auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
