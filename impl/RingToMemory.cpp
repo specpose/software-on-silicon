@@ -63,16 +63,13 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
         }
     protected:
     virtual void transfer(const RING_BUFFER::value_type& character) {
-        const auto now = high_resolution_clock::now();
         if (firstRun) {
             reserve(2*SAMPLE_RATE);
-            last = now;
-        } else if (std::chrono::duration_cast<std::chrono::seconds>(now - last).count() > 0) {
+        } else if (character_count==character_threshold) {
             reserve(SAMPLE_RATE);
-            last = now;
+            character_count=0;
         }
         grow(std::tuple_size<RING_BUFFER::value_type>{});
-        std::cout<<"MemoryController size: "<<memorycontroller.size()<<std::endl;
         if (firstRun) {
             _blocker.signal.getResizingRef().clear();
             std::get<0>(_blocker.cables).getMCStartRef().store(std::begin(memorycontroller));
@@ -83,6 +80,7 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
             firstRun = false;
         }
         write(character);
+        ++character_count;
     }
     private:
     void reserve(std::size_t add){
@@ -100,13 +98,11 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
         std::get<1>(_blocker.cables).getBKStartRef().store(std::begin(memorycontroller)+bk_start);
         std::get<1>(_blocker.cables).getBKEndRef().store(std::begin(memorycontroller)+bk_end);
         _blocker.signal.getResizingRef().test_and_set();
-        std::cout<<"Reserved: "<<_reserve<<std::endl;
     }
     void grow(MEMORY_CONTROLLER::difference_type add){
         for (std::size_t i = 0; i < add; i++)
             memorycontroller.push_back(MEMORY_CONTROLLER::value_type{0});
         std::get<0>(_blocker.cables).getMCEndRef().store(std::end(memorycontroller));
-        std::cout<<"Grown to: "<<memorycontroller.size()<<std::endl;
     };
     virtual void write(const typename RING_BUFFER::value_type& character) {
         const auto bk_start = std::get<1>(_blocker.cables).getBKStartRef().load();
@@ -126,7 +122,8 @@ class RingBufferTaskImpl : private SOS::Behavior::RingBufferTask<RING_BUFFER>, p
             SFA::util::logic_error(SFA::util::error_code::UnexpectedWritesLeft,__FILE__,__func__);
     }
     bool firstRun = true;
-    std::chrono::time_point<std::chrono::high_resolution_clock> last = high_resolution_clock::now();
+    std::size_t character_count = 0;
+    const std::size_t character_threshold = SAMPLE_RATE/std::tuple_size<RING_BUFFER::value_type>{};
 
     std::size_t _reserve = 0;
     MEMORY_CONTROLLER memorycontroller{};
