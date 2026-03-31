@@ -5,6 +5,7 @@ namespace SOS {
             const static std::size_t num_channels = N;
             //AGGREGATE INITIALISATION: no constructors
             std::array<channel_t, N> channels{};
+            const channel_t& operator[](const std::size_t i) const { return channels[i]; };
         };
     }
 }

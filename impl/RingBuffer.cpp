@@ -14,7 +14,7 @@ class RingBufferTaskImpl : private virtual SOS::Behavior::RingBufferTask<RING_BU
     public:
     using SOS::Behavior::RingBufferTask<RING_BUFFER>::RingBufferTask;
     protected:
-    virtual void transfer(const RING_BUFFER::value_type& character) {std::cout<<character[0].channels[0];}//HACK: hard coded single sample, hard coded channel 0
+    virtual void transfer(const RING_BUFFER::value_type& character) {std::cout<<character[0][0];}//HACK: hard coded single sample, hard coded channel 0
 };
 class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::Loop {
     public:
