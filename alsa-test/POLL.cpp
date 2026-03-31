@@ -6,10 +6,10 @@
 //#include <poll.h>
 
 #if INTEL
-#define MAX_BLINK 300
+#define MAX_BLINK 9600
 #define MAX_READ 32
 #else
-#define MAX_BLINK 1200
+#define MAX_BLINK 9600
 #define MAX_READ 8
 #endif
 #if INTEL
@@ -18,18 +18,19 @@
 #define BLOCK_SIZE 8000
 #endif
 
-using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK*MAX_READ>>;
+using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>>;
 #include "software-on-silicon/alsa_ringbuffer.hpp"
 
 int main(){
-    assert(rate%(MAX_BLINK*MAX_READ)==0);
+    static_assert(MAX_BLINK%MAX_READ==0);
+    assert(rate%MAX_BLINK==0);
     auto buffer = RING_BUFFER{};
     const int seconds = 10;
     for (std::size_t i = 0; i < seconds; i++){
         buffer.push_back(RING_BUFFER::value_type{});
         const RING_BUFFER::value_type::value_type sample{{0xFE,0xFE}};
         for (std::size_t j=0;j<buffer.size();j++)
-            for (std::size_t i=0;i<(MAX_BLINK*MAX_READ);i++){
+            for (std::size_t i=0;i<(MAX_BLINK);i++){
                 buffer[j][i]=sample;
             }
     }
@@ -50,7 +51,7 @@ int main(){
     destroy(driver);
     destroy_poll(poll);
     for (std::size_t k = 0; k < seconds; k++)
-        for(std::size_t i=0;i<(MAX_BLINK*MAX_READ);i++)
+        for(std::size_t i=0;i<(MAX_BLINK);i++)
             for (std::size_t j=0;j<NUM_CHANNELS;j++)
                 fprintf(stdout, ",%04d", buffer[k][i][j]);
     fprintf(stdout, "\n");

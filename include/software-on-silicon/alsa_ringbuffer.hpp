@@ -24,8 +24,8 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
     unsigned short revents;
     auto start = std::chrono::high_resolution_clock::now();
 
-    snd_pcm_uframes_t chunk = MAX_BLINK*MAX_READ;
-    auto block_offset = frames_read % (MAX_BLINK*MAX_READ);
+    snd_pcm_uframes_t chunk = MAX_BLINK;
+    auto block_offset = frames_read % (MAX_BLINK);
     while (chunk>0) {
         rc(poll(ufds, fd_count, -1));
         rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
@@ -73,5 +73,5 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
         }
         std::this_thread::yield();
     }
-    frames_read += MAX_BLINK*MAX_READ;
+    frames_read += MAX_BLINK;
 }

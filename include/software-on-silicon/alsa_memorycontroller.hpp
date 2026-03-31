@@ -17,7 +17,7 @@ void recording_loop_interleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_data
             //std::this_thread::sleep_for(std::chrono::milliseconds{39});//37 to 38ms
             continue;
         }
-        snd_pcm_uframes_t chunk = MAX_BLINK * MAX_READ;
+        snd_pcm_uframes_t chunk = MAX_BLINK;
         while (chunk>0) {
             frames = MAX_READ;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
@@ -41,7 +41,7 @@ void recording_loop_interleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_data
                 abort();
             }
         }
-        frames_read += MAX_BLINK * MAX_READ;
+        frames_read += MAX_BLINK;
     }
 }
 
@@ -65,7 +65,7 @@ void recording_loop_noninterleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_d
             //std::this_thread::sleep_for(std::chrono::milliseconds{39});//37 to 38ms
             continue;
         }
-        snd_pcm_uframes_t chunk = MAX_BLINK * MAX_READ;
+        snd_pcm_uframes_t chunk = MAX_BLINK;
         while (chunk>0) {
             frames = MAX_READ;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
@@ -89,6 +89,6 @@ void recording_loop_noninterleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_d
                 abort();
             }
         }
-        frames_read += MAX_BLINK * MAX_READ;
+        frames_read += MAX_BLINK;
     }
 }

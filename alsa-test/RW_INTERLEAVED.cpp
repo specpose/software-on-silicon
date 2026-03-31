@@ -5,11 +5,11 @@
 #include <vector>
 
 #if INTEL
-#define MAX_BLINK 1
+#define MAX_BLINK 2
 #define MAX_READ 2
 #define STORAGE_SIZE 480000
 #else
-#define MAX_BLINK 1
+#define MAX_BLINK 4
 #define MAX_READ 4
 #define STORAGE_SIZE 80000
 #endif
@@ -18,6 +18,7 @@ using RING_BUFFER = std::array<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,M
 #include "software-on-silicon/alsa_ringbuffer.hpp"
 
 int main(){
+    static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_READ==0);
     const int seconds = 10;
     assert((rate*seconds)%STORAGE_SIZE==0);

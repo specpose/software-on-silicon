@@ -6,10 +6,10 @@
 
 #if INTEL
 #define MAX_READ 32 //<8192
-#define MAX_BLINK 1
+#define MAX_BLINK 32
 #else
 #define MAX_READ 8 //<8192
-#define MAX_BLINK 1
+#define MAX_BLINK 8
 #endif
 #if INTEL
 #define STORAGE_SIZE 480000
@@ -21,7 +21,8 @@ using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAG
 #include "software-on-silicon/alsa_memorycontroller.hpp"
 
 int main(){
-    static_assert(STORAGE_SIZE%(MAX_BLINK*MAX_READ)==0);
+    static_assert(MAX_BLINK%MAX_READ==0);
+    static_assert(STORAGE_SIZE%MAX_BLINK==0);
     const int seconds = 10;
     assert((NUM_CHANNELS*rate*seconds)%STORAGE_SIZE==0);
     MEMORY_CONTROLLER buffer{};
