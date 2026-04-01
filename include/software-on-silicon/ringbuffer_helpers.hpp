@@ -5,8 +5,7 @@ template<typename Target, typename InputBlock> void WriteInterleaved(SOS::Memory
     //std::cout<<"=";
         if (current!=std::get<0>(myBus.cables).getThreadCurrentRef().load()){
             //write directly to HOSTmemory
-            for (std::size_t sample=0;sample<std::tuple_size<InputBlock>{};sample++)
-                (*current)[sample]=buffer[sample];
+            write_blink_interleaved(current, buffer);
             ++current;
             if (current==std::get<0>(myBus.const_cables).getWriterEndRef())
                 current = std::get<0>(myBus.const_cables).getWriterStartRef();
@@ -14,8 +13,7 @@ template<typename Target, typename InputBlock> void WriteInterleaved(SOS::Memory
             myBus.signal.getNotifyRef().clear();
         } else {
             //write last bit
-            for (std::size_t sample=0;sample<std::tuple_size<InputBlock>{};sample++)
-                (*current)[sample]=buffer[sample];
+            write_blink_interleaved(current, buffer);
             //current invalid => do not advance
             std::cout<<std::endl;
             SFA::util::runtime_error(SFA::util::error_code::RingbufferTooSlowOrNotBigEnough,__FILE__,__func__);
