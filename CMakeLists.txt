@@ -43,6 +43,14 @@ target_include_directories(test_RingBuffer
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbuffer.cpp)
 target_link_libraries(test_RingBuffer PRIVATE Threads::Threads)
+add_executable(test_RWInterleaved)
+target_include_directories(test_RWInterleaved
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_RWInterleaved PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_rwinterleaved.cpp)
+target_link_libraries(test_RWInterleaved PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MemoryController)
 target_compile_definitions(test_MemoryController PRIVATE NUM_CHANNELS=5)
 target_compile_definitions(test_MemoryController PRIVATE SAMPLE_TYPE=float)
