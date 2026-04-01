@@ -4,11 +4,6 @@
 #define SAMPLE_TYPE char
 #define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
-
-void write_blink_interleaved(SOS::MemoryView::RingBufferBus<RING_BUFFER>::_pointer_type current, const RING_BUFFER::value_type& buffer){
-    for (std::size_t sample=0;sample<std::tuple_size<RING_BUFFER::value_type>{};sample++)
-        (*current)[sample]=buffer[sample];
-}
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
 #define TOTAL_TIME 7
