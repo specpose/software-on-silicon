@@ -1,3 +1,5 @@
+#define SAMPLE_TYPE char
+#define MAX_BLINK 1
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
@@ -11,7 +13,7 @@ class Functor {
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
-    RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
+    SOS::MemoryView::RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
     RingBufferImpl buffer{bus};
 };
 
@@ -22,7 +24,7 @@ int main(){
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<10) {
-        if ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - beginning).count() > 0)) {
+        if ((duration_cast<milliseconds>(high_resolution_clock::now() - beginning).count() > 0)) {
         beginning = high_resolution_clock::now();
         functor();
         }
