@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 project(software-on-silicon)
 #find_library(stackable-functor-allocation_FOUND stackable-functor-allocation REQUIRED)
+find_package(ALSA)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads QUIET)
@@ -74,6 +75,14 @@ target_include_directories(test_RingToMemory
 )
 target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemory.cpp)
 target_link_libraries(test_RingToMemory PRIVATE Threads::Threads)
+add_executable(test_Poll)
+target_include_directories(test_Poll
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_Poll PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_poll.cpp)
+target_link_libraries(test_Poll PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MCUFPGA)
 target_include_directories(test_MCUFPGA
     PRIVATE

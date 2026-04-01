@@ -6,6 +6,9 @@ template<typename Current, typename Buffer> void write_blink_interleaved(Current
     for (std::size_t sample=0;sample<std::tuple_size<RING_BUFFER::value_type>{};sample++)
         current[sample]=buffer[sample];
 }
+template<typename Current, typename Handle, typename... Args> void write_blink_interleaved(Current& current, Handle handle, Args... args){
+    record_block(current, handle, args...);
+}
 template<typename Target, typename... Args> void WriteInterleaved(SOS::MemoryView::RingBufferBus<Target>& myBus, Args... args) {
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();
     const auto start = std::get<0>(myBus.const_cables).getWriterStartRef();
