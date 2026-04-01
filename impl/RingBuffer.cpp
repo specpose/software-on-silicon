@@ -4,11 +4,7 @@
 #include "software-on-silicon/RingBuffer.hpp"
 
 #include "Sample.cpp"
-#define SAMPLE_TYPE float
-#define MAX_BLINK 1
 using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;
-
-using namespace SOS::MemoryView;
 
 class RingBufferTaskImpl : private virtual SOS::Behavior::RingBufferTask<RING_BUFFER> {
     public:

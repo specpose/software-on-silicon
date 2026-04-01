@@ -1,9 +1,9 @@
-#include <iostream>
+#define SAMPLE_TYPE float
+#define MAX_BLINK 1
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
 using BLINK_T=std::array<RING_BUFFER::value_type,9>;
-
 
 class Functor {
     public:
@@ -14,7 +14,7 @@ class Functor {
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};
-    RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
+    SOS::MemoryView::RingBufferBus<RING_BUFFER> bus{hostmemory.begin(),hostmemory.end()};
     RingBufferImpl buffer{bus};
 };
 
