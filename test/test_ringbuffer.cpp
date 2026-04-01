@@ -1,10 +1,5 @@
 #include <iostream>
 #include "RingBuffer.cpp"
-
-void write_blink_interleaved(SOS::MemoryView::RingBufferBus<RING_BUFFER>::_pointer_type current, const RING_BUFFER::value_type& buffer){
-    for (std::size_t sample=0;sample<std::tuple_size<RING_BUFFER::value_type>{};sample++)
-        (*current)[sample]=buffer[sample];
-}
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
 using BLINK_T=std::array<RING_BUFFER::value_type,9>;
