@@ -37,7 +37,12 @@ int main(){
     std::size_t frames_read = 0;
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10) {
-        record_blink(std::get<0>(driver), buffer[ringbuffer_index], frames_read, STORAGE_SIZE);
+        if (frames_read + MAX_READ <= STORAGE_SIZE) {
+            record_blink(buffer[ringbuffer_index], std::get<0>(driver), frames_read);
+        } else {
+            fprintf(stderr, "PROGRAM ERROR: read %d", read);
+            abort();
+        }
         for (std::size_t i=0; i<MAX_READ; i++){
             for (std::size_t j=0; j<NUM_CHANNELS; j++){
                 fprintf(stdout, ",%04d", buffer[ringbuffer_index][i][j]);

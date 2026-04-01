@@ -1,4 +1,4 @@
-void recording_loop_interleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_data, std::size_t total_frames) {
+void recording_loop_interleaved(MEMORY_CONTROLLER &audio_data, snd_pcm_t *handle, const std::size_t total_frames) {
     const snd_pcm_channel_area_t* areas = nullptr;
     snd_pcm_uframes_t offset = 0;
 
@@ -45,7 +45,7 @@ void recording_loop_interleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_data
     }
 }
 
-void recording_loop_noninterleaved(snd_pcm_t *handle, MEMORY_CONTROLLER &audio_data, std::size_t total_frames) {
+void recording_loop_noninterleaved(MEMORY_CONTROLLER &audio_data, snd_pcm_t *handle, const std::size_t total_frames) {
     const snd_pcm_channel_area_t* areas = nullptr;
     snd_pcm_uframes_t offset = 0;
 

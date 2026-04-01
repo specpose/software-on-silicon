@@ -1,20 +1,15 @@
-void record_blink(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t& frames_read, const std::size_t total_frames) {
+void record_blink(RING_BUFFER::value_type &audio_data, snd_pcm_t *handle, std::size_t& frames_read) {
     snd_pcm_sframes_t read = 0;
-    if (frames_read + MAX_READ <= total_frames){
-        read = rc(snd_pcm_readi(handle, &audio_data, MAX_READ));
-        if (read==MAX_READ) {
-            frames_read += MAX_READ;
-        } else {
-            fprintf(stderr, "PROGRAM ERROR: read %d", read);
-            abort();
-        }
+    read = rc(snd_pcm_readi(handle, &audio_data, MAX_READ));
+    if (read==MAX_READ) {
+        frames_read += MAX_READ;
     } else {
         fprintf(stderr, "PROGRAM ERROR: read %d", read);
         abort();
     }
 }
 
-void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::size_t& frames_read, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
+void record_block(RING_BUFFER::value_type &audio_data, snd_pcm_t *handle, std::size_t& frames_read, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
     const snd_pcm_channel_area_t* areas = nullptr;
     snd_pcm_uframes_t offset = 0;
 
@@ -25,7 +20,7 @@ void record_block(snd_pcm_t *handle, RING_BUFFER::value_type &audio_data, std::s
     auto start = std::chrono::high_resolution_clock::now();
 
     snd_pcm_uframes_t chunk = MAX_BLINK;
-    auto block_offset = frames_read % (MAX_BLINK);
+    auto block_offset = frames_read % MAX_BLINK;
     while (chunk>0) {
         rc(poll(ufds, fd_count, -1));
         rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
