@@ -29,7 +29,12 @@ int main(){
 
     auto driver = init(rate, &period_size, SND_PCM_ACCESS_MMAP_NONINTERLEAVED, false);
     start_pcm(std::get<0>(driver));
-    recording_loop_noninterleaved(buffer, std::get<0>(driver), seconds * rate);
+    std::size_t total_frames = seconds * rate;
+    std::size_t frames_read = 0;
+    while (frames_read < total_frames) {
+        if (check_avail(std::get<0>(driver)))
+            record_blink_noninterleaved(buffer, std::get<0>(driver), frames_read);
+    }
     destroy(driver);
     for(std::size_t i=0;i<seconds * rate;i++)
         for (std::size_t j=0;j<NUM_CHANNELS;j++)
