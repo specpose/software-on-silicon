@@ -43,14 +43,14 @@ target_include_directories(test_RingBuffer
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbuffer.cpp)
 target_link_libraries(test_RingBuffer PRIVATE Threads::Threads)
-add_executable(test_RWInterleaved)
-target_include_directories(test_RWInterleaved
+add_executable(test_RingBufferAudio)
+target_include_directories(test_RingBufferAudio
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
     ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_RWInterleaved PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_rwinterleaved.cpp)
-target_link_libraries(test_RWInterleaved PRIVATE Threads::Threads ALSA::ALSA)
+target_sources(test_RingBufferAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbufferaudio.cpp)
+target_link_libraries(test_RingBufferAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MemoryController)
 target_compile_definitions(test_MemoryController PRIVATE NUM_CHANNELS=5)
 target_compile_definitions(test_MemoryController PRIVATE SAMPLE_TYPE=float)
@@ -64,6 +64,14 @@ target_include_directories(test_MemoryController
 )
 target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontroller.cpp)
 target_link_libraries(test_MemoryController PRIVATE Threads::Threads)
+#add_executable(test_MemoryControllerAudio)
+#target_include_directories(test_MemoryControllerAudio
+#    PRIVATE
+#    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+#    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+#)
+#target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
+#target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_RingToMemory)
 target_compile_definitions(test_RingToMemory PRIVATE NUM_CHANNELS=2)
 target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_TYPE=short)
@@ -83,14 +91,14 @@ target_include_directories(test_RingToMemory
 )
 target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemory.cpp)
 target_link_libraries(test_RingToMemory PRIVATE Threads::Threads)
-add_executable(test_Poll)
-target_include_directories(test_Poll
+add_executable(test_RingToMemoryAudio)
+target_include_directories(test_RingToMemoryAudio
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
     ${CMAKE_CURRENT_SOURCE_DIR}/impl/
 )
-target_sources(test_Poll PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_poll.cpp)
-target_link_libraries(test_Poll PRIVATE Threads::Threads ALSA::ALSA)
+target_sources(test_RingToMemoryAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemoryaudio.cpp)
+target_link_libraries(test_RingToMemoryAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MCUFPGA)
 target_include_directories(test_MCUFPGA
     PRIVATE
