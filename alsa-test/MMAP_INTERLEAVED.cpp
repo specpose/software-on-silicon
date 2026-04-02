@@ -24,7 +24,7 @@ int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);
     const int seconds = 10;
-    assert((NUM_CHANNELS*rate*seconds)%STORAGE_SIZE==0);
+    assert((rate*seconds)/STORAGE_SIZE==1);
     MEMORY_CONTROLLER buffer{};
     const MEMORY_CONTROLLER::value_type sample{{0x00,0x00}};
     for (std::size_t i=0;i<STORAGE_SIZE;i++){
@@ -34,11 +34,9 @@ int main(){
 
     auto driver = init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
     start_pcm(std::get<0>(driver));
-    std::size_t total_frames = seconds * rate;
     std::size_t frames_read = 0;
-    while (frames_read < total_frames) {
-        if (check_avail(std::get<0>(driver)))
-            record_blink_interleaved(buffer, std::get<0>(driver), frames_read);
+    while (frames_read + MAX_BLINK <= STORAGE_SIZE) {
+        record_blink_mmapinterleaved(buffer, std::get<0>(driver), frames_read);
     }
     destroy(driver);
     for(std::size_t i=0;i<seconds * rate;i++)

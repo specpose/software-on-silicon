@@ -7,10 +7,10 @@ template<typename Current, typename Buffer> void write_blink_interleaved(Current
         current[sample]=buffer[sample];
 }
 template<typename Current, typename Handle, typename Count> void write_blink_interleaved(Current& current, Handle *handle, Count& frames_read){
-    record_blink(current, handle, frames_read);
+    record_blink_rwinterleaved(current, handle, frames_read);
 }
 template<typename Current, typename Handle, typename... Args> void write_blink_interleaved(Current& current, Handle handle, Args... args){
-    record_block(current, handle, args...);
+    record_blink_poll(current, handle, args...);
 }
 template<typename Target, typename... Args> void WriteInterleaved(SOS::MemoryView::RingBufferBus<Target>& myBus, Args... args) {
     auto current = std::get<0>(myBus.cables).getCurrentRef().load();

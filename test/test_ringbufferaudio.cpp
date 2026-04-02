@@ -19,8 +19,7 @@ class Functor {
     Functor() {}
     void operator()(snd_pcm_t *handle){
         std::size_t frames_read = 0;
-        while (frames_read + MAX_READ <= MAX_BLINK)
-            WriteInterleaved(bus, handle, frames_read);
+        WriteInterleaved(bus, handle, frames_read);
     }
     private:
     RING_BUFFER hostmemory = RING_BUFFER{};

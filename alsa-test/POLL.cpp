@@ -45,7 +45,7 @@ int main(){
     start_pcm(std::get<0>(driver));
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
-        record_block(buffer[ringbuffer_index], std::get<0>(driver), frames_read, std::get<0>(poll), std::get<1>(poll), max);
+        record_blink_poll(buffer[ringbuffer_index], std::get<0>(driver), frames_read, std::get<0>(poll), std::get<1>(poll), max);
         ringbuffer_index = ringbuffer_index == seconds-1 ? 0 : ++ringbuffer_index;
     }
     destroy(driver);
