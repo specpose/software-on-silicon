@@ -17,6 +17,8 @@
 using RING_BUFFER = std::array<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,10>;
 #include "software-on-silicon/alsa_ringbuffer.hpp"
 
+using namespace SOS::Audio::Linux;
+
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);

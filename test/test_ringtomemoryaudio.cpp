@@ -45,9 +45,9 @@ class Functor1 {
         std::size_t frames_read = 0;
         snd_pcm_uframes_t max = 0;
 
-        auto driver = init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
-        auto poll = init_poll(std::get<0>(driver));
-        start_pcm(std::get<0>(driver));
+        auto driver = SOS::Audio::Linux::init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
+        auto poll = SOS::Audio::Linux::init_poll(std::get<0>(driver));
+        SOS::Audio::Linux::start_pcm(std::get<0>(driver));
         auto start = std::chrono::high_resolution_clock::now();
         while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
             operator()(std::get<0>(driver), frames_read, std::get<0>(poll), std::get<1>(poll), max);
@@ -55,8 +55,8 @@ class Functor1 {
             ringbuffer_index = ringbuffer_index == std::tuple_size<RING_BUFFER>{}-1 ? 0 : ++ringbuffer_index;*/
             std::this_thread::yield();
         }
-        destroy(driver);
-        destroy_poll(poll);
+        SOS::Audio::Linux::destroy(driver);
+        SOS::Audio::Linux::destroy_poll(poll);
     }
     private:
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;

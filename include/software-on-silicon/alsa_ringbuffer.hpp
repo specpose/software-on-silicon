@@ -1,3 +1,6 @@
+namespace SOS {
+namespace Audio {
+namespace Linux {
 void record_blink_rwinterleaved(RING_BUFFER::value_type &audio_data, snd_pcm_t *handle, std::size_t& frames_read) {
     snd_pcm_uframes_t chunk = MAX_BLINK;
     snd_pcm_sframes_t read = 0;
@@ -71,3 +74,4 @@ void record_blink_poll(RING_BUFFER::value_type &audio_data, snd_pcm_t *handle, s
     }
     frames_read += MAX_BLINK;
 }
+}}}

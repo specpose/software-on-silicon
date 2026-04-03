@@ -1,3 +1,6 @@
+namespace SOS {
+namespace Audio {
+namespace Linux {
 bool check_avail(snd_pcm_t *handle) {
     snd_pcm_uframes_t avail = 0;
     avail = snd_pcm_avail(handle);
@@ -78,3 +81,4 @@ void record_blink_mmapnoninterleaved(MEMORY_CONTROLLER &audio_data, snd_pcm_t *h
         frames_read += MAX_BLINK;
     }
 }
+}}}

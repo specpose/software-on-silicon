@@ -64,14 +64,14 @@ target_include_directories(test_MemoryController
 )
 target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontroller.cpp)
 target_link_libraries(test_MemoryController PRIVATE Threads::Threads)
-#add_executable(test_MemoryControllerAudio)
-#target_include_directories(test_MemoryControllerAudio
-#    PRIVATE
-#    ${CMAKE_CURRENT_SOURCE_DIR}/include/
-#    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
-#)
-#target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
-#target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)
+add_executable(test_MemoryControllerAudio)
+target_include_directories(test_MemoryControllerAudio
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
+target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_RingToMemory)
 target_compile_definitions(test_RingToMemory PRIVATE NUM_CHANNELS=2)
 target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_TYPE=short)

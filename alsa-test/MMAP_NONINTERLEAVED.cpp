@@ -15,6 +15,8 @@
 using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 #include "software-on-silicon/alsa_memorycontroller.hpp"
 
+using namespace SOS::Audio::Linux;
+
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);

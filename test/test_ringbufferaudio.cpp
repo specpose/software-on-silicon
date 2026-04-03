@@ -33,12 +33,12 @@ int main(){
     Functor functor{};
     snd_pcm_uframes_t period_size = MAX_READ;
 
-    auto driver = init(rate, &period_size, SND_PCM_ACCESS_RW_INTERLEAVED, true);
-    start_pcm(std::get<0>(driver));
+    auto driver = SOS::Audio::Linux::init(rate, &period_size, SND_PCM_ACCESS_RW_INTERLEAVED, true);
+    SOS::Audio::Linux::start_pcm(std::get<0>(driver));
     auto start = high_resolution_clock::now();
     while (duration_cast<seconds>(high_resolution_clock::now()-start).count()<10) {
         functor(std::get<0>(driver));
         std::this_thread::yield();
     }
-    destroy(driver);
+    SOS::Audio::Linux::destroy(driver);
 }

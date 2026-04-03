@@ -13,6 +13,9 @@ const unsigned int rate = 48000;
 const unsigned int rate = 8000;
 #endif
 
+namespace SOS {
+namespace Audio {
+namespace Linux {
 template<typename T> T rc(T err){
     if (err < 0) {
         fprintf(stderr, "ASOUND ERROR: %s\n", snd_strerror(err));
@@ -129,3 +132,4 @@ std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> check_noninterleav
     }
     return channel_config;
 }
+}}}
