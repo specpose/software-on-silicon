@@ -36,13 +36,8 @@ int main(){
     start_pcm(std::get<0>(driver));
     std::size_t frames_read = 0;
     auto start = std::chrono::high_resolution_clock::now();
-    while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10) {
-        if (frames_read + MAX_BLINK <= STORAGE_SIZE) {
-            record_blink_rwinterleaved(buffer[ringbuffer_index], std::get<0>(driver), frames_read);
-        } else {
-            fprintf(stderr, "PROGRAM ERROR: read %d", read);
-            abort();
-        }
+    while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<12) {
+        record_blink_rwinterleaved(buffer[ringbuffer_index], std::get<0>(driver), frames_read);
         for (std::size_t i=0; i<MAX_BLINK; i++){
             for (std::size_t j=0; j<NUM_CHANNELS; j++){
                 fprintf(stdout, ",%04d", buffer[ringbuffer_index][i][j]);
