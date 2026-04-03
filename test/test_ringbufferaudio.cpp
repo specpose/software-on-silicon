@@ -11,7 +11,7 @@
 #define SAMPLE_TYPE short
 #include "RingBuffer.cpp"
 #include "software-on-silicon/alsa_helpers.hpp"
-#include "software-on-silicon/alsa_ringbuffer.hpp"
+#include "software-on-silicon/ringbuffer_helpers_alsa.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
 class Functor {

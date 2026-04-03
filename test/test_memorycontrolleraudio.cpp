@@ -15,13 +15,8 @@
 
 #define BLOCK_SIZE 960
 #define NUM_CHANNELS 2
-//FIXME start
-#include <array>
-#include "Sample.cpp"
-using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
-//FIXME end
+#include <thread>
 #include "software-on-silicon/alsa_helpers.hpp"
-#include "software-on-silicon/alsa_memorycontroller.hpp"
 #include "MemoryControllerAudio.cpp"
 
 class Functor {

@@ -1,9 +1,8 @@
-#define SAMPLE_TYPE short
-#include "software-on-silicon/alsa_helpers.hpp"
 #include <chrono>
 #include <thread>
 #include <vector>
 
+#define SAMPLE_TYPE short
 #define MAX_READ 8
 #define MAX_BLINK 8
 #if INTEL
@@ -11,9 +10,9 @@
 #else
 #define STORAGE_SIZE 80000
 #endif
+#include "software-on-silicon/alsa_helpers.hpp"
 
 using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
-#include "software-on-silicon/alsa_memorycontroller.hpp"
 
 using namespace SOS::Audio::Linux;
 
@@ -33,7 +32,7 @@ int main(){
     start_pcm(std::get<0>(driver));
     std::size_t frames_read = 0;
     while (frames_read + MAX_BLINK <= STORAGE_SIZE) {
-        record_blink_mmapnoninterleaved(buffer, std::get<0>(driver), frames_read);
+        record_blink_mmapnoninterleaved<decltype(buffer),MAX_BLINK>(buffer, std::get<0>(driver), frames_read);
     }
     destroy(driver);
     for(std::size_t i=0;i<seconds * rate;i++)

@@ -8,8 +8,8 @@
 
 using namespace std::chrono;
 
-//#include "Sample.cpp"
-//using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
+#include "Sample.cpp"
+using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
 
 class ReadTaskImpl : protected virtual SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER> {
@@ -88,7 +88,7 @@ private:
             _blocker.signal.getWritingRef().clear();
             std::get<1>(_blocker.cables).getBKEndRef().store(std::get<1>(_blocker.cables).getBKEndRef().load()+MAX_BLINK);
             //*writerPos=character;
-            SOS::Audio::Linux::record_blink_mmapinterleaved(*(reinterpret_cast<std::array<SOS::MemoryView::sample<SAMPLE_TYPE, NUM_CHANNELS>,STORAGE_SIZE>*>(writerPos)), handle, frames_read);
+            SOS::Audio::Linux::record_blink_mmapinterleaved(*(reinterpret_cast<std::array<SOS::MemoryView::sample<SAMPLE_TYPE, NUM_CHANNELS>,MAX_BLINK>*>(writerPos)), handle, frames_read);
             writerPos += MAX_BLINK;
             std::get<1>(_blocker.cables).getBKStartRef().store(writerPos);
             _blocker.signal.getWritingRef().test_and_set();

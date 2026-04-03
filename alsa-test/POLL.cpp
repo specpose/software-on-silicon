@@ -1,10 +1,9 @@
-#define SAMPLE_TYPE short
-#include "software-on-silicon/alsa_helpers.hpp"
 #include <chrono>
 #include <thread>
 #include <vector>
 //#include <poll.h>
 
+#define SAMPLE_TYPE short
 #if INTEL
 #define MAX_BLINK 9600
 #define MAX_READ 32
@@ -17,9 +16,9 @@
 #else
 #define BLOCK_SIZE 8000
 #endif
+#include "software-on-silicon/alsa_helpers.hpp"
 
 using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>>;
-#include "software-on-silicon/alsa_ringbuffer.hpp"
 
 using namespace SOS::Audio::Linux;
 
@@ -47,7 +46,7 @@ int main(){
     start_pcm(std::get<0>(driver));
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<10){
-        record_blink_poll(buffer[ringbuffer_index], std::get<0>(driver), frames_read, std::get<0>(poll), std::get<1>(poll), max);
+        record_blink_poll<RING_BUFFER::value_type>(buffer[ringbuffer_index], std::get<0>(driver), frames_read, std::get<0>(poll), std::get<1>(poll), max);
         ringbuffer_index = ringbuffer_index == seconds-1 ? 0 : ++ringbuffer_index;
     }
     destroy(driver);

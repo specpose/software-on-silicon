@@ -1,9 +1,8 @@
-#define SAMPLE_TYPE short
-#include "software-on-silicon/alsa_helpers.hpp"
 #include <chrono>
 #include <thread>
 #include <vector>
 
+#define SAMPLE_TYPE short
 #if INTEL
 #define MAX_BLINK 2
 #define MAX_READ 2
@@ -13,9 +12,9 @@
 #define MAX_READ 4
 #define STORAGE_SIZE 80000
 #endif
+#include "software-on-silicon/alsa_helpers.hpp"
 
 using RING_BUFFER = std::array<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,10>;
-#include "software-on-silicon/alsa_ringbuffer.hpp"
 
 using namespace SOS::Audio::Linux;
 
@@ -39,7 +38,7 @@ int main(){
     std::size_t frames_read = 0;
     auto start = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now()-start).count()<12) {
-        record_blink_rwinterleaved(buffer[ringbuffer_index], std::get<0>(driver), frames_read);
+        record_blink_rwinterleaved<RING_BUFFER::value_type>(buffer[ringbuffer_index], std::get<0>(driver), frames_read);
         for (std::size_t i=0; i<MAX_BLINK; i++){
             for (std::size_t j=0; j<NUM_CHANNELS; j++){
                 fprintf(stdout, ",%04d", buffer[ringbuffer_index][i][j]);

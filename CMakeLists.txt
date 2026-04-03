@@ -35,6 +35,7 @@ target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_con
 target_link_libraries(test_Controller PRIVATE Threads::Threads)
 add_executable(test_RingBuffer)
 target_compile_definitions(test_RingBuffer PRIVATE SAMPLE_TYPE=float)
+target_compile_definitions(test_RingBuffer PRIVATE MAX_READ=1)
 target_compile_definitions(test_RingBuffer PRIVATE MAX_BLINK=1)
 target_include_directories(test_RingBuffer
     PRIVATE
@@ -78,8 +79,10 @@ target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_TYPE=short)
 target_compile_definitions(test_RingToMemory PRIVATE MAX_BLINK=9600)
 if (ALSA_DRIVER STREQUAL "snd_hda_intel")
     target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_RATE=48000)
+    target_compile_definitions(test_RingToMemory PRIVATE MAX_READ=32)
 else()
     target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_RATE=8000)
+    target_compile_definitions(test_RingToMemory PRIVATE MAX_READ=8)
 endif()
 target_compile_definitions(test_RingToMemory PRIVATE BLOCK_SIZE=SAMPLE_RATE)
 target_compile_definitions(test_RingToMemory PRIVATE TOTAL_TIME=160)

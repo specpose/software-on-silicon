@@ -132,4 +132,159 @@ std::array<std::tuple<SAMPLE_TYPE*,std::size_t>,NUM_CHANNELS> check_noninterleav
     }
     return channel_config;
 }
+
+template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_rwinterleaved(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read) {
+    snd_pcm_uframes_t chunk = Size;
+    snd_pcm_sframes_t read = 0;
+    while (chunk>0) {
+        read = rc(snd_pcm_readi(handle, &audio_data, MAX_READ));
+        if (read==MAX_READ) {
+            chunk -= MAX_READ;
+        } else {
+            fprintf(stderr, "PROGRAM ERROR: read %d", read);
+            abort();
+        }
+    }
+    frames_read += Size;
+}
+
+template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_poll(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read, pollfd* ufds, unsigned int fd_count, snd_pcm_uframes_t& max) {
+    snd_pcm_uframes_t avail = 0;
+    unsigned short revents;
+
+    snd_pcm_uframes_t chunk = Size;
+    const snd_pcm_channel_area_t* areas = nullptr;
+    snd_pcm_uframes_t offset = 0;
+    snd_pcm_uframes_t frames = 0;
+    auto block_offset = frames_read % Size;
+    while (chunk>0) {
+        rc(poll(ufds, fd_count, -1));
+        rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
+        if (revents & POLLERR){
+            fprintf(stderr, "POLLERR\n");
+            abort();
+        }
+        if (revents & POLLIN){
+            auto avail = rc(snd_pcm_avail(handle));
+            if (avail >= MAX_READ) {
+                frames = MAX_READ;
+                rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
+                if (frames<=chunk) {
+                    if (areas){
+                        const auto channel_config = check_interleaved(areas);
+                        for (std::size_t j=0; j<NUM_CHANNELS;j++){
+                            for (std::size_t i=0;i<frames;i++) {
+                                audio_data[block_offset+i][j]=*(std::get<0>(channel_config[j]) +
+                                i *
+                                std::get<1>(channel_config[j]));
+                                //fprintf(stdout, ",%04d", audio_data[block_offset+i][j]);
+                            }
+                        }
+                        block_offset += frames;
+                    } else {
+                        fprintf(stderr, "PROGRAM ERROR: invalid mmap areas\n");
+                        abort();
+                    }
+                    snd_pcm_uframes_t read = rc(snd_pcm_mmap_commit(handle, offset, frames));
+                    if (read < 0) {
+                        fprintf(stderr, "PROGRAM ERROR: mmap read count is %d\n", read);
+                        abort();
+                        read = 0;
+                    } else if (read != MAX_READ){
+                        fprintf(stderr, "PROGRAM ERROR: frames dropped %d\n", MAX_READ - read);
+                        abort();
+                    }
+                    chunk -= frames;
+                } else {
+                    fprintf(stderr, "PROGRAM ERROR: read %d", frames);
+                    abort();
+                }
+            }
+            max = max < avail ? avail : max;
+        }
+        std::this_thread::yield();
+    }
+    frames_read += Size;
+}
+
+bool check_avail(snd_pcm_t *handle) {
+    snd_pcm_uframes_t avail = 0;
+    avail = snd_pcm_avail(handle);
+    if (avail < MAX_READ) {
+        if (avail < 0) {
+            rc(avail);
+            snd_pcm_recover(handle, avail, 0);
+        }
+        rc(snd_pcm_wait(handle, -1));//only plughw
+        //std::this_thread::sleep_for(std::chrono::milliseconds{39});//37 to 38ms
+        return false;
+    }
+    return true;
+}
+
+template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_mmapinterleaved(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read) {
+    if (check_avail(handle)){
+        snd_pcm_uframes_t chunk = Size;
+        const snd_pcm_channel_area_t* areas = nullptr;
+        snd_pcm_uframes_t offset = 0;
+        snd_pcm_uframes_t frames = 0;
+        while (chunk>0) {
+            frames = MAX_READ;
+            rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
+            if (frames<=chunk){
+                if (areas){
+                    const auto channel_config = check_interleaved(areas);
+                    for (std::size_t j=0; j<NUM_CHANNELS;j++){
+                        for (std::size_t i=0;i<(frames);i++) {
+                            audio_data[frames_read+i][j]=*(std::get<0>(channel_config[j]) +
+                            i *
+                            std::get<1>(channel_config[j]));
+                            //fprintf(stdout, ",%04d", audio_data[frames_read+i][j]);
+                        }
+                    }
+                }
+                if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
+                    rc(read >= 0 ? -EPIPE : read);
+                chunk -= frames;
+            } else {
+                fprintf(stderr, "PROGRAM ERROR: read %d", frames);
+                abort();
+            }
+        }
+        frames_read += Size;
+    }
+}
+
+template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_mmapnoninterleaved(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read) {
+    if (check_avail(handle)){
+        snd_pcm_uframes_t chunk = Size;
+        const snd_pcm_channel_area_t* areas = nullptr;
+        snd_pcm_uframes_t offset = 0;
+        snd_pcm_uframes_t frames = 0;
+        while (chunk>0) {
+            frames = MAX_READ;
+            rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
+            if (frames<=chunk){
+                if (areas){
+                    const auto channel_config = check_noninterleaved(areas);
+                    for (std::size_t j=0; j<NUM_CHANNELS;j++){
+                        for (std::size_t i=0;i<(frames);i++) {
+                            audio_data[frames_read+i][j]=*(std::get<0>(channel_config[j]) +
+                            i *
+                            std::get<1>(channel_config[j]));
+                            //fprintf(stdout, ",%04d", audio_data[frames_read+i][j]);
+                        }
+                    }
+                }
+                if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
+                    rc(read >= 0 ? -EPIPE : read);
+                chunk -= frames;
+            } else {
+                fprintf(stderr, "PROGRAM ERROR: read %d", frames);
+                abort();
+            }
+        }
+        frames_read += Size;
+    }
+}
 }}}

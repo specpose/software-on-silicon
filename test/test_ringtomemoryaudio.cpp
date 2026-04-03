@@ -20,7 +20,7 @@
 #define NUM_CHANNELS 2
 #include "RingToMemory.cpp"
 #include "software-on-silicon/alsa_helpers.hpp"
-#include "software-on-silicon/alsa_ringbuffer.hpp"
+#include "software-on-silicon/ringbuffer_helpers_alsa.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 
 #define TOTAL_TIME 160
