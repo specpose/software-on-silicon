@@ -7,11 +7,12 @@ using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAG
 
 using namespace SOS::Audio::Linux;
 
+#include <iostream>
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);
     const int seconds = TOTAL_TIME;
-    assert(int((rate*seconds)/STORAGE_SIZE)==1);
+    assert((rate*seconds)/STORAGE_SIZE==1);
     MEMORY_CONTROLLER buffer{};
     const MEMORY_CONTROLLER::value_type sample{{0x00,0x00}};
     for (std::size_t i=0;i<STORAGE_SIZE;i++){

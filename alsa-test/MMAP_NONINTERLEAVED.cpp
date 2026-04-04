@@ -10,7 +10,7 @@ using namespace SOS::Audio::Linux;
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);
-    const int seconds = 10;
+    const int seconds = TOTAL_TIME;
     assert((rate*seconds)/STORAGE_SIZE==1);
     MEMORY_CONTROLLER buffer{};
     const MEMORY_CONTROLLER::value_type sample{{0x00,0x00}};
