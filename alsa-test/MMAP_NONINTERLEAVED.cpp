@@ -3,6 +3,7 @@
 #include <vector>
 #include "software-on-silicon/alsa_helpers.hpp"
 
+using BLINK_T=std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
 using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 
 using namespace SOS::Audio::Linux;
@@ -23,7 +24,8 @@ int main(){
     start_pcm(std::get<0>(driver));
     std::size_t frames_read = 0;
     while (frames_read + MAX_BLINK <= STORAGE_SIZE) {
-        record_blink_mmapnoninterleaved<decltype(buffer),MAX_BLINK>(buffer, std::get<0>(driver), frames_read);
+        BLINK_T& pos = reinterpret_cast<BLINK_T&>(buffer[frames_read]);
+        record_blink_mmapnoninterleaved<BLINK_T,MAX_BLINK>(pos, std::get<0>(driver), frames_read);
     }
     destroy(driver);
     for(std::size_t i=0;i<seconds * rate;i++)

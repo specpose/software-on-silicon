@@ -159,7 +159,7 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
             abort();
         }
         if (revents & POLLIN){
-            auto avail = rc(snd_pcm_avail(handle));
+            avail = rc(snd_pcm_avail(handle));
             if (avail >= MAX_READ) {
                 frames = MAX_READ;
                 rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
@@ -217,12 +217,13 @@ bool check_avail(snd_pcm_t *handle) {
 }
 
 template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_mmapinterleaved(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read) {
-    if (check_avail(handle)){
         snd_pcm_uframes_t chunk = Size;
         const snd_pcm_channel_area_t* areas = nullptr;
         snd_pcm_uframes_t offset = 0;
         snd_pcm_uframes_t frames = 0;
+        auto block_offset = frames_read % Size;
         while (chunk>0) {
+            if (check_avail(handle)){
             frames = MAX_READ;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
             if (frames<=chunk){
@@ -230,12 +231,13 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
                     const auto channel_config = check_interleaved(areas);
                     for (std::size_t j=0; j<NUM_CHANNELS;j++){
                         for (std::size_t i=0;i<(frames);i++) {
-                            audio_data[frames_read+i][j]=*(std::get<0>(channel_config[j]) +
+                            audio_data[block_offset+i][j]=*(std::get<0>(channel_config[j]) +
                             i *
                             std::get<1>(channel_config[j]));
-                            //fprintf(stdout, ",%04d", audio_data[frames_read+i][j]);
+                            //fprintf(stdout, ",%04d", audio_data[block_offset+i][j]);
                         }
                     }
+                    block_offset += frames;
                 }
                 if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
                     rc(read >= 0 ? -EPIPE : read);
@@ -244,18 +246,19 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
                 fprintf(stderr, "PROGRAM ERROR: read %d", frames);
                 abort();
             }
+            }
         }
         frames_read += Size;
-    }
 }
 
 template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void record_blink_mmapnoninterleaved(BlinkType& audio_data, snd_pcm_t* handle, std::size_t& frames_read) {
-    if (check_avail(handle)){
         snd_pcm_uframes_t chunk = Size;
         const snd_pcm_channel_area_t* areas = nullptr;
         snd_pcm_uframes_t offset = 0;
         snd_pcm_uframes_t frames = 0;
+        auto block_offset = frames_read % Size;
         while (chunk>0) {
+            if (check_avail(handle)){
             frames = MAX_READ;
             rc(snd_pcm_mmap_begin(handle, &areas, &offset, &frames));
             if (frames<=chunk){
@@ -263,12 +266,13 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
                     const auto channel_config = check_noninterleaved(areas);
                     for (std::size_t j=0; j<NUM_CHANNELS;j++){
                         for (std::size_t i=0;i<(frames);i++) {
-                            audio_data[frames_read+i][j]=*(std::get<0>(channel_config[j]) +
+                            audio_data[block_offset+i][j]=*(std::get<0>(channel_config[j]) +
                             i *
                             std::get<1>(channel_config[j]));
-                            //fprintf(stdout, ",%04d", audio_data[frames_read+i][j]);
+                            //fprintf(stdout, ",%04d", audio_data[block_offset+i][j]);
                         }
                     }
+                    block_offset += frames;
                 }
                 if (auto read = rc(snd_pcm_mmap_commit(handle, offset, frames))!=frames )
                     rc(read >= 0 ? -EPIPE : read);
@@ -277,8 +281,8 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
                 fprintf(stderr, "PROGRAM ERROR: read %d", frames);
                 abort();
             }
+            }
         }
         frames_read += Size;
-    }
 }
 }}}

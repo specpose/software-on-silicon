@@ -9,8 +9,8 @@
 using namespace std::chrono;
 
 #include "Sample.cpp"
-using BLINK_T=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
-//using BLINK_T=SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>[];
+//using BLINK_T=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>;
+using BLINK_T=SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>[];
 //using BLINK_T=SAMPLE_TYPE[][NUM_CHANNELS];
 using MEMORY_CONTROLLER=std::array<SOS::MemoryView::sample<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
 using BLOCK=std::array<MEMORY_CONTROLLER::value_type,BLOCK_SIZE>;
@@ -67,34 +67,30 @@ public:
         _blocker.signal.getWritingRef().test_and_set();
         //multiple inheritance: starts PassthruAsync, not ReaderImpl
         //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
-        std::cout << "Thread Started" <<std::endl;
         _thread = start(this);
     };
     virtual ~WritePriorityImpl2(){
         destroy(_thread);
-        std::cout << "Thread Destroyed" <<std::endl;
     };
     //multiple inheritance: Overriding PassThru not ReaderImpl
     void event_loop(){
         if (oneMoreTime){
-            std::cout << "Started" <<std::endl;
             snd_pcm_uframes_t period_size = MAX_READ;
 
             auto driver = SOS::Audio::Linux::init(rate, &period_size, SND_PCM_ACCESS_MMAP_INTERLEAVED, true);
             SOS::Audio::Linux::start_pcm(std::get<0>(driver));
             std::size_t frames_read = 0;
             while (frames_read + MAX_BLINK <= STORAGE_SIZE) {
-                std::cout << "frames_read: " << frames_read <<std::endl;
                 write(std::get<0>(driver), frames_read);
             }
             SOS::Audio::Linux::destroy(driver);
             oneMoreTime = false;
         }
+        std::this_thread::yield();
     }
 private:
     //From RingToMemory start
     virtual void write(snd_pcm_t *handle, std::size_t& frames_read) final {
-        std::cout << "Entered" <<std::endl;
         const auto bk_start = std::get<1>(_blocker.cables).getBKStartRef().load();
         if ( MAX_BLINK <= std::distance(bk_start, std::get<0>(_blocker.cables).getMCEndRef().load()) ) {
             _blocker.signal.getWritingRef().clear();
@@ -102,13 +98,10 @@ private:
             _blocker.signal.getWritingRef().test_and_set();
             auto writerPos = std::get<1>(_blocker.cables).getBKStartRef().load();
             _blocker.signal.getWritingRef().clear();
-            std::cout<<typeid(writerPos).name()<<std::endl;
             BLINK_T& pos = reinterpret_cast<BLINK_T&>(*writerPos);
-            std::cout<<typeid(pos).name()<<std::endl;
-            //abort();
-            //SOS::Audio::Linux::record_blink_mmapinterleaved<BLINK_T,MAX_BLINK>(pos, handle, frames_read);
-            std::fill(std::begin(pos),std::end(pos),MEMORY_CONTROLLER::value_type{{1,1}});
-            frames_read += MAX_BLINK;
+            SOS::Audio::Linux::record_blink_mmapinterleaved<BLINK_T,MAX_BLINK>(pos, handle, frames_read);
+            //std::fill(std::begin(pos),std::end(pos),MEMORY_CONTROLLER::value_type{{1,1}});
+            //frames_read += MAX_BLINK;
             writerPos += MAX_BLINK;
             std::get<1>(_blocker.cables).getBKStartRef().store(writerPos);
             _blocker.signal.getWritingRef().test_and_set();
