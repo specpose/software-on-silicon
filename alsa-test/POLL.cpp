@@ -2,20 +2,6 @@
 #include <thread>
 #include <vector>
 //#include <poll.h>
-
-#define SAMPLE_TYPE short
-#if INTEL
-#define MAX_BLINK 9600
-#define MAX_READ 32
-#else
-#define MAX_BLINK 9600
-#define MAX_READ 8
-#endif
-#if INTEL
-#define BLOCK_SIZE 48000
-#else
-#define BLOCK_SIZE 8000
-#endif
 #include "software-on-silicon/alsa_helpers.hpp"
 
 using RING_BUFFER = std::vector<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>>;
@@ -26,7 +12,7 @@ int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     assert(rate%MAX_BLINK==0);
     auto buffer = RING_BUFFER{};
-    const int seconds = 10;
+    const int seconds = TOTAL_TIME;
     for (std::size_t i = 0; i < seconds; i++){
         buffer.push_back(RING_BUFFER::value_type{});
         const RING_BUFFER::value_type::value_type sample{{0xFE,0xFE}};

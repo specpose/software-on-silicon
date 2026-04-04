@@ -5,13 +5,7 @@
 #include <tuple>
 #include <array>
 
-#define NUM_CHANNELS 2
-#define INTEL 1
-#if INTEL
-const unsigned int rate = 48000;
-#else
-const unsigned int rate = 8000;
-#endif
+const unsigned int rate = SAMPLE_RATE;
 
 namespace SOS {
 namespace Audio {

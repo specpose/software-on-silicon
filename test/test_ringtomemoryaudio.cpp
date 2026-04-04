@@ -1,29 +1,7 @@
-#define INTEL 1
-#if INTEL
-#define MAX_BLINK 9600
-#define MAX_READ 32
-#else
-#define MAX_BLINK 9600
-#define MAX_READ 8
-#endif
-#if INTEL
-#define BLOCK_SIZE 48000
-#else
-#define BLOCK_SIZE 8000
-#endif
-#define SAMPLE_TYPE short
-#if INTEL
-#define SAMPLE_RATE 48000
-#else
-#define SAMPLE_RATE 8000
-#endif
-#define NUM_CHANNELS 2
 #include "RingToMemory.cpp"
 #include "software-on-silicon/alsa_helpers.hpp"
 #include "software-on-silicon/ringbuffer_helpers_alsa.hpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-
-#define TOTAL_TIME 160
 
 //Helper classes
 class Functor1 {

@@ -11,10 +11,6 @@
 #else
 #define STORAGE_SIZE 80000
 #endif
-#define SAMPLE_TYPE short
-
-#define BLOCK_SIZE 960
-#define NUM_CHANNELS 2
 #include <thread>
 #include "software-on-silicon/alsa_helpers.hpp"
 #include "MemoryControllerAudio.cpp"

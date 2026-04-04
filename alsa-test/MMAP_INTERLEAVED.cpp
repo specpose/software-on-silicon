@@ -1,20 +1,6 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-
-#define SAMPLE_TYPE short
-#if INTEL
-#define MAX_READ 32 //<8192
-#define MAX_BLINK 32
-#else
-#define MAX_READ 8 //<8192
-#define MAX_BLINK 8
-#endif
-#if INTEL
-#define STORAGE_SIZE 480000
-#else
-#define STORAGE_SIZE 80000
-#endif
 #include "software-on-silicon/alsa_helpers.hpp"
 
 using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;
@@ -24,8 +10,8 @@ using namespace SOS::Audio::Linux;
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);
-    const int seconds = 10;
-    assert((rate*seconds)/STORAGE_SIZE==1);
+    const int seconds = TOTAL_TIME;
+    assert(int((rate*seconds)/STORAGE_SIZE)==1);
     MEMORY_CONTROLLER buffer{};
     const MEMORY_CONTROLLER::value_type sample{{0x00,0x00}};
     for (std::size_t i=0;i<STORAGE_SIZE;i++){

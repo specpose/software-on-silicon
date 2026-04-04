@@ -4,7 +4,6 @@ set(CMAKE_CXX_STANDARD 14)
 
 project(software-on-silicon)
 #find_library(stackable-functor-allocation_FOUND stackable-functor-allocation REQUIRED)
-find_package(ALSA)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads QUIET)
@@ -34,6 +33,7 @@ target_include_directories(test_Controller
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_controller.cpp)
 target_link_libraries(test_Controller PRIVATE Threads::Threads)
 add_executable(test_RingBuffer)
+target_compile_definitions(test_RingBuffer PRIVATE NUM_CHANNELS=2)
 target_compile_definitions(test_RingBuffer PRIVATE SAMPLE_TYPE=float)
 target_compile_definitions(test_RingBuffer PRIVATE MAX_READ=1)
 target_compile_definitions(test_RingBuffer PRIVATE MAX_BLINK=1)
@@ -44,14 +44,6 @@ target_include_directories(test_RingBuffer
 )
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbuffer.cpp)
 target_link_libraries(test_RingBuffer PRIVATE Threads::Threads)
-add_executable(test_RingBufferAudio)
-target_include_directories(test_RingBufferAudio
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
-)
-target_sources(test_RingBufferAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbufferaudio.cpp)
-target_link_libraries(test_RingBufferAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MemoryController)
 target_compile_definitions(test_MemoryController PRIVATE NUM_CHANNELS=5)
 target_compile_definitions(test_MemoryController PRIVATE SAMPLE_TYPE=float)
@@ -65,25 +57,10 @@ target_include_directories(test_MemoryController
 )
 target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontroller.cpp)
 target_link_libraries(test_MemoryController PRIVATE Threads::Threads)
-add_executable(test_MemoryControllerAudio)
-target_include_directories(test_MemoryControllerAudio
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
-)
-target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
-target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_RingToMemory)
 target_compile_definitions(test_RingToMemory PRIVATE NUM_CHANNELS=2)
 target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_TYPE=short)
 target_compile_definitions(test_RingToMemory PRIVATE MAX_BLINK=9600)
-if (ALSA_DRIVER STREQUAL "snd_hda_intel")
-    target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_RATE=48000)
-    target_compile_definitions(test_RingToMemory PRIVATE MAX_READ=32)
-else()
-    target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_RATE=8000)
-    target_compile_definitions(test_RingToMemory PRIVATE MAX_READ=8)
-endif()
 target_compile_definitions(test_RingToMemory PRIVATE BLOCK_SIZE=SAMPLE_RATE)
 target_compile_definitions(test_RingToMemory PRIVATE TOTAL_TIME=160)
 target_compile_definitions(test_RingToMemory PRIVATE STORAGE_SIZE=\(5*BLOCK_SIZE\))
@@ -94,14 +71,6 @@ target_include_directories(test_RingToMemory
 )
 target_sources(test_RingToMemory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemory.cpp)
 target_link_libraries(test_RingToMemory PRIVATE Threads::Threads)
-add_executable(test_RingToMemoryAudio)
-target_include_directories(test_RingToMemoryAudio
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
-)
-target_sources(test_RingToMemoryAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemoryaudio.cpp)
-target_link_libraries(test_RingToMemoryAudio PRIVATE Threads::Threads ALSA::ALSA)
 add_executable(test_MCUFPGA)
 target_include_directories(test_MCUFPGA
     PRIVATE
@@ -122,3 +91,62 @@ target_link_libraries(test_MCUFPGA PRIVATE Threads::Threads)
 #        test/test_ringtomemory.cpp
 #)
 #target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+
+find_package(ALSA)
+if (NOT DEFINED ALSA_DRIVER)
+  set(ALSA_DRIVER "snd_hda_intel")
+endif()
+message("ALSA_DRIVER is ${ALSA_DRIVER}")
+if (ALSA_DRIVER STREQUAL "snd_hda_intel")
+  add_compile_definitions(PRIVATE INTEL=1)
+  add_compile_definitions(PRIVATE SAMPLE_RATE=48000)
+else()
+  add_compile_definitions(PRIVATE SAMPLE_RATE=8000)
+endif()
+add_executable(test_RingBufferAudio)
+target_compile_definitions(test_RingBufferAudio PRIVATE NUM_CHANNELS=2)
+target_compile_definitions(test_RingBufferAudio PRIVATE SAMPLE_TYPE=short)
+if (ALSA_DRIVER STREQUAL "snd_hda_intel")
+    target_compile_definitions(test_RingBufferAudio PRIVATE MAX_READ=2)
+    target_compile_definitions(test_RingBufferAudio PRIVATE MAX_BLINK=2)
+else()
+    target_compile_definitions(test_RingBufferAudio PRIVATE MAX_READ=4)
+    target_compile_definitions(test_RingBufferAudio PRIVATE MAX_BLINK=4)
+endif()
+target_include_directories(test_RingBufferAudio
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_RingBufferAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbufferaudio.cpp)
+target_link_libraries(test_RingBufferAudio PRIVATE Threads::Threads ALSA::ALSA)
+add_executable(test_RingToMemoryAudio)
+target_compile_definitions(test_RingToMemoryAudio PRIVATE NUM_CHANNELS=2)
+target_compile_definitions(test_RingToMemoryAudio PRIVATE SAMPLE_TYPE=short)
+target_compile_definitions(test_RingToMemoryAudio PRIVATE TOTAL_TIME=160)
+target_compile_definitions(test_RingToMemoryAudio PRIVATE BLOCK_SIZE=SAMPLE_RATE)
+if (ALSA_DRIVER STREQUAL "snd_hda_intel")
+    target_compile_definitions(test_RingToMemoryAudio PRIVATE MAX_READ=32)
+    target_compile_definitions(test_RingToMemoryAudio PRIVATE MAX_BLINK=9600)
+else()
+    target_compile_definitions(test_RingToMemoryAudio PRIVATE MAX_READ=8)
+    target_compile_definitions(test_RingToMemoryAudio PRIVATE MAX_BLINK=9600)
+endif()
+target_include_directories(test_RingToMemoryAudio
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_RingToMemoryAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringtomemoryaudio.cpp)
+target_link_libraries(test_RingToMemoryAudio PRIVATE Threads::Threads ALSA::ALSA)
+add_executable(test_MemoryControllerAudio)
+target_compile_definitions(test_MemoryControllerAudio PRIVATE NUM_CHANNELS=2)
+target_compile_definitions(test_MemoryControllerAudio PRIVATE SAMPLE_TYPE=short)
+target_compile_definitions(test_MemoryControllerAudio PRIVATE BLOCK_SIZE=960)
+target_include_directories(test_MemoryControllerAudio
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/impl/
+)
+target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
+target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)

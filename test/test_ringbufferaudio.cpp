@@ -1,14 +1,4 @@
 #include <iostream>
-
-#define INTEL 1
-#if INTEL
-#define MAX_BLINK 2
-#define MAX_READ 2
-#else
-#define MAX_BLINK 4
-#define MAX_READ 4
-#endif
-#define SAMPLE_TYPE short
 #include "RingBuffer.cpp"
 #include "software-on-silicon/alsa_helpers.hpp"
 #include "software-on-silicon/ringbuffer_helpers_alsa.hpp"

@@ -1,15 +1,6 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-
-#define SAMPLE_TYPE short
-#define MAX_READ 8
-#define MAX_BLINK 8
-#if INTEL
-#define STORAGE_SIZE 480000
-#else
-#define STORAGE_SIZE 80000
-#endif
 #include "software-on-silicon/alsa_helpers.hpp"
 
 using MEMORY_CONTROLLER = std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,STORAGE_SIZE>;

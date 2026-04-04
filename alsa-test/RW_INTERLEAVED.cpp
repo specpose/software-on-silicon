@@ -1,17 +1,6 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-
-#define SAMPLE_TYPE short
-#if INTEL
-#define MAX_BLINK 2
-#define MAX_READ 2
-#define STORAGE_SIZE 480000
-#else
-#define MAX_BLINK 4
-#define MAX_READ 4
-#define STORAGE_SIZE 80000
-#endif
 #include "software-on-silicon/alsa_helpers.hpp"
 
 using RING_BUFFER = std::array<std::array<std::array<SAMPLE_TYPE,NUM_CHANNELS>,MAX_BLINK>,10>;
@@ -21,7 +10,7 @@ using namespace SOS::Audio::Linux;
 int main(){
     static_assert(MAX_BLINK%MAX_READ==0);
     static_assert(STORAGE_SIZE%MAX_BLINK==0);
-    const int seconds = 10;
+    const int seconds = TOTAL_TIME;
     assert((rate*seconds)/STORAGE_SIZE==1);
     RING_BUFFER buffer{};
     const RING_BUFFER::value_type::value_type sample{{0x00,0x00}};
