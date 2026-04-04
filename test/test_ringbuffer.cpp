@@ -1,5 +1,3 @@
-#define SAMPLE_TYPE float
-#define MAX_BLINK 1
 #include "RingBuffer.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 

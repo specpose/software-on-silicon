@@ -1,7 +1,3 @@
-#define STORAGE_SIZE 10000
-#define BLOCK_SIZE 1000
-#define SAMPLE_TYPE float
-#define NUM_CHANNELS 5
 #include "MemoryController.cpp"
 
 class Functor {

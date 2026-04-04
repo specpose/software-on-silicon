@@ -1,12 +1,5 @@
-#define MAX_BLINK 333
-#define BLOCK_SIZE 1000
-#define SAMPLE_TYPE float
-#define SAMPLE_RATE 1000
-#define NUM_CHANNELS 1
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
-
-#define TOTAL_TIME 7
 
 //Helper classes
 class Functor1 {

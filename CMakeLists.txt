@@ -15,6 +15,7 @@ if (WIN32)
 endif ()
 
 add_executable(test_EventLoop)
+target_compile_definitions(test_EventLoop PRIVATE MEASUREMENT_UNIT_IN_MILLIS=100)
 target_include_directories(test_EventLoop
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -23,6 +24,7 @@ target_include_directories(test_EventLoop
 target_sources(test_EventLoop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_eventloop.cpp)
 target_link_libraries(test_EventLoop PRIVATE Threads::Threads)
 add_executable(test_Controller)
+target_compile_definitions(test_Controller PRIVATE MEASUREMENT_UNIT_IN_MILLIS=100)
 target_include_directories(test_Controller
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -31,6 +33,8 @@ target_include_directories(test_Controller
 target_sources(test_Controller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_controller.cpp)
 target_link_libraries(test_Controller PRIVATE Threads::Threads)
 add_executable(test_RingBuffer)
+target_compile_definitions(test_RingBuffer PRIVATE SAMPLE_TYPE=float)
+target_compile_definitions(test_RingBuffer PRIVATE MAX_BLINK=1)
 target_include_directories(test_RingBuffer
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -39,6 +43,11 @@ target_include_directories(test_RingBuffer
 target_sources(test_RingBuffer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ringbuffer.cpp)
 target_link_libraries(test_RingBuffer PRIVATE Threads::Threads)
 add_executable(test_MemoryController)
+target_compile_definitions(test_MemoryController PRIVATE NUM_CHANNELS=5)
+target_compile_definitions(test_MemoryController PRIVATE SAMPLE_TYPE=float)
+target_compile_definitions(test_MemoryController PRIVATE BLOCK_SIZE=1000)
+target_compile_definitions(test_MemoryController PRIVATE TOTAL_TIME=10)
+target_compile_definitions(test_MemoryController PRIVATE STORAGE_SIZE=\(TOTAL_TIME*BLOCK_SIZE\))
 target_include_directories(test_MemoryController
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -47,6 +56,13 @@ target_include_directories(test_MemoryController
 target_sources(test_MemoryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontroller.cpp)
 target_link_libraries(test_MemoryController PRIVATE Threads::Threads)
 add_executable(test_RingToMemory)
+target_compile_definitions(test_RingToMemory PRIVATE NUM_CHANNELS=1)
+target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_TYPE=float)
+target_compile_definitions(test_RingToMemory PRIVATE MAX_BLINK=333)
+target_compile_definitions(test_RingToMemory PRIVATE BLOCK_SIZE=1000)
+target_compile_definitions(test_RingToMemory PRIVATE SAMPLE_RATE=1000)
+target_compile_definitions(test_RingToMemory PRIVATE TOTAL_TIME=7)
+target_compile_definitions(test_RingToMemory PRIVATE STORAGE_SIZE=\(5*BLOCK_SIZE\))
 target_include_directories(test_RingToMemory
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -63,14 +79,14 @@ target_include_directories(test_MCUFPGA
 target_sources(test_MCUFPGA PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_mcufpga.cpp)
 target_link_libraries(test_MCUFPGA PRIVATE Threads::Threads)
 
-add_library(${PROJECT_NAME} STATIC)
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        impl
-        include
-)
-target_sources(${PROJECT_NAME}
-    PUBLIC
-        test/test_ringtomemory.cpp
-)
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+#add_library(${PROJECT_NAME} STATIC)
+#target_include_directories(${PROJECT_NAME}
+#    PUBLIC
+#        impl
+#        include
+#)
+#target_sources(${PROJECT_NAME}
+#    PUBLIC
+#        test/test_ringtomemory.cpp
+#)
+#target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
