@@ -1,16 +1,3 @@
-#define INTEL 1
-#if INTEL
-#define MAX_READ 32
-#define MAX_BLINK 9600
-#else
-#define MAX_READ 8
-#define MAX_BLINK 9600
-#endif
-#if INTEL
-#define STORAGE_SIZE 480000
-#else
-#define STORAGE_SIZE 80000
-#endif
 #include <thread>
 #include "software-on-silicon/alsa_helpers.hpp"
 #include "MemoryControllerAudio.cpp"
@@ -37,7 +24,7 @@ class Functor {
 using namespace std::chrono;
 
 int main(){
-    const std::size_t ara_offset=6992;
+    const std::size_t ara_offset=6992*SAMPLE_RATE/960;
     BLOCK randomread{};
     //initialize entire block to zero on all channels
     for (std::size_t i = 0; i < std::tuple_size<BLOCK>{}; i++)
@@ -55,8 +42,8 @@ int main(){
         if (duration_cast<seconds>(high_resolution_clock::now()-beginning).count()>0) {
             if (functor()) {
                 beginning = high_resolution_clock::now();
-                for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i++)
-                    std::cout<< randomread[i].channels[4];
+                for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i+=SAMPLE_RATE/960)
+                    std::cout<< randomread[i].channels[1];
                 std::cout<<std::endl;
                 functor.asyncRead(randomread,ara_offset);
             }

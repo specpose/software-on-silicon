@@ -142,7 +142,16 @@ target_link_libraries(test_RingToMemoryAudio PRIVATE Threads::Threads ALSA::ALSA
 add_executable(test_MemoryControllerAudio)
 target_compile_definitions(test_MemoryControllerAudio PRIVATE NUM_CHANNELS=2)
 target_compile_definitions(test_MemoryControllerAudio PRIVATE SAMPLE_TYPE=short)
-target_compile_definitions(test_MemoryControllerAudio PRIVATE BLOCK_SIZE=960)
+target_compile_definitions(test_MemoryControllerAudio PRIVATE TOTAL_TIME=10)
+target_compile_definitions(test_MemoryControllerAudio PRIVATE STORAGE_SIZE=\(TOTAL_TIME*SAMPLE_RATE\))
+if (ALSA_DRIVER STREQUAL "snd_hda_intel")
+    target_compile_definitions(test_MemoryControllerAudio PRIVATE MAX_READ=32)
+    target_compile_definitions(test_MemoryControllerAudio PRIVATE MAX_BLINK=9600)
+else()
+    target_compile_definitions(test_MemoryControllerAudio PRIVATE MAX_READ=8)
+    target_compile_definitions(test_MemoryControllerAudio PRIVATE MAX_BLINK=9600)
+endif()
+target_compile_definitions(test_MemoryControllerAudio PRIVATE BLOCK_SIZE=SAMPLE_RATE)
 target_include_directories(test_MemoryControllerAudio
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/
