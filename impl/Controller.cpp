@@ -39,7 +39,7 @@ class SubControllerImpl : public SOS::Behavior::SimpleDummy<> {
 class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControllerImpl> {
     public:
     ControllerImpl(bus_type& bus) : BootstrapAsyncController<SubControllerImpl>(bus.signal)
-    , waiter(new SystemTimer<milliseconds,measurement_unit_in_ms>(waiterBus.signal))
+    , waiter(new SystemTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal))
     {
         _thread=start(this);
     }
@@ -66,6 +66,6 @@ class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControl
     }
     private:
     SOS::MemoryView::BusShaker waiterBus{};
-    SystemTimer<milliseconds,measurement_unit_in_ms>* waiter;
+    SystemTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>* waiter;
     std::thread _thread;
 };

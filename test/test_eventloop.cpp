@@ -1,15 +1,13 @@
 #include "EventLoop.cpp"
 
-#define measurement_unit_in_ms 100
-
 int main (int argc, char *argv[]) {
     SOS::MemoryView::BusShaker waiterBus{};
-    TimerIF<milliseconds,measurement_unit_in_ms>* waiter = nullptr;
+    TimerIF<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>* waiter = nullptr;
     unsigned long ticks = 0;
     if (argc == 2 && sscanf(argv[1], "%i", &ticks)==1)
-        waiter = new TickTimer<milliseconds,measurement_unit_in_ms>(waiterBus.signal,ticks);
+        waiter = new TickTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal,ticks);
     else
-        waiter = new SystemTimer<milliseconds,measurement_unit_in_ms>(waiterBus.signal);
+        waiter = new SystemTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal);
 
     BusNotifier myBus{};
     std::cout<<"Thread running for 10s..."<<std::endl;

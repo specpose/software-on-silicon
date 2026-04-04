@@ -1,4 +1,3 @@
-#define measurement_unit_in_ms 100
 #include "Controller.cpp"
 
 int main () {
