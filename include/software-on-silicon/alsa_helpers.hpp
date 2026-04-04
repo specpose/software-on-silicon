@@ -150,7 +150,7 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
     const snd_pcm_channel_area_t* areas = nullptr;
     snd_pcm_uframes_t offset = 0;
     snd_pcm_uframes_t frames = 0;
-    auto block_offset = frames_read % Size;
+    snd_pcm_uframes_t block_offset = 0;
     while (chunk>0) {
         rc(poll(ufds, fd_count, -1));
         rc(snd_pcm_poll_descriptors_revents(handle, ufds, fd_count, &revents));
@@ -221,7 +221,7 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
         const snd_pcm_channel_area_t* areas = nullptr;
         snd_pcm_uframes_t offset = 0;
         snd_pcm_uframes_t frames = 0;
-        auto block_offset = frames_read % Size;
+        snd_pcm_uframes_t block_offset = 0;
         while (chunk>0) {
             if (check_avail(handle)){
             frames = MAX_READ;
@@ -256,7 +256,7 @@ template<typename BlinkType, std::size_t Size=std::tuple_size<BlinkType>{}> void
         const snd_pcm_channel_area_t* areas = nullptr;
         snd_pcm_uframes_t offset = 0;
         snd_pcm_uframes_t frames = 0;
-        auto block_offset = frames_read % Size;
+        snd_pcm_uframes_t block_offset = 0;
         while (chunk>0) {
             if (check_avail(handle)){
             frames = MAX_READ;

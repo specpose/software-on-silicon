@@ -24,7 +24,7 @@ class Functor {
 using namespace std::chrono;
 
 int main(){
-    const std::size_t ara_offset=6992*SAMPLE_RATE/BLOCK_SIZE;
+    const std::size_t ara_offset=6992*SAMPLE_RATE/960;
     BLOCK randomread{};
     //initialize entire block to zero on all channels
     for (std::size_t i = 0; i < std::tuple_size<BLOCK>{}; i++)
@@ -42,7 +42,7 @@ int main(){
         if (duration_cast<seconds>(high_resolution_clock::now()-beginning).count()>0) {
             if (functor()) {
                 beginning = high_resolution_clock::now();
-                for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i+=SAMPLE_RATE/BLOCK_SIZE)
+                for (std::size_t i=0;i<std::tuple_size<BLOCK>{};i+=SAMPLE_RATE/960)
                     std::cout<< randomread[i].channels[1];
                 std::cout<<std::endl;
                 functor.asyncRead(randomread,ara_offset);
