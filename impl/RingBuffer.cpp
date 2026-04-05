@@ -25,7 +25,6 @@ class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private Ri
     ~RingBufferImpl() {
         destroy(_thread);
     }
-    //using SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop;
     virtual void event_loop() final {
         SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop();
     }

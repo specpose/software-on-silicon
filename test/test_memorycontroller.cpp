@@ -2,13 +2,13 @@
 
 class Functor {
     public:
-    Functor(const std::size_t readOffset=0) : _readOffset(readOffset), randomread(), _readerBus(randomread.begin(),randomread.end()), controller(_readerBus) {
+    Functor(const std::size_t readOffset=0) : _readOffset(readOffset), _readerBus(randomread.begin(),randomread.end()), controller(_readerBus) {
         _readerBus.setOffset(_readOffset);
         _readerBus.signal.getUpdatedRef().clear();
     }
     void operator()(){
         if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
-            _readerBus.signal.getUpdatedRef().clear();//offset change omitted
+            _readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
             while (print!=randomread.end())
                 std::cout << (*(print++))[0];//HACK: hard coded channel 0
@@ -17,7 +17,7 @@ class Functor {
     }
     private:
     const std::size_t _readOffset;
-    BLOCK randomread;
+    BLOCK randomread{};
     SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus;
     WritePriorityImpl controller;
 };
@@ -30,10 +30,10 @@ int main(){
     Functor functor(ara_offset);
     std::cout << "Reader reading 1000 times from offset "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
     auto loopstart = high_resolution_clock::now();
-    auto start_tp = loopstart;
+    auto beginning = loopstart;
     while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
-        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_tp).count() > 0) {
-        start_tp = high_resolution_clock::now();
+        if (duration_cast<seconds>(high_resolution_clock::now() - beginning).count() > 0) {
+        beginning = high_resolution_clock::now();
         functor();
         }
         std::this_thread::yield();

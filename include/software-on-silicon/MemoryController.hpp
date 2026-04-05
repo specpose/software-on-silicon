@@ -124,9 +124,9 @@ namespace SOS {
                 const auto readOffset = _offset.getReadOffsetRef().load();
                 if (readOffset<0)
                     SFA::util::runtime_error(SFA::util::error_code::NegativeReadoffsetSupplied,__FILE__,__func__);
-                const auto mc_start = _memorycontroller_size.getMCStartRef();
                 auto mc = readOffset + rb_length;
 
+                const auto mc_start = _memorycontroller_size.getMCStartRef();
                 const auto mc_end = _memorycontroller_size.getMCEndRef();
                 if ( std::distance(mc_start,mc_end) < mc ) {
                     outOfBounds(rb);

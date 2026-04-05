@@ -9,13 +9,12 @@ class Functor1 {
     }
     ~Functor1(){
         _thread.join();
-        //_readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
     void operator()(){
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME-2) {
             const auto now = high_resolution_clock::now();
-            if (std::chrono::duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(BLOCK_SIZE)) {
+            if (duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(BLOCK_SIZE)) {
             last = now;
             RING_BUFFER::value_type blink{};
             switch(count){
@@ -34,7 +33,7 @@ class Functor1 {
         }
     }
     private:
-    std::chrono::time_point<high_resolution_clock> last = high_resolution_clock::now();
+    time_point<high_resolution_clock> last = high_resolution_clock::now();
 
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
@@ -75,7 +74,6 @@ class Functor2 {
     SOS::MemoryView::ReaderBus<decltype(randomread)> readerBus{randomread.begin(),randomread.end()};
     private:
     const std::size_t _readOffset = 0;
-    //not strictly necessary, simulate real-world use-scenario
     std::thread _thread;
 };
 

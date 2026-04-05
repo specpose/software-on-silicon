@@ -35,8 +35,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     ReadTaskImpl(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables)),
     SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<0>(outside.const_cables),std::get<0>(outside.cables),std::get<0>(blockerbus.const_cables),std::get<0>(blockerbus.cables))
     {
-        //multiple inheritance: not ambiguous
-        //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER,READ_SIZE>::start(this);
+        //multiple inheritance: Reader
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -100,11 +99,9 @@ class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private Ri
     ~RingBufferImpl() {
         destroy(_thread);
     }
-    //using SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop;
     virtual void event_loop() final {
         SOS::Behavior::RingBuffer<RING_BUFFER>::event_loop();
     }
-    //using RingBufferTaskImpl::transfer;
     virtual void transfer(const RING_BUFFER::value_type& character) final {
         RingBufferTaskImpl::transfer(character);
     }
