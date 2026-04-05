@@ -1,7 +1,3 @@
-#define SAMPLE_RATE 48000
-#define BLOCK_SIZE SAMPLE_RATE
-#define MAX_READ 32
-
 #include "RingToMemory.cpp"
 #include "software-on-silicon/ringbuffer_helpers.hpp"
 

@@ -4,7 +4,7 @@
 #include "software-on-silicon/RingBuffer.hpp"
 
 #include "Sample.cpp"
-using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;
+using RING_BUFFER=std::array<std::array<SOS::MemoryView::sample<SAMPLE_TYPE,1>,MAX_BLINK>,10>;//100
 
 class RingBufferTaskImpl : private virtual SOS::Behavior::RingBufferTask<RING_BUFFER> {
     public:
