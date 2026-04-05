@@ -1,8 +1,9 @@
 - [ ] Test structure for manual conversion to fpga descriptor language
 - [ ] Implement compile to fpga descriptor language
+- [ ] Test RtOS
 - [ ] Finalize header interface
 - [x] Test gcc
-- [x] Test MSVC
+- [ ] Test MSVC
 - [ ] Test clang
 # Software On Silicon
 Is a digital twin for an electronic circuit. It is trying to establish building blocks that can some day be run on an fpga. Eventually there could be a standard interface for integrating system on chip (SOC).
@@ -28,7 +29,7 @@ This is an implementation of a FIFO read with a blocking write. The separation o
 ## [RingBuffer](impl/RingBuffer.cpp)
 This is an implementation of a cached write with a random-access read. Templating is not only applied to the signaling hierarchy, but also to structured datatypes. The *class hierarchy* makes it easier to separate interfaces from implementation.
 ## [RingBuffer to MemoryController](impl/RingToMemory.cpp)
-This is a combination of the RingBuffer and the MemoryController. It has also been tested with memory allocations, but needs extensive modifications. Do a diff to the ARAFallback branch to get an idea of how many modifications are necessary.
+This is a combination of the RingBuffer and the MemoryController. It has also been tested with memory allocations, but needs extensive modifications. Do a diff to the Audio branch to get an idea of how many modifications are necessary.
 ## [MCUController to FPGAController](impl/MCUFPGA.cpp)
 This is an implementation of a serial protocol using only 6 datawires and 2 internally used handshake-like wires to attach an FPGA. It maintains compatibility with a standard 8 datawire serial interface. The two internally used wires are used to rapidly transfer synchronisation states of DMA memory objects which are mirrored on both the MCU and FPGA top-template controllers.
 ### Installation
