@@ -23,15 +23,15 @@ class Functor1 {
             last = now;
             switch(count){
                 case 0:
-                    operator()(blink);//lock free write
+                    operator()(blink);
                     count++;
                     break;
                 case 1:
-                    operator()(noblink);//lock free write
+                    operator()(noblink);
                     count++;
                     break;
                 case 2:
-                    operator()(noblink);//lock free write
+                    operator()(noblink);
                     count=0;
                     break;
             }
@@ -46,7 +46,7 @@ class Functor1 {
 
     SOS::MemoryView::ReaderBus<BLOCK>& _readerBus;
 
-    RING_BUFFER hostmemory = RING_BUFFER{{{0}}};//offset
+    RING_BUFFER hostmemory = RING_BUFFER{{{0}}};
     SOS::MemoryView::RingBufferBus<RING_BUFFER> ringbufferbus{hostmemory.begin(),hostmemory.end()};
     RingBufferImpl buffer;
 
