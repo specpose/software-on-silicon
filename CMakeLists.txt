@@ -95,6 +95,7 @@ target_link_libraries(test_MCUFPGA PRIVATE Threads::Threads)
 #target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 
 find_package(ALSA)
+if (${ALSA_FOUND})
 if (NOT DEFINED ALSA_DRIVER)
   set(ALSA_DRIVER "snd_hda_intel")
 endif()
@@ -164,3 +165,4 @@ target_include_directories(test_MemoryControllerAudio
 )
 target_sources(test_MemoryControllerAudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_memorycontrolleraudio.cpp)
 target_link_libraries(test_MemoryControllerAudio PRIVATE Threads::Threads ALSA::ALSA)
+endif()
