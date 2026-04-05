@@ -23,8 +23,8 @@ namespace MemoryView {
         signal_type signal;
         using const_cables_type = std::tuple<ComSize<typename ComBufferType::iterator>>;
         using cables_type = std::tuple<ComOffset<typename ComBufferType::difference_type>>;
-        ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd) :
-        const_cables{ ComSize<typename ComBufferType::iterator>({inStart, inEnd, outStart, outEnd}) }
+        ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd)
+            : const_cables { ComSize<typename ComBufferType::iterator>({ inStart, inEnd, outStart, outEnd }) }
         {
             std::get<0>(cables).getReadOffsetRef() = 0;
             std::get<0>(cables).getWriteOffsetRef() = 0;
@@ -35,7 +35,7 @@ namespace MemoryView {
             if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
                 SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
         }
-        cables_type cables{};
+        cables_type cables {};
         const_cables_type const_cables;
     };
 }
@@ -87,8 +87,7 @@ namespace Behavior {
     template <typename ControllerType, typename... Objects>
     class SimulationFPGA : private SOS::Protocol::SimulationBuffers<COM_BUFFER>,
                            public SOS::Behavior::BootstrapEventController<ControllerType>,
-                           protected SOS::Protocol::Serial<Objects...>
-                           {
+                           protected SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
         SimulationFPGA(bus_type& myBus)
@@ -137,7 +136,7 @@ namespace Behavior {
         {
             SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
         }
-        //SerialFPGA
+        // SerialFPGA
         virtual void read_bits(std::bitset<8> temp) final
         {
             SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
@@ -167,7 +166,7 @@ namespace Behavior {
         }
         virtual std::tuple<bool, bool> receive_signals() final
         {
-            std::tuple<bool, bool> result{ SOS::Protocol::Serial<Objects...>::mcu_updated, false};
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::mcu_updated, false };
             if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge) {
                 SOS::Protocol::Serial<Objects...>::fpga_updated = false;
                 std::get<1>(result) = true;
@@ -178,8 +177,7 @@ namespace Behavior {
     template <typename ControllerType, typename... Objects>
     class SimulationMCU : private SOS::Protocol::SimulationBuffers<COM_BUFFER>,
                           public SOS::Behavior::BootstrapEventController<ControllerType>,
-                          protected SOS::Protocol::Serial<Objects...>
-                          {
+                          protected SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
         SimulationMCU(bus_type& myBus)
@@ -228,7 +226,7 @@ namespace Behavior {
         {
             SOS::Protocol::SimulationBuffers<COM_BUFFER>::write_byte(byte);
         }
-        //SerialMCU
+        // SerialMCU
         virtual void read_bits(std::bitset<8> temp) final
         {
             SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];
@@ -258,7 +256,7 @@ namespace Behavior {
         }
         virtual std::tuple<bool, bool> receive_signals() final
         {
-            std::tuple<bool, bool> result{ SOS::Protocol::Serial<Objects...>::fpga_updated, false};
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::fpga_updated, false };
             if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge) {
                 SOS::Protocol::Serial<Objects...>::mcu_updated = false;
                 std::get<1>(result) = true;

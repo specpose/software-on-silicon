@@ -1,78 +1,89 @@
 namespace SOS {
-    namespace MemoryView {
-        template<typename ArithmeticType> struct WriteBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType,2> {
-            using SOS::MemoryView::ConstCable<ArithmeticType,2>::ConstCable;
-            auto& getWriterStartRef(){return std::get<0>(*this);}
-            auto& getWriterEndRef(){return std::get<1>(*this);}
-        };
-        template<typename ArithmeticType> struct RingBufferTaskCable : private SOS::MemoryView::TaskCable<ArithmeticType,2> {
-            using SOS::MemoryView::TaskCable<ArithmeticType,2>::TaskCable;
-            auto& getCurrentRef(){return std::get<0>(*this);}
-            auto& getThreadCurrentRef(){return std::get<1>(*this);}
-        };
-        template<typename OutputBuffer> struct RingBufferBus : public SOS::MemoryView::BusNotifier {
-            using _pointer_type = typename OutputBuffer::iterator;
-            using _difference_type = typename OutputBuffer::difference_type;
-            using cables_type = std::tuple< SOS::MemoryView::RingBufferTaskCable<_pointer_type> >;
-            using const_cables_type = std::tuple< WriteBufferSize<_pointer_type> >;
-            RingBufferBus(const _pointer_type begin, const _pointer_type afterlast) :
-            const_cables{ WriteBufferSize<_pointer_type>({begin, afterlast}) }
-            {
-                if(std::distance(begin,afterlast)<2)
-                    SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough,__FILE__,__func__);
-                //=>explicitly initialize wires
-                std::get<0>(cables).getThreadCurrentRef().store(begin);
-                auto next = begin;
-                std::get<0>(cables).getCurrentRef().store(++next);
-            }
-            cables_type cables{};
-            const_cables_type const_cables;
-        };
-    }
-    namespace Behavior {
-        template<typename RingBufferType> class RingBufferTask {
-            public:
-            using cable_type = typename std::tuple_element<0,typename SOS::MemoryView::RingBufferBus<RingBufferType>::cables_type>::type;
-            using const_cable_type = typename std::tuple_element<0,typename SOS::MemoryView::RingBufferBus<RingBufferType>::const_cables_type>::type;
-            RingBufferTask(cable_type& indices, const_cable_type& bounds) :
-            _item(indices),
-            _bounds(bounds)
-            {}
-            protected:
-            virtual void read_hook() final {
-                auto threadcurrent = _item.getThreadCurrentRef().load();
-                auto current = _item.getCurrentRef().load();
-                bool stop = false;
-                while(!stop){//if: possible less writes than reads
-                    ++threadcurrent;
-                    if (threadcurrent==_bounds.getWriterEndRef())
-                        threadcurrent=_bounds.getWriterStartRef();
-                    if (threadcurrent!=current) {
-                        transfer(*threadcurrent);
-                        _item.getThreadCurrentRef().store(threadcurrent);
-                    } else {
-                        stop = true;
-                    }
-                }
-            }
-            virtual void transfer(const typename RingBufferType::value_type& character)=0;
-            cable_type& _item;
-            const_cable_type& _bounds;
-        };
-        template<typename RingBufferType> class RingBuffer : public SOS::Behavior::SimpleSubController, protected virtual SOS::Behavior::RingBufferTask<RingBufferType>
+namespace MemoryView {
+    template <typename ArithmeticType>
+    struct WriteBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType, 2> {
+        using SOS::MemoryView::ConstCable<ArithmeticType, 2>::ConstCable;
+        auto& getWriterStartRef() { return std::get<0>(*this); }
+        auto& getWriterEndRef() { return std::get<1>(*this); }
+    };
+    template <typename ArithmeticType>
+    struct RingBufferTaskCable : private SOS::MemoryView::TaskCable<ArithmeticType, 2> {
+        using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
+        auto& getCurrentRef() { return std::get<0>(*this); }
+        auto& getThreadCurrentRef() { return std::get<1>(*this); }
+    };
+    template <typename OutputBuffer>
+    struct RingBufferBus : public SOS::MemoryView::BusNotifier {
+        using _pointer_type = typename OutputBuffer::iterator;
+        using _difference_type = typename OutputBuffer::difference_type;
+        using cables_type = std::tuple<SOS::MemoryView::RingBufferTaskCable<_pointer_type>>;
+        using const_cables_type = std::tuple<WriteBufferSize<_pointer_type>>;
+        RingBufferBus(const _pointer_type begin, const _pointer_type afterlast)
+            : const_cables { WriteBufferSize<_pointer_type>({ begin, afterlast }) }
         {
-            public:
-            using bus_type = SOS::MemoryView::RingBufferBus<RingBufferType>;
-            RingBuffer(typename bus_type::signal_type& signal): SOS::Behavior::SimpleSubController(signal) {
-            }
-            ~RingBuffer(){
-            }
-            virtual void event_loop() {
-                if(!_intrinsic.getNotifyRef().test_and_set()){
-                    SOS::Behavior::RingBufferTask<RingBufferType>::read_hook();
+            if (std::distance(begin, afterlast) < 2)
+                SFA::util::logic_error(SFA::util::error_code::RequestedRingbufferSizeNotBigEnough, __FILE__, __func__);
+            //=>explicitly initialize wires
+            std::get<0>(cables).getThreadCurrentRef().store(begin);
+            auto next = begin;
+            std::get<0>(cables).getCurrentRef().store(++next);
+        }
+        cables_type cables {};
+        const_cables_type const_cables;
+    };
+}
+namespace Behavior {
+    template <typename RingBufferType>
+    class RingBufferTask {
+    public:
+        using cable_type = typename std::tuple_element<0, typename SOS::MemoryView::RingBufferBus<RingBufferType>::cables_type>::type;
+        using const_cable_type = typename std::tuple_element<0, typename SOS::MemoryView::RingBufferBus<RingBufferType>::const_cables_type>::type;
+        RingBufferTask(cable_type& indices, const_cable_type& bounds)
+            : _item(indices)
+            , _bounds(bounds)
+        {
+        }
+
+    protected:
+        virtual void read_hook() final
+        {
+            auto threadcurrent = _item.getThreadCurrentRef().load();
+            auto current = _item.getCurrentRef().load();
+            bool stop = false;
+            while (!stop) { // if: possible less writes than reads
+                ++threadcurrent;
+                if (threadcurrent == _bounds.getWriterEndRef())
+                    threadcurrent = _bounds.getWriterStartRef();
+                if (threadcurrent != current) {
+                    transfer(*threadcurrent);
+                    _item.getThreadCurrentRef().store(threadcurrent);
+                } else {
+                    stop = true;
                 }
-                std::this_thread::yield();
             }
-        };
-    }
+        }
+        virtual void transfer(const typename RingBufferType::value_type& character) = 0;
+        cable_type& _item;
+        const_cable_type& _bounds;
+    };
+    template <typename RingBufferType>
+    class RingBuffer : public SOS::Behavior::SimpleSubController, protected virtual SOS::Behavior::RingBufferTask<RingBufferType> {
+    public:
+        using bus_type = SOS::MemoryView::RingBufferBus<RingBufferType>;
+        RingBuffer(typename bus_type::signal_type& signal)
+            : SOS::Behavior::SimpleSubController(signal)
+        {
+        }
+        ~RingBuffer()
+        {
+        }
+        virtual void event_loop()
+        {
+            if (!_intrinsic.getNotifyRef().test_and_set()) {
+                SOS::Behavior::RingBufferTask<RingBufferType>::read_hook();
+            }
+            std::this_thread::yield();
+        }
+    };
+}
 }

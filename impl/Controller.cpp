@@ -7,65 +7,74 @@
 using namespace SOS::MemoryView;
 using namespace std::chrono;
 
-//needs a bus because it is a subcontroller
+// needs a bus because it is a subcontroller
 class SubControllerImpl : public SOS::Behavior::SimpleDummy<> {
-    public:
+public:
     using bus_type = SOS::MemoryView::BusNotifier;
-    SubControllerImpl(bus_type& bus) :
-    SOS::Behavior::SimpleDummy<>(bus.signal) {
-        std::cout<<"SubController running for 10s..."<<std::endl;
-        _thread=start(this);
+    SubControllerImpl(bus_type& bus)
+        : SOS::Behavior::SimpleDummy<>(bus.signal)
+    {
+        std::cout << "SubController running for 10s..." << std::endl;
+        _thread = start(this);
     }
-    ~SubControllerImpl() final {
+    ~SubControllerImpl() final
+    {
         destroy(_thread);
-        std::cout<<"SubController has ended normally."<<std::endl;
+        std::cout << "SubController has ended normally." << std::endl;
     }
-    void event_loop(){
-            //would: acquire new data through a wire
-            //blink on
-            _intrinsic.getNotifyRef().clear();
-            //run
-            std::this_thread::sleep_for(milliseconds{333});
-            //blink off
-            _intrinsic.getNotifyRef().test_and_set();
-            //pause
-            std::this_thread::sleep_for(milliseconds{666});
+    void event_loop()
+    {
+        // would: acquire new data through a wire
+        // blink on
+        _intrinsic.getNotifyRef().clear();
+        // run
+        std::this_thread::sleep_for(milliseconds { 333 });
+        // blink off
+        _intrinsic.getNotifyRef().test_and_set();
+        // pause
+        std::this_thread::sleep_for(milliseconds { 666 });
     };
-    private:
+
+private:
     std::thread _thread;
 };
 
-//A RunLoop is not a Loop, because it does not have a signal
+// A RunLoop is not a Loop, because it does not have a signal
 class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControllerImpl> {
-    public:
-    ControllerImpl(bus_type& bus) : BootstrapAsyncController<SubControllerImpl>(bus.signal)
-    , waiter(new SystemTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal))
+public:
+    ControllerImpl(bus_type& bus)
+        : BootstrapAsyncController<SubControllerImpl>(bus.signal)
+        , waiter(new SystemTimer<milliseconds, MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal))
     {
-        _thread=start(this);
+        _thread = start(this);
     }
-    ~ControllerImpl() {
+    ~ControllerImpl()
+    {
         destroy(_thread);
-        std::cout<<std::endl<<"Controller loop has terminated."<<std::endl;
+        std::cout << std::endl
+                  << "Controller loop has terminated." << std::endl;
         delete waiter;
     }
-    void event_loop(){
-            waiterBus.signal.getUpdatedRef().clear();
-            if (!waiterBus.signal.getAcknowledgeRef().test_and_set()){
-                if (!_intrinsic.getAuxUpdatedRef().test_and_set())
-                    stop_descendants();
-                if (!_foreign.signal.getNotifyRef().test_and_set()) {
-                    _foreign.signal.getNotifyRef().clear();
-                    std::cout<<"*";
-                } else {
-                    std::cout<<"_";
-                }
+    void event_loop()
+    {
+        waiterBus.signal.getUpdatedRef().clear();
+        if (!waiterBus.signal.getAcknowledgeRef().test_and_set()) {
+            if (!_intrinsic.getAuxUpdatedRef().test_and_set())
+                stop_descendants();
+            if (!_foreign.signal.getNotifyRef().test_and_set()) {
+                _foreign.signal.getNotifyRef().clear();
+                std::cout << "*";
+            } else {
+                std::cout << "_";
             }
+        }
         if (descendants_stopped())
             _intrinsic.getAuxAcknowledgeRef().clear();
         std::this_thread::yield();
     }
-    private:
-    SOS::MemoryView::BusShaker waiterBus{};
-    SystemTimer<milliseconds,MEASUREMENT_UNIT_IN_MILLIS>* waiter;
+
+private:
+    SOS::MemoryView::BusShaker waiterBus {};
+    SystemTimer<milliseconds, MEASUREMENT_UNIT_IN_MILLIS>* waiter;
     std::thread _thread;
 };

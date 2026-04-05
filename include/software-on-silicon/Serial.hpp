@@ -14,7 +14,11 @@ namespace Protocol {
     template <typename... Objects>
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...> {
     public:
-        Serial(SOS::MemoryView::SerialProcessNotifier<Objects...>& bus) : bus(bus), SOS::Protocol::BlockWiseTransfer<Objects...>(bus.objects) {}
+        Serial(SOS::MemoryView::SerialProcessNotifier<Objects...>& bus)
+            : bus(bus)
+            , SOS::Protocol::BlockWiseTransfer<Objects...>(bus.objects)
+        {
+        }
         ~Serial()
         {
             std::cout << typeid(*this).name() << " shutdown" << std::endl;
@@ -34,14 +38,14 @@ namespace Protocol {
                     if (_vars.received_request)
                         read_hook(data);
                     else
-                        this->read_object(data);//inform_read_end
-                    transfer_hook();//inform_read_start; may check unsynced
-                    acknowledge_hook();//inform_write_start; sets unsynced
+                        this->read_object(data); // inform_read_end
+                    transfer_hook(); // inform_read_start; may check unsynced
+                    acknowledge_hook(); // inform_write_start; sets unsynced
                 }
                 collect_sync();
                 // OUT
-                if (!write_hook())//collect_unsynced
-                    if (!this->write_object())//inform_write_end
+                if (!write_hook()) // collect_unsynced
+                    if (!this->write_object()) // inform_write_end
                         send_idleRequest();
                 if (_vars.sent_sighup)
                     aux_ack();
@@ -194,7 +198,7 @@ namespace Protocol {
                 send_request();
                 auto id_bits = std::bitset<8> { 0x00 };
                 this->write_bits(id_bits);
-                //std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item) << std::endl; // why not ID?!
+                // std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item) << std::endl; // why not ID?!
                 const unsigned char mod = item + LOWER_STATES;
                 auto obj_id = std::bitset<8> { mod };
                 id_bits = id_bits ^ obj_id;
@@ -231,7 +235,7 @@ namespace Protocol {
                             if (!this->descriptors[j].readLock) {
                                 this->descriptors[j].transfer = true;
                                 this->descriptors[j].unsynced = false;
-                                //std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
+                                // std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
@@ -260,7 +264,7 @@ namespace Protocol {
                             if (!this->descriptors[j].transfer) {
                                 this->descriptors[j].readLock = true;
                                 emit_sync_canceled(j);
-                                //std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
+                                // std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
                                 SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
@@ -276,26 +280,30 @@ namespace Protocol {
             }
             requestId = NUM_IDS;
         }
-        void collect_sync() {
+        void collect_sync()
+        {
             if (!bus.signal.getSyncStartAcknowledgeRef().test_and_set()) {
                 const auto id = bus.syncStartId().load();
                 this->descriptors[id].unsynced = true;
                 bus.signal.getSyncStartUpdatedRef().clear();
             }
         }
-        void emit_sync_canceled(std::size_t obj_id){
+        void emit_sync_canceled(std::size_t obj_id)
+        {
             while (bus.signal.getSyncStopUpdatedRef().test_and_set())
                 std::this_thread::yield();
             bus.syncStopId().store(obj_id);
             bus.signal.getSyncStopAcknowledgeRef().clear();
         }
-        virtual void emit_received(std::size_t obj_id) {
+        virtual void emit_received(std::size_t obj_id)
+        {
             while (bus.signal.getReadUpdatedRef().test_and_set())
                 std::this_thread::yield();
             bus.receiveNotificationId().store(obj_id);
             bus.signal.getReadAcknowledgeRef().clear();
         }
-        virtual void emit_sent(std::size_t obj_id) {
+        virtual void emit_sent(std::size_t obj_id)
+        {
             while (bus.signal.getWriteUpdatedRef().test_and_set())
                 std::this_thread::yield();
             bus.sendNotificationId().store(obj_id);
@@ -342,16 +350,16 @@ namespace Protocol {
                 return true;
             }
             if (!this->send_lock)
-                if (!_vars.sent_com_shutdown ? getFirstTransfer() : false) {//unsynced
+                if (!_vars.sent_com_shutdown ? getFirstTransfer() : false) { // unsynced
                     return true;
                 }
             if (!this->send_lock)
-                if (incoming_shutdown_query() && !_vars.sent_com_shutdown) {//unsynced
+                if (incoming_shutdown_query() && !_vars.sent_com_shutdown) { // unsynced
                     send_comshutdownRequest();
                     return true;
                 }
             if (!this->send_lock)
-                if (getFirstSyncObject())//may check unsynced
+                if (getFirstSyncObject()) // may check unsynced
                     return false;
             if (!this->send_lock)
                 if (outgoing_sighup_query() && !_vars.sent_sighup) {

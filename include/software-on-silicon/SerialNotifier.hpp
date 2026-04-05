@@ -1,8 +1,10 @@
 namespace SOS {
 namespace MemoryView {
-    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag,6> {
+    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 6> {
     public:
-        DMAObjectShake() : std::array<std::atomic_flag,6>{} {
+        DMAObjectShake()
+            : std::array<std::atomic_flag, 6> {}
+        {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
             std::get<2>(*this).test_and_set();
@@ -10,29 +12,30 @@ namespace MemoryView {
             std::get<4>(*this).test_and_set();
             std::get<5>(*this).test_and_set();
         }
-        auto& getReadUpdatedRef(){return std::get<0>(*this);}
-        auto& getReadAcknowledgeRef(){return std::get<1>(*this);}
-        auto& getWriteUpdatedRef(){return std::get<2>(*this);}
-        auto& getWriteAcknowledgeRef(){return std::get<3>(*this);}
-        auto& getSyncStartUpdatedRef(){return std::get<4>(*this);}
-        auto& getSyncStartAcknowledgeRef(){return std::get<5>(*this);}
-        auto& getSyncStopUpdatedRef(){return updated;}
-        auto& getSyncStopAcknowledgeRef(){return acknowledge;}
+        auto& getReadUpdatedRef() { return std::get<0>(*this); }
+        auto& getReadAcknowledgeRef() { return std::get<1>(*this); }
+        auto& getWriteUpdatedRef() { return std::get<2>(*this); }
+        auto& getWriteAcknowledgeRef() { return std::get<3>(*this); }
+        auto& getSyncStartUpdatedRef() { return std::get<4>(*this); }
+        auto& getSyncStartAcknowledgeRef() { return std::get<5>(*this); }
+        auto& getSyncStopUpdatedRef() { return updated; }
+        auto& getSyncStopAcknowledgeRef() { return acknowledge; }
     };
     struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, 4> {
-        DestinationAndOrigin() : SOS::MemoryView::TaskCable<std::size_t, 4>{} {
-            std::fill(std::begin(*this),std::end(*this),0);
+        DestinationAndOrigin()
+            : SOS::MemoryView::TaskCable<std::size_t, 4> {}
+        {
+            std::fill(std::begin(*this), std::end(*this), 0);
         }
     };
-    struct bus_dma_shaker_tag{};
-    struct BusDMAShaker : bus <
-    bus_dma_shaker_tag,
-    SOS::MemoryView::DMAObjectShake,
-    std::tuple<DestinationAndOrigin>,
-    bus_traits<Bus>::const_cables_type
-    >{
+    struct bus_dma_shaker_tag { };
+    struct BusDMAShaker : bus<
+                              bus_dma_shaker_tag,
+                              SOS::MemoryView::DMAObjectShake,
+                              std::tuple<DestinationAndOrigin>,
+                              bus_traits<Bus>::const_cables_type> {
         signal_type signal;
-        cables_type cables{};
+        cables_type cables {};
         auto& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
         auto& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
         auto& syncStopId() { return std::get<2>(std::get<0>(cables)); }
@@ -54,41 +57,57 @@ namespace Protocol {
     static const unsigned int NUM_SIGNALBITS = 2;
 }
 namespace MemoryView {
-    template<unsigned char N>
-    struct Futures : public std::array<std::future<bool>,N> {
-        Futures() : std::array<std::future<bool>,N>{} {}
+    template <unsigned char N>
+    struct Futures : public std::array<std::future<bool>, N> {
+        Futures()
+            : std::array<std::future<bool>, N> {}
+        {
+        }
     };
-    //template<unsigned char N>
-    //struct Promises : public std::array<std::promise<bool>,N> {
-    //    //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
-    //    Promises() : std::array<std::promise<bool>,N>{} {
-    //        for (std::size_t i = 0; i < this->size(); ++i){
-    //            (*this)[i].set_value(true);
-    //        }
-    //    }
-    //};
+    // template<unsigned char N>
+    // struct Promises : public std::array<std::promise<bool>,N> {
+    //     //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
+    //     Promises() : std::array<std::promise<bool>,N>{} {
+    //         for (std::size_t i = 0; i < this->size(); ++i){
+    //             (*this)[i].set_value(true);
+    //         }
+    //     }
+    // };
 }
 namespace Behavior {
     class SerialSubController : public SubController {
     public:
         using bus_type = SOS::MemoryView::BusDMAShaker;
-        constexpr SerialSubController(typename bus_type::signal_type& signal) : SubController(), _intrinsic(signal) {}
+        constexpr SerialSubController(typename bus_type::signal_type& signal)
+            : SubController()
+            , _intrinsic(signal)
+        {
+        }
+
     protected:
         bus_type::signal_type& _intrinsic;
     };
-    template<typename... Others> class SerialDummy : public Loop, protected SerialSubController {
+    template <typename... Others>
+    class SerialDummy : public Loop, protected SerialSubController {
     public:
-        SerialDummy(typename bus_type::signal_type& signal, Others&... args) : Loop(), SerialSubController(signal) {}
+        SerialDummy(typename bus_type::signal_type& signal, Others&... args)
+            : Loop()
+            , SerialSubController(signal)
+        {
+        }
     };
     class SerialProcessing : public SOS::Behavior::SerialDummy<> {
     public:
         using bus_type = SOS::MemoryView::BusDMAShaker;
-        SerialProcessing(bus_type& bus) : _datasignals(bus), SOS::Behavior::SerialDummy<>(bus.signal) {
-            for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; ++i){
+        SerialProcessing(bus_type& bus)
+            : _datasignals(bus)
+            , SOS::Behavior::SerialDummy<>(bus.signal)
+        {
+            for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; ++i) {
                 read_ack[i].test_and_set();
                 write_fault[i].test_and_set();
                 write_ack[i].test_and_set();
-                write_status[i] = std::async(std::launch::deferred,[]()->bool{ return true; });
+                write_status[i] = std::async(std::launch::deferred, []() -> bool { return true; });
             }
             _intrinsic.getSyncStartUpdatedRef().clear();
             readOrWrite = true; // one sync is enough to trigger a read or write hook
@@ -101,7 +120,7 @@ namespace Behavior {
             if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.syncStopId().load();
                 if (sync[id])
-                    if (id==1 || id==2){
+                    if (id == 1 || id == 2) {
                         std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
                         write_fault[id].clear();
                     }
@@ -120,7 +139,7 @@ namespace Behavior {
             if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.sendNotificationId().load();
                 write[id] = false;
-                if (id==1 || id==2){
+                if (id == 1 || id == 2) {
                     std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
                     write_ack[id].clear();
                 }
@@ -128,9 +147,9 @@ namespace Behavior {
                 readOrWrite = true;
             }
             if (readOrWrite) {
-                for (std::size_t i=0; i<SOS::Protocol::NUM_IDS; i++) {
-                    if (sync[i] && !sync_backup[i]){
-                        if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()){
+                for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; i++) {
+                    if (sync[i] && !sync_backup[i]) {
+                        if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
                             sync_backup[i] = true;
                             _datasignals.syncStartId().store(i);
                             _intrinsic.getSyncStartAcknowledgeRef().clear();
@@ -146,14 +165,15 @@ namespace Behavior {
     protected:
         bool readOrWrite = false;
         virtual void process_hook() = 0;
-        std::bitset<SOS::Protocol::NUM_IDS> read{};
-        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> read_ack{};
-        std::bitset<SOS::Protocol::NUM_IDS> write{};
-        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_fault{};
-        std::array<std::atomic_flag,SOS::Protocol::NUM_IDS> write_ack{};
-        SOS::MemoryView::Futures<SOS::Protocol::NUM_IDS> write_status{};
-        std::bitset<SOS::Protocol::NUM_IDS> sync{};
-        std::bitset<SOS::Protocol::NUM_IDS> sync_backup{};
+        std::bitset<SOS::Protocol::NUM_IDS> read {};
+        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> read_ack {};
+        std::bitset<SOS::Protocol::NUM_IDS> write {};
+        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> write_fault {};
+        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> write_ack {};
+        SOS::MemoryView::Futures<SOS::Protocol::NUM_IDS> write_status {};
+        std::bitset<SOS::Protocol::NUM_IDS> sync {};
+        std::bitset<SOS::Protocol::NUM_IDS> sync_backup {};
+
     private:
         bus_type& _datasignals;
     };
@@ -180,7 +200,7 @@ namespace Protocol {
     public:
         using std::array<DMADescriptor, SOS::Protocol::NUM_IDS>::array;
         template <typename T, std::size_t... I>
-        void operator()(T& objects, std::integer_sequence<std::size_t,I...>)
+        void operator()(T& objects, std::integer_sequence<std::size_t, I...>)
         {
             count = 0;
             assign(std::get<I>(objects)...);
@@ -192,13 +212,13 @@ namespace Protocol {
         std::size_t size() { return count; }
 
     private:
-        template<typename First>
+        template <typename First>
         void assign(First& obj_ref)
         {
             (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
             count++;
         }
-        template<typename First, typename... Others>
+        template <typename First, typename... Others>
         void assign(First& obj_ref, Others&... objects)
         {
             (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
@@ -207,24 +227,30 @@ namespace Protocol {
         }
         std::size_t count = 0;
     };
-    //template <typename... Objects>
-    //struct ObjectHelper : public std::tuple<Objects&...> {
-    //    ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
-    //};
-    //template<typename ArithmeticType, std::size_t N> struct Array : public SOS::MemoryView::TaskCable<ArithmeticType, N> {
-    //    using SOS::MemoryView::TaskCable<ArithmeticType, N>::TaskCable;
-    //};
-    template<typename ArithmeticType> struct Size : public SOS::MemoryView::ConstCable<ArithmeticType,2> {
-        Size(const ArithmeticType First, const ArithmeticType Second) : SOS::MemoryView::ConstCable<ArithmeticType,2>({First, Second}) {}
+    // template <typename... Objects>
+    // struct ObjectHelper : public std::tuple<Objects&...> {
+    //     ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
+    // };
+    // template<typename ArithmeticType, std::size_t N> struct Array : public SOS::MemoryView::TaskCable<ArithmeticType, N> {
+    //     using SOS::MemoryView::TaskCable<ArithmeticType, N>::TaskCable;
+    // };
+    template <typename ArithmeticType>
+    struct Size : public SOS::MemoryView::ConstCable<ArithmeticType, 2> {
+        Size(const ArithmeticType First, const ArithmeticType Second)
+            : SOS::MemoryView::ConstCable<ArithmeticType, 2>({ First, Second })
+        {
+        }
     };
-    template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof%3==0&&Sizeof%12!=0&&Sizeof%24!=0&&Sizeof%12288!=0, unsigned char>::type>
+    template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof % 3 == 0 && Sizeof % 12 != 0 && Sizeof % 24 != 0 && Sizeof % 12288 != 0, unsigned char>::type>
     class CharBusGenerator : public SOS::MemoryView::BusShaker {
     public:
         CharBusGenerator() = delete;
-        CharBusGenerator(Object& obj) :
-        SOS::MemoryView::BusShaker{},
-        const_cables{ Size<ArithmeticType*>(reinterpret_cast<ArithmeticType*>(&obj), reinterpret_cast<ArithmeticType*>(&obj)+Sizeof) } {}
-        using const_cables_type = std::tuple< Size<ArithmeticType*> >;
+        CharBusGenerator(Object& obj)
+            : SOS::MemoryView::BusShaker {}
+            , const_cables { Size<ArithmeticType*>(reinterpret_cast<ArithmeticType*>(&obj), reinterpret_cast<ArithmeticType*>(&obj) + Sizeof) }
+        {
+        }
+        using const_cables_type = std::tuple<Size<ArithmeticType*>>;
         const_cables_type const_cables;
     };
 }
@@ -236,10 +262,11 @@ namespace MemoryView {
     };
 }
 namespace Protocol {
-    bool write_status(std::atomic_flag& fault, std::atomic_flag& ack) {
+    bool write_status(std::atomic_flag& fault, std::atomic_flag& ack)
+    {
         bool exit = false;
         bool result = false;
-        while( !exit ) {
+        while (!exit) {
             if (!fault.test_and_set()) {
                 result = false;
                 exit = true;
