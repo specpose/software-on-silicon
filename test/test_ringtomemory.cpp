@@ -11,7 +11,6 @@ class Functor1 {
     }
     ~Functor1(){
         _thread.join();
-        //_readerBus.signal.getAcknowledgeRef().clear();//HACK: while -> thread.yield
     }
     void operator()(const BLINK_T& channel_ptrs){
         WriteInterleaved<decltype(hostmemory),BLINK_T>(ringbufferbus,channel_ptrs);
@@ -20,7 +19,7 @@ class Functor1 {
         auto loopstart = high_resolution_clock::now();
         while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<TOTAL_TIME) {
             const auto now = high_resolution_clock::now();
-            if (std::chrono::duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(SAMPLE_RATE)) {
+            if (duration<double, std::ratio<1>>(now - last).count() > double(std::tuple_size<BLINK_T>{})/double(SAMPLE_RATE)) {
             last = now;
             switch(count){
                 case 0:
@@ -41,7 +40,7 @@ class Functor1 {
         }
     }
     private:
-    std::chrono::time_point<high_resolution_clock> last = high_resolution_clock::now();
+    time_point<high_resolution_clock> last = high_resolution_clock::now();
     BLINK_T blink{};
     BLINK_T noblink{};
 

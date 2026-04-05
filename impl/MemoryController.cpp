@@ -33,8 +33,7 @@ class ReaderImpl : public SOS::Behavior::Reader<BLOCK,MEMORY_CONTROLLER>,
     ReadTaskImpl(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables)),
     SOS::Behavior::ReadTask<BLOCK,MEMORY_CONTROLLER>(std::get<1>(outside.cables),std::get<0>(outside.cables),std::get<0>(blockerbus.cables),std::get<1>(blockerbus.cables))
     {
-        //multiple inheritance: not ambiguous
-        //_thread = SOS::Behavior::Reader<MEMORY_CONTROLLER>::start(this);
+        //multiple inheritance: Reader
         _thread = start(this);
     }
     ~ReaderImpl(){
@@ -61,7 +60,6 @@ class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderIm
             std::fill(std::begin(memorycontroller),std::end(memorycontroller),MEMORY_CONTROLLER::value_type{{0,0,0,0,0}});
             _blocker.signal.getWritingRef().test_and_set();
             //multiple inheritance: starts PassthruAsync, not ReaderImpl
-            //_thread = PassthruAsync<ReaderImpl, SOS::MemoryView::ReaderBus<READ_BUFFER>>::start(this);
             _thread = start(this);
         };
     virtual ~WritePriorityImpl(){
