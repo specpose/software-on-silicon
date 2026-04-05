@@ -3,9 +3,10 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer(std::tuple<Objects...>& objects) {
-            this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value>{});
-            //apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
+        BlockWiseTransfer(std::tuple<Objects...>& objects)
+        {
+            this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {});
+            // apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
         }
 
     protected:
@@ -24,7 +25,7 @@ namespace Protocol {
                         send_lock = false;
                         emit_sent(writeOrigin);
                         ++tx_counter[writeOrigin]; // DEBUG
-                        //std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
+                        // std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
                     }
                     write3plus1 = 0;
@@ -65,7 +66,7 @@ namespace Protocol {
                         receive_lock = false;
                         emit_received(readDestination);
                         ++rx_counter[readDestination]; // DEBUG
-                        //std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
+                        // std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
                     }
                     read4minus1 = 0;
@@ -89,8 +90,8 @@ namespace Protocol {
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
         SOS::Protocol::DescriptorHelper descriptors {};
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter{0}; // DEBUG
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter{0}; // DEBUG
+        std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter { 0 }; // DEBUG
+        std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter { 0 }; // DEBUG
 
     private:
         std::array<std::bitset<8>, 3> writeAssembly;

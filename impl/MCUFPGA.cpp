@@ -2,7 +2,7 @@
  * Buffers: 12288b=>3Pages (4KiB nVidia Packet 3 WORD); IRQs with async or HandShake and device mmap
  * PunchCards: 24b=>3Double (64bit CPU 3 WORD), 12b=>3Int (32bit CPU 3 WORD); Poll In/Out Notifier with async
  * WithinFGPA: 3b=>TrueColor (8bit MCU 3 WORD); RTL HandShake with thread
-*/
+ */
 #include <iostream>
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
@@ -30,10 +30,10 @@ public:
         , SOS::Behavior::SerialProcessing(bus)
     {
         counterBus.signal.getAcknowledgeRef().clear();
-        //LOCK
+        // LOCK
         auto fut = write_status[1].get();
         if (fut) {
-            //EDIT
+            // EDIT
             int writeBlinkCounter = 0;
             bool writeBlink = true;
             for (std::size_t i = 0; i < std::get<1>(_nBus.objects).size(); i++) {
@@ -52,11 +52,11 @@ public:
                     writeBlinkCounter = 0;
                 }
             }
-            //SEND
+            // SEND
             if (!write_status[1].valid()) {
                 sync[1] = true;
                 write_status[1] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
-                //CALLBACK
+                // CALLBACK
                 auto t = std::thread(&dump<DMA&>, std::move(write_status[1].share()), std::ref(std::get<1>(_nBus.objects)));
                 t.detach();
             } else {
@@ -72,15 +72,16 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void process_hook() {
-        //SIGNALING
-        if (!read_ack[0].test_and_set()){
+    void process_hook()
+    {
+        // SIGNALING
+        if (!read_ack[0].test_and_set()) {
             if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
                 counterBus.signal.getUpdatedRef().clear();
             }
         }
-        //COMPUTE
-        if (!counterBus.signal.getUpdatedRef().test_and_set()){
+        // COMPUTE
+        if (!counterBus.signal.getUpdatedRef().test_and_set()) {
             auto red = std::get<0>(std::get<0>(counterBus.const_cables));
             (*red)++;
             auto blue = std::get<1>(std::get<0>(counterBus.const_cables));
@@ -92,7 +93,7 @@ public:
 
 private:
     bus_type& _nBus;
-    SOS::Protocol::CharBusGenerator<std::tuple_element<0,decltype(bus_type::objects)>::type> counterBus;
+    SOS::Protocol::CharBusGenerator<std::tuple_element<0, decltype(bus_type::objects)>::type> counterBus;
     std::thread _thread;
 };
 class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing {
@@ -104,16 +105,16 @@ public:
         , SOS::Behavior::SerialProcessing(bus)
     {
         counterBus.signal.getUpdatedRef().clear();
-        //LOCK
+        // LOCK
         auto fut = write_status[2].get();
-        //EDIT
-        //if (fut){
+        // EDIT
+        // if (fut){
         std::get<2>(_nBus.objects).fill('-');
-        //SEND
+        // SEND
         if (!write_status[2].valid()) {
             sync[2] = true;
             write_status[2] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
-            //CALLBACK
+            // CALLBACK
             auto t = std::thread(&dump<DMA&>, std::move(write_status[2].share()), std::ref(std::get<2>(_nBus.objects)));
             t.detach();
         } else {
@@ -127,15 +128,16 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void process_hook() {
-        //SIGNALING
-        if (!read_ack[0].test_and_set()){
+    void process_hook()
+    {
+        // SIGNALING
+        if (!read_ack[0].test_and_set()) {
             if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
                 counterBus.signal.getUpdatedRef().clear();
             }
         }
-        //COMPUTE
-        if (!counterBus.signal.getUpdatedRef().test_and_set()){
+        // COMPUTE
+        if (!counterBus.signal.getUpdatedRef().test_and_set()) {
             auto red = std::get<0>(std::get<0>(counterBus.const_cables));
             (*red)--;
             auto green = std::get<0>(std::get<0>(counterBus.const_cables));
@@ -147,7 +149,7 @@ public:
 
 private:
     bus_type& _nBus;
-    SOS::Protocol::CharBusGenerator<std::tuple_element<0,decltype(bus_type::objects)>::type> counterBus;
+    SOS::Protocol::CharBusGenerator<std::tuple_element<0, decltype(bus_type::objects)>::type> counterBus;
     std::thread _thread;
 };
 class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColor, DMA, DMA> {

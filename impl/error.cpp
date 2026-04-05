@@ -1,13 +1,13 @@
 #include <software-on-silicon/error.hpp>
-//#include <iostream>//ENABLE
+// #include <iostream>//ENABLE
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
-    //rtos_helpers.hpp
+    // rtos_helpers.hpp
     ChildHasToBeDeletedBeforeDestroyThread,
     ChildHasAlreadyBeenDeleted,
     ChildIsAlreadyRunningOrHasNotBeenDeleted,
-    //SerialDMA
+    // SerialDMA
     InvalidDMAObjectSize,
     PoweronAfterUnexpectedShutdown,
     HotplugAfterUnexpectedShutdown,
@@ -24,7 +24,7 @@ enum SFA::util::error_code : unsigned char {
     ReceivedATransferAcknowledgeOnReadlockedObject,
     ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer,
     ReadlockPredatesAcknowledge,
-    AcknowledgeIdDoesNotReferenceAValidObject, //2x
+    AcknowledgeIdDoesNotReferenceAValidObject, // 2x
     PreviousTransferHasNotBeenAcknowledged,
     InvalidAcknowledgeId,
     SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired,
@@ -45,27 +45,27 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
-    //MCUFPGA.cpp
+    // MCUFPGA.cpp
     WriteRequestHasBeenCanceledByOtherSide,
     TypeOfFutureHasBeenModifiedDuringEdit,
-    //SymbolRateCounter.cpp
+    // SymbolRateCounter.cpp
     CounterMaxedOut,
-    //RingBuffer.hpp
+    // RingBuffer.hpp
     RequestedRingbufferSizeNotBigEnough,
-    //ringbuffer_hellpers.hpp
-    RingbufferTooSlowOrNotBigEnough, //2x
-    //MemoryController.cpp
-    NegativeReadoffsetSupplied, //3x
-    ReadindexOutOfBounds, //2x
-    //MemoryController.hpp
+    // ringbuffer_hellpers.hpp
+    RingbufferTooSlowOrNotBigEnough, // 2x
+    // MemoryController.cpp
+    NegativeReadoffsetSupplied, // 3x
+    ReadindexOutOfBounds, // 2x
+    // MemoryController.hpp
     InvalidReadDestination,
     WriterBufferFull,
-    ArachannelInitializationError, //2x
-    //RingToMemory.cpp
+    ArachannelInitializationError, // 2x
+    // RingToMemory.cpp
     UnexpectedWritesLeft,
     WroteTooMuchOrTooLittle,
     CharacterWriteRangeFailed,
-    //test_ringtomemory.cpp
+    // test_ringtomemory.cpp
     NoReadbufferSupplied,
     ContiguousInitializedIncorrectly,
     AssignmentOperatorUsedIncorrectly,
@@ -200,7 +200,8 @@ void SFA::util::logic_error(error_code what, std::string file_name, std::string 
         error = what;
     if (!modname)
         modname = "";
-    std::cerr << std::endl << "Logic" << modname << "Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
+    std::cerr << std::endl
+              << "Logic" << modname << "Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
     abort();
 };
 void SFA::util::runtime_error(error_code what, std::string file_name, std::string function_name, const char* modname)
@@ -209,6 +210,7 @@ void SFA::util::runtime_error(error_code what, std::string file_name, std::strin
         error = what;
     if (!modname)
         modname = "";
-    std::cerr << std::endl << "Runtime" << modname << "Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
+    std::cerr << std::endl
+              << "Runtime" << modname << "Error: " << error_message(error) << ". " << file_name << "::" << function_name << std::endl;
     abort();
 };

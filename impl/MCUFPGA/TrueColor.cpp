@@ -1,5 +1,6 @@
 struct TrueColor {
-    TrueColor(){
+    TrueColor()
+    {
         std::get<0>(RGB) = 0;
         std::get<1>(RGB) = 0;
         std::get<2>(RGB) = 0;
@@ -11,5 +12,5 @@ struct TrueColor {
     unsigned char& red() { return std::get<0>(RGB); }
     unsigned char& green() { return std::get<1>(RGB); }
     unsigned char& blue() { return std::get<2>(RGB); }
-    std::array<unsigned char,3> RGB{ 0, 0, 0 };
+    std::array<unsigned char, 3> RGB { 0, 0, 0 };
 };

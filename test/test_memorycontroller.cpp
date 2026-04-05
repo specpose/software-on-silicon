@@ -1,40 +1,47 @@
 #include "MemoryController.cpp"
 
 class Functor {
-    public:
-    Functor(const std::size_t readOffset=0) : _readOffset(readOffset), _readerBus(randomread.begin(),randomread.end()), controller(_readerBus) {
+public:
+    Functor(const std::size_t readOffset = 0)
+        : _readOffset(readOffset)
+        , _readerBus(randomread.begin(), randomread.end())
+        , controller(_readerBus)
+    {
         _readerBus.setOffset(_readOffset);
         _readerBus.signal.getUpdatedRef().clear();
     }
-    void operator()(){
-        if(!_readerBus.signal.getAcknowledgeRef().test_and_set()){
+    void operator()()
+    {
+        if (!_readerBus.signal.getAcknowledgeRef().test_and_set()) {
             _readerBus.signal.getUpdatedRef().clear();
             auto print = randomread.begin();
-            while (print!=randomread.end())
-                std::cout << (*(print++))[0];//HACK: hard coded channel 0
+            while (print != randomread.end())
+                std::cout << (*(print++))[0]; // HACK: hard coded channel 0
             std::cout << std::endl;
         }
     }
-    private:
+
+private:
     const std::size_t _readOffset;
-    BLOCK randomread{};
+    BLOCK randomread {};
     SOS::MemoryView::ReaderBus<decltype(randomread)> _readerBus;
     WritePriorityImpl controller;
 };
 
 using namespace std::chrono;
 
-int main(){
+int main()
+{
     const std::size_t ara_offset = 6992;
     std::cout << "Writer writing 10000 times from start at rate 1/ms..." << std::endl;
     Functor functor(ara_offset);
-    std::cout << "Reader reading 1000 times from offset "<<ara_offset<<" of memory at rate 1/s..." << std::endl;
+    std::cout << "Reader reading 1000 times from offset " << ara_offset << " of memory at rate 1/s..." << std::endl;
     auto loopstart = high_resolution_clock::now();
     auto beginning = loopstart;
-    while (duration_cast<seconds>(high_resolution_clock::now()-loopstart).count()<11){
+    while (duration_cast<seconds>(high_resolution_clock::now() - loopstart).count() < 11) {
         if (duration_cast<seconds>(high_resolution_clock::now() - beginning).count() > 0) {
-        beginning = high_resolution_clock::now();
-        functor();
+            beginning = high_resolution_clock::now();
+            functor();
         }
         std::this_thread::yield();
     }
