@@ -27,9 +27,9 @@ auto apply(Function& func, ArgsTuple& args)
 
 namespace SOS {
 namespace Protocol {
-    struct DescriptorHelper : public std::array<DMADescriptor, SOS::Protocol::NUM_IDS> {
+    struct DescriptorHelper : public std::array<DMADescriptor, NUM_IDS> {
     public:
-        using std::array<DMADescriptor, SOS::Protocol::NUM_IDS>::array;
+        using std::array<DMADescriptor, NUM_IDS>::array;
         template <typename T, std::size_t... I>
         void operator()(T& objects, std::integer_sequence<std::size_t, I...>)
         {
@@ -45,13 +45,13 @@ namespace Protocol {
         template <typename First>
         void assign(First& obj_ref)
         {
-            (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
+            (*this)[count] = { static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false, false };
             count++;
         }
         template <typename First, typename... Others>
         void assign(First& obj_ref, Others&... objects)
         {
-            (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
+            (*this)[count] = { static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false, false };
             count++;
             assign(objects...);
         }

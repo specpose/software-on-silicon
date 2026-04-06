@@ -51,11 +51,11 @@ namespace Protocol {
         shutdown = 0x3C,
         reserved = 0x3F // 8bit LEQ instruction?
     };
-    static const unsigned char LOWER_STATES = 1;
-    static const unsigned char UPPER_STATES = 5;
-    static const unsigned char NUM_IDS = 64 - UPPER_STATES - LOWER_STATES;
-    static const unsigned int NUM_SIGNALBITS = 2;
 }
+#define LOWER_STATES 1
+#define UPPER_STATES 5
+#define NUM_IDS 64 - UPPER_STATES - LOWER_STATES
+#define NUM_SIGNALBITS 2
 namespace MemoryView {
     template <unsigned char N>
     struct Futures : public std::array<std::future<bool>, N> {
@@ -103,7 +103,7 @@ namespace Behavior {
             : _datasignals(bus)
             , SOS::Behavior::SerialDummy<>(bus.signal)
         {
-            for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; ++i) {
+            for (std::size_t i = 0; i < NUM_IDS; ++i) {
                 read_ack[i].test_and_set();
                 write_fault[i].test_and_set();
                 write_ack[i].test_and_set();
@@ -147,7 +147,7 @@ namespace Behavior {
                 readOrWrite = true;
             }
             if (readOrWrite) {
-                for (std::size_t i = 0; i < SOS::Protocol::NUM_IDS; i++) {
+                for (std::size_t i = 0; i < NUM_IDS; i++) {
                     if (sync[i] && !sync_backup[i]) {
                         if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
                             sync_backup[i] = true;
@@ -165,38 +165,30 @@ namespace Behavior {
     protected:
         bool readOrWrite = false;
         virtual void process_hook() = 0;
-        std::bitset<SOS::Protocol::NUM_IDS> read {};
-        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> read_ack {};
-        std::bitset<SOS::Protocol::NUM_IDS> write {};
-        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> write_fault {};
-        std::array<std::atomic_flag, SOS::Protocol::NUM_IDS> write_ack {};
-        SOS::MemoryView::Futures<SOS::Protocol::NUM_IDS> write_status {};
-        std::bitset<SOS::Protocol::NUM_IDS> sync {};
-        std::bitset<SOS::Protocol::NUM_IDS> sync_backup {};
+        std::bitset<NUM_IDS> read {};
+        std::array<std::atomic_flag, NUM_IDS> read_ack {};
+        std::bitset<NUM_IDS> write {};
+        std::array<std::atomic_flag, NUM_IDS> write_fault {};
+        std::array<std::atomic_flag, NUM_IDS> write_ack {};
+        SOS::MemoryView::Futures<NUM_IDS> write_status {};
+        std::bitset<NUM_IDS> sync {};
+        std::bitset<NUM_IDS> sync_backup {};
 
     private:
         bus_type& _datasignals;
     };
 }
 namespace Protocol {
+    extern "C" {
     struct DMADescriptor {
-        DMADescriptor() { } // DANGER
-        DMADescriptor(unsigned char id, void* obj, std::size_t obj_size)
-            : id(id)
-            , obj(obj)
-            , obj_size(obj_size)
-        {
-            if (obj_size % 3 != 0)
-                SFA::util::logic_error(SFA::util::error_code::InvalidDMAObjectSize, __FILE__, __func__, typeid(*this).name());
-        }
         unsigned char id = NUM_IDS;
         void* obj = nullptr;
-        std::size_t obj_size = 0;
+        unsigned long obj_size = 0;
         volatile bool readLock = false; // SerialProcessing thread
         volatile bool unsynced = false; // SerialProcessing thread
         bool transfer = false;
     };
-
+    }
     // template <typename... Objects>
     // struct ObjectHelper : public std::tuple<Objects&...> {
     //     ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}

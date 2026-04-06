@@ -86,8 +86,8 @@ namespace Protocol {
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
         SOS::Protocol::DescriptorHelper descriptors {};
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter { 0 }; // DEBUG
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter { 0 }; // DEBUG
+        std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
+        std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 
     private:
         std::array<std::bitset<8>, 3> writeAssembly;

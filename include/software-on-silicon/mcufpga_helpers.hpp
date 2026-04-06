@@ -2,8 +2,8 @@
 template <typename... Objects>
 void dump_objects(
     std::tuple<Objects...>& objects,
-    std::array<unsigned long, SOS::Protocol::NUM_IDS>& rx_counter,
-    std::array<unsigned long, SOS::Protocol::NUM_IDS>& tx_counter,
+    std::array<unsigned long, NUM_IDS>& rx_counter,
+    std::array<unsigned long, NUM_IDS>& tx_counter,
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time,
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time)
 {
