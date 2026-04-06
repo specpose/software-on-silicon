@@ -12,16 +12,17 @@ namespace MemoryView {
             std::get<4>(*this).test_and_set();
             std::get<5>(*this).test_and_set();
         }
-        auto& getReadUpdatedRef() { return std::get<0>(*this); }
-        auto& getReadAcknowledgeRef() { return std::get<1>(*this); }
-        auto& getWriteUpdatedRef() { return std::get<2>(*this); }
-        auto& getWriteAcknowledgeRef() { return std::get<3>(*this); }
-        auto& getSyncStartUpdatedRef() { return std::get<4>(*this); }
-        auto& getSyncStartAcknowledgeRef() { return std::get<5>(*this); }
-        auto& getSyncStopUpdatedRef() { return updated; }
-        auto& getSyncStopAcknowledgeRef() { return acknowledge; }
+        std::atomic_flag& getReadUpdatedRef() { return std::get<0>(*this); }
+        std::atomic_flag& getReadAcknowledgeRef() { return std::get<1>(*this); }
+        std::atomic_flag& getWriteUpdatedRef() { return std::get<2>(*this); }
+        std::atomic_flag& getWriteAcknowledgeRef() { return std::get<3>(*this); }
+        std::atomic_flag& getSyncStartUpdatedRef() { return std::get<4>(*this); }
+        std::atomic_flag& getSyncStartAcknowledgeRef() { return std::get<5>(*this); }
+        std::atomic_flag& getSyncStopUpdatedRef() { return updated; }
+        std::atomic_flag& getSyncStopAcknowledgeRef() { return acknowledge; }
     };
     struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, 4> {
+        using value_type = SOS::MemoryView::TaskCable<std::size_t, 4>::value_type;
         DestinationAndOrigin()
             : SOS::MemoryView::TaskCable<std::size_t, 4> {}
         {
@@ -36,10 +37,10 @@ namespace MemoryView {
                               bus_traits<Bus>::const_cables_type> {
         signal_type signal;
         cables_type cables {};
-        auto& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
-        auto& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
-        auto& syncStopId() { return std::get<2>(std::get<0>(cables)); }
-        auto& syncStartId() { return std::get<3>(std::get<0>(cables)); }
+        typename DestinationAndOrigin::value_type& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
+        typename DestinationAndOrigin::value_type& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
+        typename DestinationAndOrigin::value_type& syncStopId() { return std::get<2>(std::get<0>(cables)); }
+        typename DestinationAndOrigin::value_type& syncStartId() { return std::get<3>(std::get<0>(cables)); }
     };
 }
 namespace Protocol {

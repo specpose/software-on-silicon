@@ -6,7 +6,7 @@ public:
     Functor() { }
     void operator()()
     {
-        const auto piece = RING_BUFFER::value_type { { '+' } }; // HACK: hard coded channel 0
+        const RING_BUFFER::value_type piece = { { '+' } }; // HACK: hard coded channel 0
         for (std::size_t i = 0; i < std::tuple_size<RING_BUFFER> {} - 1; i++)
             WriteInterleaved<decltype(hostmemory)>(bus, piece);
     }
