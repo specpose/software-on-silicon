@@ -45,6 +45,7 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
+    DescriptorCountOutOfBounds,
     // MCUFPGA.cpp
     WriteRequestHasBeenCanceledByOtherSide,
     TypeOfFutureHasBeenModifiedDuringEdit,
@@ -168,6 +169,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Reads pending after Comthread destruction");
     case error_code::InvalidDMAObjectId:
         return std::string("Invalid DMA Object Id");
+    case error_code::DescriptorCountOutOfBounds:
+        return std::string("Descriptorcount out of bounds");
     case error_code::WriteRequestHasBeenCanceledByOtherSide:
         return std::string("Writerequest has been canceled by other side");
     case error_code::TypeOfFutureHasBeenModifiedDuringEdit:

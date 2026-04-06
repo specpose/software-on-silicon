@@ -1,11 +1,8 @@
-//g++ -std=c++11 DescriptorHelper.cpp
+//gcc -std=c99 DescriptorHelper.cpp
 #define LOWER_STATES 1
 #define UPPER_STATES 5
 #define NUM_IDS 64-UPPER_STATES-LOWER_STATES
 
-namespace SOS {
-namespace Protocol {
-extern "C" {
 struct DMADescriptor {
     unsigned char id;// = { NUM_IDS };
     void* obj;// = nullptr;
@@ -21,18 +18,14 @@ struct DescriptorHelper {
     struct DMADescriptor arr[NUM_IDS];
     unsigned char count;// = 0;
 };
-}
-}}
 
-#include <string>
-#include <array>
-#include <iostream>
+#include "stdio.h"
 int main() {
     int a;
-    std::string b;
-    std::array<int,5> c;
-    SOS::Protocol::DescriptorHelper myHelper = { {{0, &a, sizeof(a)}, {0, &b, sizeof(b)}, {0, &c, sizeof(c)}}, 3 };
-    for (std::size_t i = 0; i < myHelper.size(); i++) {
-        std::cout << "DMAObject " << i << " ptr: " << (myHelper)[i].obj << " size: " << (myHelper)[i].obj_size << std::endl;
+    short b;
+    int c[5];
+    struct DescriptorHelper myHelper = { {{0, &a, sizeof(a)}, {0, &b, sizeof(b)}, {0, &c, sizeof(c)}}, 3 };
+    for (unsigned char i = 0; i < myHelper.count; i++) {
+        printf("DMAObject %d ptr: %d size: %d\n",i,myHelper.arr[i].obj,myHelper.arr[i].obj_size);
     }
 }
