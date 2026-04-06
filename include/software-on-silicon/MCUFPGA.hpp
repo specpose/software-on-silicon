@@ -3,16 +3,16 @@ namespace MemoryView {
     template <typename ComIterator>
     struct ComSize : public SOS::MemoryView::ConstCable<ComIterator, 4> {
         using SOS::MemoryView::ConstCable<ComIterator, 4>::ConstCable;
-        auto& getInBufferStartRef() { return std::get<0>(*this); }
-        auto& getInBufferEndRef() { return std::get<1>(*this); }
-        auto& getOutBufferStartRef() { return std::get<2>(*this); }
-        auto& getOutBufferEndRef() { return std::get<3>(*this); }
+        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getInBufferStartRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getInBufferEndRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getOutBufferStartRef() { return std::get<2>(*this); }
+        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getOutBufferEndRef() { return std::get<3>(*this); }
     };
     template <typename ComIterator>
     struct ComOffset : public SOS::MemoryView::TaskCable<ComIterator, 2> {
         using SOS::MemoryView::TaskCable<ComIterator, 2>::TaskCable;
-        auto& getReadOffsetRef() { return std::get<0>(*this); }
-        auto& getWriteOffsetRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<ComIterator, 2>::value_type& getReadOffsetRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ComIterator, 2>::value_type& getWriteOffsetRef() { return std::get<1>(*this); }
     };
     template <typename ComBufferType>
     struct ComBus : public bus<
