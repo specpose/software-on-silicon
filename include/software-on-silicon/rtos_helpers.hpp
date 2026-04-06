@@ -7,8 +7,8 @@ namespace MemoryView {
             aux_updated.test_and_set();
             aux_acknowledge.test_and_set();
         }
-        auto& getAuxUpdatedRef() { return aux_updated; }
-        auto& getAuxAcknowledgeRef() { return aux_acknowledge; }
+        std::atomic_flag& getAuxUpdatedRef() { return aux_updated; }
+        std::atomic_flag& getAuxAcknowledgeRef() { return aux_acknowledge; }
 
     private:
         std::atomic_flag aux_updated {};

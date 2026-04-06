@@ -8,7 +8,7 @@ namespace MemoryView {
     class Notify {
     public:
         Notify() { notify.test_and_set(); }
-        auto& getNotifyRef() { return notify; }
+        std::atomic_flag& getNotifyRef() { return notify; }
 
     protected:
         std::atomic_flag notify = ATOMIC_FLAG_INIT;
@@ -20,8 +20,8 @@ namespace MemoryView {
             , std::array<std::atomic_flag, 1>()
         {
         }
-        auto& getFirstRef() { return notify; }
-        auto& getSecondRef() { return std::get<0>(*this); }
+        std::atomic_flag& getFirstRef() { return notify; }
+        std::atomic_flag& getSecondRef() { return std::get<0>(*this); }
     };
     // 1+1=0
     class HandShake {
@@ -31,8 +31,8 @@ namespace MemoryView {
             updated.test_and_set();
             acknowledge.test_and_set();
         }
-        auto& getUpdatedRef() { return updated; }
-        auto& getAcknowledgeRef() { return acknowledge; }
+        std::atomic_flag& getUpdatedRef() { return updated; }
+        std::atomic_flag& getAcknowledgeRef() { return acknowledge; }
 
     protected:
         std::atomic_flag updated = ATOMIC_FLAG_INIT;
