@@ -8,18 +8,18 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include <future>
-#include "software-on-silicon/cpp14.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
 #include <string>
-#include "software-on-silicon/ByteWiseTransfer.hpp"
-#include "software-on-silicon/Serial.hpp"
-#define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/rtos_helpers.hpp"
-#include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
-
+#include "software-on-silicon/cpp14.hpp"
+#include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "MCUFPGA/DMA.cpp"
 #include "MCUFPGA/TrueColor.cpp"
+#include "ByteWiseTransfer.cpp"
+#include "software-on-silicon/Serial.hpp"
+#define COM_BUFFER std::array<unsigned char, 1>
+#include "software-on-silicon/MCUFPGA.hpp"
 
 class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing {
 public:

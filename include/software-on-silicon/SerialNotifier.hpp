@@ -196,37 +196,7 @@ namespace Protocol {
         volatile bool unsynced = false; // SerialProcessing thread
         bool transfer = false;
     };
-    struct DescriptorHelper : public std::array<DMADescriptor, SOS::Protocol::NUM_IDS> {
-    public:
-        using std::array<DMADescriptor, SOS::Protocol::NUM_IDS>::array;
-        template <typename T, std::size_t... I>
-        void operator()(T& objects, std::integer_sequence<std::size_t, I...>)
-        {
-            count = 0;
-            assign(std::get<I>(objects)...);
-            //(assign(obj_ref), ...);//fold expression: cpp17
-            for (std::size_t i = 0; i < count; i++) {
-                std::cout << "DMAObject " << i << " ptr: " << (*this)[i].obj << " size: " << (*this)[i].obj_size << std::endl;
-            }
-        }
-        std::size_t size() { return count; }
 
-    private:
-        template <typename First>
-        void assign(First& obj_ref)
-        {
-            (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
-            count++;
-        }
-        template <typename First, typename... Others>
-        void assign(First& obj_ref, Others&... objects)
-        {
-            (*this)[count] = DMADescriptor(static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref));
-            count++;
-            assign(objects...);
-        }
-        std::size_t count = 0;
-    };
     // template <typename... Objects>
     // struct ObjectHelper : public std::tuple<Objects&...> {
     //     ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
