@@ -182,12 +182,12 @@ namespace Behavior {
 namespace Protocol {
     extern "C" {
     struct DMADescriptor {
-        unsigned char id = NUM_IDS;
-        void* obj = nullptr;
-        unsigned long obj_size = 0;
-        volatile bool readLock = false; // SerialProcessing thread
-        volatile bool unsynced = false; // SerialProcessing thread
-        bool transfer = false;
+        unsigned char id;// = NUM_IDS;
+        void* obj;// = nullptr;
+        unsigned long obj_size;// = 0;
+        volatile bool readLock;// = false; // SerialProcessing thread
+        volatile bool unsynced;// = false; // SerialProcessing thread
+        bool transfer;// = false;
     };
     }
     // template <typename... Objects>
