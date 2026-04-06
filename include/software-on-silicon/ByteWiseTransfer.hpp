@@ -3,11 +3,7 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer(std::tuple<Objects...>& objects)
-        {
-            this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {});
-            // apply(this->descriptors, objects); // ALWAYS: Initialize Descriptors in Constructor
-        }
+        BlockWiseTransfer(std::tuple<Objects...>& objects);
 
     protected:
         bool write_object()
@@ -90,8 +86,8 @@ namespace Protocol {
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
         SOS::Protocol::DescriptorHelper descriptors {};
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> rx_counter { 0 }; // DEBUG
-        std::array<unsigned long, SOS::Protocol::NUM_IDS> tx_counter { 0 }; // DEBUG
+        std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
+        std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 
     private:
         std::array<std::bitset<8>, 3> writeAssembly;

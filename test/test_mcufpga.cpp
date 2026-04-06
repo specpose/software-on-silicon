@@ -47,7 +47,6 @@ int main()
     bool host_request_stop = false;
     bool host_delete = false;
     SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
-    using namespace std::chrono_literals;
     auto client = new FPGA(fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
     bool client_request_stop = false;
     bool client_delete = false;

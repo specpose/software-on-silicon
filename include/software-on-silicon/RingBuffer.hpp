@@ -3,14 +3,14 @@ namespace MemoryView {
     template <typename ArithmeticType>
     struct WriteBufferSize : private SOS::MemoryView::ConstCable<ArithmeticType, 2> {
         using SOS::MemoryView::ConstCable<ArithmeticType, 2>::ConstCable;
-        auto& getWriterStartRef() { return std::get<0>(*this); }
-        auto& getWriterEndRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::ConstCable<ArithmeticType, 2>::value_type& getWriterStartRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::ConstCable<ArithmeticType, 2>::value_type& getWriterEndRef() { return std::get<1>(*this); }
     };
     template <typename ArithmeticType>
     struct RingBufferTaskCable : private SOS::MemoryView::TaskCable<ArithmeticType, 2> {
         using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-        auto& getCurrentRef() { return std::get<0>(*this); }
-        auto& getThreadCurrentRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getCurrentRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getThreadCurrentRef() { return std::get<1>(*this); }
     };
     template <typename OutputBuffer>
     struct RingBufferBus : public SOS::MemoryView::BusNotifier {

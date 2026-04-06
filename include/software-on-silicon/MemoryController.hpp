@@ -6,14 +6,14 @@ namespace MemoryView {
     struct ReadSize : private SOS::MemoryView::TaskCable<ArithmeticType, 2> {
         using arithmetic_type = ArithmeticType;
         using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-        auto& getReadBufferStartRef() { return std::get<0>(*this); }
-        auto& getReadBufferAfterLastRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getReadBufferStartRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getReadBufferAfterLastRef() { return std::get<1>(*this); }
     };
     template <typename ArithmeticType>
     struct ReadOffset : private SOS::MemoryView::TaskCable<ArithmeticType, 1> {
         using arithmetic_type = ArithmeticType;
         using SOS::MemoryView::TaskCable<ArithmeticType, 1>::TaskCable;
-        auto& getReadOffsetRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 1>::value_type& getReadOffsetRef() { return std::get<0>(*this); }
     };
     template <typename OutputBuffer>
     struct ReaderBus : public SOS::MemoryView::BusShaker {
@@ -41,14 +41,14 @@ namespace MemoryView {
     template <typename ArithmeticType>
     struct MemoryControllerBufferSize : private SOS::MemoryView::TaskCable<ArithmeticType, 2> {
         using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-        auto& getMCStartRef() { return std::get<0>(*this); }
-        auto& getMCEndRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getMCStartRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getMCEndRef() { return std::get<1>(*this); }
     };
     template <typename ArithmeticType>
     struct MemoryControllerWriteRange : private SOS::MemoryView::TaskCable<ArithmeticType, 2> {
         using SOS::MemoryView::TaskCable<ArithmeticType, 2>::TaskCable;
-        auto& getBKStartRef() { return std::get<0>(*this); }
-        auto& getBKEndRef() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getBKStartRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<ArithmeticType, 2>::value_type& getBKEndRef() { return std::get<1>(*this); }
     };
     class RWResizeNotify : private Notify, public std::array<std::atomic_flag, 2> {
     public:
@@ -57,9 +57,9 @@ namespace MemoryView {
             , std::array<std::atomic_flag, 2>()
         {
         }
-        auto& getWritingRef() { return notify; }
-        auto& getReadingRef() { return std::get<0>(*this); }
-        auto& getResizingRef() { return std::get<1>(*this); }
+        std::atomic_flag& getWritingRef() { return notify; }
+        std::atomic_flag& getReadingRef() { return std::get<0>(*this); }
+        std::atomic_flag& getResizingRef() { return std::get<1>(*this); }
     };
     template <typename MemoryControllerType>
     struct BlockerBus : public bus<

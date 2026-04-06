@@ -1,7 +1,7 @@
 #include <bitset>
 #include <cmath>
 template <size_t Bytes>
-constexpr unsigned long long maxUnsignedInt()
+unsigned long long maxUnsignedInt()
 {
     unsigned long long result = 0;
     for (int i = 0; i < Bytes; i++) {
@@ -10,7 +10,7 @@ constexpr unsigned long long maxUnsignedInt()
     return result;
 };
 template <size_t Bytes>
-constexpr unsigned long long bytearrayToUnsignedNumber(std::array<unsigned char, Bytes>& source)
+unsigned long long bytearrayToUnsignedNumber(std::array<unsigned char, Bytes>& source)
 {
     unsigned long long result = 0;
     for (int i = 0; i < Bytes; i++) {
@@ -19,7 +19,7 @@ constexpr unsigned long long bytearrayToUnsignedNumber(std::array<unsigned char,
     return result;
 };
 template <size_t Bytes, size_t Bits>
-constexpr void bitsetToBytearray(std::array<unsigned char, Bytes>& dest, std::bitset<Bits>& source)
+void bitsetToBytearray(std::array<unsigned char, Bytes>& dest, std::bitset<Bits>& source)
 {
     if (source.to_ullong() > maxUnsignedInt<Bytes>())
         SFA::util::logic_error(SFA::util::error_code::BitsetDoesNotFitIntoChararray, __FILE__, __func__);
@@ -28,7 +28,7 @@ constexpr void bitsetToBytearray(std::array<unsigned char, Bytes>& dest, std::bi
     ;
 };
 template <size_t Bytes, size_t Bits>
-constexpr void bytearrayToBitset(std::bitset<Bits>& dest, std::array<unsigned char, Bytes>& source)
+void bytearrayToBitset(std::bitset<Bits>& dest, std::array<unsigned char, Bytes>& source)
 {
     std::bitset<Bits> allSet;
     allSet.set();
