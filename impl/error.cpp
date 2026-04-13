@@ -3,6 +3,8 @@
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
+    // 8bit
+    NaN,
     // rtos_helpers.hpp
     ChildHasToBeDeletedBeforeDestroyThread,
     ChildHasAlreadyBeenDeleted,
@@ -76,6 +78,8 @@ const std::string SFA::util::error_message(error_code what)
     switch (what) {
     case error_code::noerror:
         return std::string("No error was supplied after initialization of static error variable");
+    case error_code::NaN:
+        return std::string("Not A Number");
     case error_code::ChildHasToBeDeletedBeforeDestroyThread:
         return std::string("Child has to be deleted before destroy thread");
     case error_code::ChildHasAlreadyBeenDeleted:

@@ -17,14 +17,16 @@ void dump_objects(
 };
 template <typename Object>
 void dump(std::shared_future<bool>&& fut, Object& obj)
-{ // need the type of object so select the correct dump, id is not enough
+{ // need the type of object to select the correct dump, id is not enough
     if (fut.get())
         std::cout << obj << std::endl;
 }
-// void dump_DMA(std::future<bool>&& fut, unsigned char id) {
-//     if (fut.get())
-//         std::cout << "Callback object id " << static_cast<unsigned int>(id) << std::endl;
-// };
+template <>
+void dump(std::shared_future<bool>&& fut, const DMA& obj) // Workaround
+{
+    if (fut.get())
+        std::cout << obj << std::endl;
+}
 /*bool is_promise_ready(std::future<bool>& fut) {
     std::future_status s;
     if (fut.valid())

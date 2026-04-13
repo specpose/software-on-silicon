@@ -8,7 +8,7 @@ namespace Protocol {
         // apply(this->descriptors, objects); // fold expression: cpp17
     }
     */
-    template <> BlockWiseTransfer<TrueColor, DMA, DMA>::BlockWiseTransfer(std::tuple<TrueColor, DMA, DMA>& objects)
+    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer(std::tuple<TrueColorClass, DMA, DMA>& objects)
     {
         this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false },
         { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false },
