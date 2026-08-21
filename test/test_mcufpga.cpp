@@ -1,10 +1,14 @@
 #include "MCUFPGA.cpp"
 COM_BUFFER fpga_in_buffer;
 COM_BUFFER fpga_out_buffer;
+SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
 bool firstrun = true;
 COM_BUFFER mcu_in_buffer;
 COM_BUFFER mcu_out_buffer;
+SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
 
+#include <unistd.h>
+#include <signal.h>
 void client_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFER& fpga_out_buffer, COM_BUFFER& mcu_out_buffer,
     SOS::MemoryView::ComBus<COM_BUFFER>& mcubus, SOS::MemoryView::ComBus<COM_BUFFER>& fpgabus, bool stopped = false)
 {
@@ -40,15 +44,27 @@ void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFE
     std::this_thread::yield();
 };
 
+void usr1_handler(int signum, siginfo_t* info, void* extra)
+{
+    std::cout << signum << ": thread id " << getpid() << std::endl;
+    fpgabus.signal.getAuxUpdatedRef().clear();
+}
+
 int main()
 {
-    SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
+    const char* pidPath = "./test_MCUFPGA.pid";
+    FILE* pidFile = fopen(pidPath, "w");
+    fprintf(pidFile, "%ld", (long)getpid());
+    fclose(pidFile);
     auto host = new MCU(mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
     bool host_request_stop = false;
     bool host_delete = false;
-    SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
     auto client = new FPGA(fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
-    bool client_request_stop = false;
+    struct sigaction usr1 = { 0 };
+    usr1.sa_sigaction = &usr1_handler;
+    sigemptyset(&usr1.sa_mask);
+    usr1.sa_flags = SA_SIGINFO;
+    sigaction(SIGUSR1, &usr1, NULL);
     bool client_delete = false;
     bool stop = false;
     bool nomoresignal = false;
@@ -78,19 +94,12 @@ int main()
             }
         }
         // CLIENT THREAD
-        if (!(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count() < 1)) {
-            if (!client_request_stop) {
-                fpgabus.signal.getAuxUpdatedRef().clear();
-                client_request_stop = true;
-            } else {
-                if (client && !client_delete)
-                    if (!fpgabus.signal.getAuxAcknowledgeRef().test_and_set()) {
-                        delete client;
-                        client = nullptr;
-                        client_delete = true;
-                    }
+        if (client && !client_delete)
+            if (!fpgabus.signal.getAuxAcknowledgeRef().test_and_set()) {
+                delete client;
+                client = nullptr;
+                client_delete = true;
             }
-        }
     }
     if (client)
         delete client;
@@ -98,4 +107,6 @@ int main()
         delete host;
     handshake_stop = true;
     handshake.join();
+    remove(pidPath);
+    return 0;
 }
