@@ -50,14 +50,12 @@ namespace Protocol {
         bool received_acknowledge = false;
     };
     template <typename ControllerType, typename... Objects>
-    class Serial : public SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>, protected SOS::Protocol::BlockWiseTransfer<Objects...> {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>  {
     public:
         Serial(SOS::MemoryView::DoubleHandShake& signal)
-            : bus()
-            , SOS::Protocol::BlockWiseTransfer<Objects...>(objects)
-            , bus2(this->descriptors)
+            : SOS::Protocol::BlockWiseTransfer<Objects...>()
             , SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType
-            , SOS::MemoryView::SerialAsyncBus<Objects...>>(signal, bus, bus2)
+            , SOS::MemoryView::SerialAsyncBus<Objects...>>(signal, this->bus, this->bus2)
         {
         }
         ~Serial()
@@ -123,8 +121,8 @@ namespace Protocol {
         virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
         virtual void stop_notifier() final {
-            bus.signal.getServiceInterruptedUpdatedRef().clear();
-            while (bus.signal.getServiceInterruptedAcknowledgeRef().test_and_set()) {
+            this->bus.signal.getServiceInterruptedUpdatedRef().clear();
+            while (this->bus.signal.getServiceInterruptedAcknowledgeRef().test_and_set()) {
                 std::cout << ",";
                 std::this_thread::yield();
             }
@@ -179,11 +177,8 @@ namespace Protocol {
         bool fpga_updated = false; // mcu_read,fpga_write bit 7
         bool mcu_acknowledge = false; // mcu_read,fpga_write bit 6
         com_vars _vars = com_vars {};
-        SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
 
     private:
-        std::tuple<Objects...> objects {};
-        SOS::MemoryView::BusDMAShaker bus {};
         bool first_run = true;
         unsigned char requestId = NUM_IDS;
         unsigned char acknowledgeId = NUM_IDS;
@@ -350,39 +345,39 @@ namespace Protocol {
         }
         void collect_sync()
         {
-            if (!bus.signal.getSyncStartAcknowledgeRef().test_and_set()) {
-                const auto id = bus.syncStartId().load();
+            if (!this->bus.signal.getSyncStartAcknowledgeRef().test_and_set()) {
+                const auto id = this->bus.syncStartId().load();
                 this->descriptors[id].unsynced = true;
-                bus.signal.getSyncStartUpdatedRef().clear();
+                this->bus.signal.getSyncStartUpdatedRef().clear();
             }
         }
         void emit_sync_canceled(std::size_t obj_id)
         {
-            while (bus.signal.getSyncStopUpdatedRef().test_and_set())
+            while (this->bus.signal.getSyncStopUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            bus.syncStopId().store(obj_id);
-            bus.signal.getSyncStopAcknowledgeRef().clear();
+            this->bus.syncStopId().store(obj_id);
+            this->bus.signal.getSyncStopAcknowledgeRef().clear();
         }
         virtual void emit_readlocked(std::size_t obj_id)
         {
-            while (bus.signal.getReadStartUpdatedRef().test_and_set())
+            while (this->bus.signal.getReadStartUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            bus.readlockNotificationId().store(obj_id);
-            bus.signal.getReadStartAcknowledgeRef().clear();
+            this->bus.readlockNotificationId().store(obj_id);
+            this->bus.signal.getReadStartAcknowledgeRef().clear();
         }
         virtual void emit_received(std::size_t obj_id)
         {
-            while (bus.signal.getReadEndUpdatedRef().test_and_set())
+            while (this->bus.signal.getReadEndUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            bus.receiveNotificationId().store(obj_id);
-            bus.signal.getReadEndAcknowledgeRef().clear();
+            this->bus.receiveNotificationId().store(obj_id);
+            this->bus.signal.getReadEndAcknowledgeRef().clear();
         }
         virtual void emit_sent(std::size_t obj_id)
         {
-            while (bus.signal.getWriteUpdatedRef().test_and_set())
+            while (this->bus.signal.getWriteUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            bus.sendNotificationId().store(obj_id);
-            bus.signal.getWriteAcknowledgeRef().clear();
+            this->bus.sendNotificationId().store(obj_id);
+            this->bus.signal.getWriteAcknowledgeRef().clear();
         }
         bool getFirstTransfer()
         {

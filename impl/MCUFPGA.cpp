@@ -22,39 +22,43 @@
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/MCUFPGA.hpp"
 
-class FPGAAsyncDummy : public SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA> {
+class FPGASimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
 public:
-    FPGAAsyncDummy(bus_type& bus)
-        : SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA>()
+    FPGASimpleDummy(bus_type& bus)
+        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus.signal)
+        , dBus(bus)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
-    ~FPGAAsyncDummy(){
+    ~FPGASimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
     }
     void event_loop()
     {
         // SIGNALING
-        //if (bus.read_status[0].valid()) {
-        //auto fut = bus.read_status[0].get();
-        //if (fut) {
-            //std::get<0>(bus.objs).red++;
-            //std::get<0>(bus.objs).blue++;
-        //    bus.sync_id[0] = true;
-        //} else {
-        //    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-        //}
-        //}
+        !_intrinsic.getNotifyRef().test_and_set();
+            if (dBus.descriptors[0].read_status[1]) {
+                if (dBus.descriptors[0].read_status[0]) {
+                    dBus.descriptors[0].read_status[0] = false;
+                    dBus.descriptors[0].read_status[1] = false;
+                    //std::get<0>(bus.objs).red++;
+                    //std::get<0>(bus.objs).blue++;
+                    dBus.descriptors[0].sync_me = true;
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                }
+            }
         std::this_thread::yield();
     }
 private:
+    bus_type& dBus;
     std::thread _thread;
 };
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGAAsyncDummy> {
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGASimpleDummy> {
 public:
-    FPGAProcessingSwitch(bus_type& bus, FPGAAsyncDummy::bus_type& bus2)
-        : _nBus(bus)
-        , SOS::Behavior::SerialProcessing<FPGAAsyncDummy>(bus, bus2)
+    FPGAProcessingSwitch(bus_type& bus, FPGASimpleDummy::bus_type& bus2)
+        : SOS::Behavior::SerialProcessing<FPGASimpleDummy>(bus, bus2)
+        , _nBus(bus)
     {
         //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
@@ -93,45 +97,49 @@ public:
     {
         SOS::Behavior::Loop::destroy(_thread);
     }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing<FPGAAsyncDummy>::event_loop(); }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing<FPGASimpleDummy>::event_loop(); }
 
 private:
     bus_type& _nBus;
     std::thread _thread;
 };
-class MCUAsyncDummy : public SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA> {
+class MCUSimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
 public:
-    MCUAsyncDummy(bus_type& bus)
-        : SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA>()
+    MCUSimpleDummy(bus_type& bus)
+        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus.signal)
+        , dBus(bus)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
-    ~MCUAsyncDummy(){
+    ~MCUSimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
     }
     void event_loop()
     {
         // SIGNALING
-        //if (bus.read_status[0].valid()) {
-        //auto fut = bus.read_status[0].get();
-        //if (fut) {
-            //std::get<0>(bus.objs).red--;
-            //std::get<0>(bus.objs).green++;
-        //    bus.sync_id[0] = true;
-        //} else {
-        //    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-        //}
-        //}
+        !_intrinsic.getNotifyRef().test_and_set();
+            if (dBus.descriptors[0].read_status[1]) {
+                if (dBus.descriptors[0].read_status[0]) {
+                    dBus.descriptors[0].read_status[0] = false;
+                    dBus.descriptors[0].read_status[1] = false;
+                    //std::get<0>(bus.objs).red--;
+                    //std::get<0>(bus.objs).green++;
+                    dBus.descriptors[0].sync_me = true;
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                }
+            }
         std::this_thread::yield();
     }
 private:
+    bus_type& dBus;
     std::thread _thread;
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUAsyncDummy> {
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUSimpleDummy> {
 public:
-    MCUProcessingSwitch(bus_type& bus, MCUAsyncDummy::bus_type& bus2)
-        : _nBus(bus)
-        , SOS::Behavior::SerialProcessing<MCUAsyncDummy>(bus, bus2)
+    MCUProcessingSwitch(bus_type& bus, MCUSimpleDummy::bus_type& bus2)
+        : SOS::Behavior::SerialProcessing<MCUSimpleDummy>(bus, bus2)
+        , _nBus(bus)
     {
         //counterBus.signal.getUpdatedRef().clear();
         // LOCK
@@ -156,7 +164,7 @@ public:
     {
         SOS::Behavior::Loop::destroy(_thread);
     }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing<MCUAsyncDummy>::event_loop(); }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing<MCUSimpleDummy>::event_loop(); }
 
 private:
     bus_type& _nBus;

@@ -87,11 +87,7 @@ namespace MemoryView {
     //     }
     // };
     template <typename... Objects>
-    struct SerialAsyncBus : bus<
-        empty_bus_tag,
-        std::array<std::atomic_flag, 0>,
-        std::tuple<>,
-        std::tuple<>>
+    struct SerialAsyncBus : public SOS::MemoryView::BusNotifier
     {
         SerialAsyncBus(SOS::Protocol::DescriptorHelper& descr) : descriptors(descr) {}
         SOS::Protocol::DescriptorHelper& descriptors;
@@ -141,12 +137,12 @@ namespace Protocol {
 }
 namespace Behavior {
     template <typename... Objects>
-    class SerialAsyncDummy : public Loop, protected SubController {
+    class SerialSimpleDummy : public Loop, protected SimpleSubController {
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        constexpr SerialAsyncDummy()
+        constexpr SerialSimpleDummy(typename bus_type::signal_type& signal)
             : Loop()
-            , SubController()
+            , SimpleSubController(signal)
         {
         }
     };
@@ -187,14 +183,15 @@ namespace Behavior {
         using bus_type = SOS::MemoryView::BusDMAShaker;
         using SerialPassthruEventController<S>::_intrinsic;
         SerialProcessing(bus_type& bus, typename S::bus_type& passThru)
-            : _datasignals(bus)
-            , SOS::Behavior::SerialPassthruEventController<S>(bus.signal, passThru)
+            : SOS::Behavior::SerialPassthruEventController<S>(bus.signal, passThru)
+            , _datasignals(bus)
+            , _dBus(passThru)
         {
             for (std::size_t i = 0; i < NUM_IDS; ++i) {
-                read_fault[i].test_and_set();
-                read_ack[i].test_and_set();
-                write_fault[i].test_and_set();
-                write_ack[i].test_and_set();
+                //read_fault[i].test_and_set();
+                //read_ack[i].test_and_set();
+                //write_fault[i].test_and_set();
+                //write_ack[i].test_and_set();
             }
             _intrinsic.getSyncStartUpdatedRef().clear();
             readOrWrite = true; // one sync is enough to trigger a read or write hook
@@ -207,27 +204,33 @@ namespace Behavior {
         {
             if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.syncStopId().load();
-                if (sync_id[id])
+                if (_dBus.descriptors[id].sync_me)
                     if (id == 1 || id == 2) {
                         std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
-                        write_fault[id].clear();
+                        //write_fault[id].clear();
+                        _dBus.descriptors[id].write_status[1] = true;
+                        _dBus.descriptors[id].write_status[0] = false;
                     }
-                sync_id[id] = false;
-                sync_backup_id[id] = false;
+                _dBus.descriptors[id].sync_me = false;
+                sync_registered_id[id] = false;
                 _intrinsic.getSyncStopUpdatedRef().clear();
             }
             if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.readlockNotificationId().load();
                 read_id[id] = true;
-                read_ack[id].test_and_set();
-                read_fault[id].test_and_set();
+                //read_ack[id].test_and_set();
+                _dBus.descriptors[id].read_status[0] = true;
+                //read_fault[id].test_and_set();
+                _dBus.descriptors[id].read_status[1] = false;
                 _intrinsic.getReadStartUpdatedRef().clear();
             }
             if (!_intrinsic.getReadEndAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.receiveNotificationId().load();
                 read_id[id] = false;
-                read_ack[id].clear();
-                read_fault[id].test_and_set();
+                //read_ack[id].clear();
+                _dBus.descriptors[id].read_status[0] = true;
+                //read_fault[id].test_and_set();
+                _dBus.descriptors[id].read_status[1] = true;
                 _intrinsic.getReadEndUpdatedRef().clear();
                 readOrWrite = true;
             }
@@ -236,17 +239,31 @@ namespace Behavior {
                 write_id[id] = false;
                 if (id == 1 || id == 2) {
                     std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
-                    write_ack[id].clear();
+                    //write_ack[id].clear();
+                    _dBus.descriptors[id].write_status[1] = true;
+                    _dBus.descriptors[id].write_status[0] = true;
                 }
                 _intrinsic.getWriteUpdatedRef().clear();
                 readOrWrite = true;
             }
-            if (readOrWrite) {
+            if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
+                for (std::size_t id = 0; id < NUM_IDS; ++id) {
+                    //if (read_ack[id].test_and_set())
+                    if (_dBus.descriptors[id].read_status[0] && !_dBus.descriptors[id].read_status[1]) {
+                        //read_fault[id].clear();
+                        _dBus.descriptors[id].read_status[1] = true;
+                        _dBus.descriptors[id].read_status[0] = false;
+                    }
+                }
+                _intrinsic.getServiceInterruptedAcknowledgeRef().clear();
+            }
+            _dBus.signal.getNotifyRef().clear();
+            if (readOrWrite) { // performance only?
                 for (std::size_t i = 0; i < NUM_IDS; i++) {
-                    if (sync_id[i] && !sync_backup_id[i]) {
+                    if (_dBus.descriptors[i].sync_me && !sync_registered_id[i]) {
                         if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
-                            sync_backup_id[i] = true;
                             _datasignals.syncStartId().store(i);
+                            sync_registered_id[i] = true;
                             _intrinsic.getSyncStartAcknowledgeRef().clear();
                         }
                         break;
@@ -254,29 +271,22 @@ namespace Behavior {
                 }
                 readOrWrite = false;
             }
-            if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
-                for (std::size_t id = 0; id < NUM_IDS; ++id) {
-                    if (read_ack[id].test_and_set())
-                        read_fault[id].clear();
-                }
-                _intrinsic.getServiceInterruptedAcknowledgeRef().clear();
-            }
             std::this_thread::yield();
         }
 
     protected:
         bool readOrWrite = false;
         std::bitset<NUM_IDS> read_id {};
-        std::array<std::atomic_flag, NUM_IDS> read_fault {};
-        std::array<std::atomic_flag, NUM_IDS> read_ack {};
+        //std::array<std::atomic_flag, NUM_IDS> read_fault {};
+        //std::array<std::atomic_flag, NUM_IDS> read_ack {};
         std::bitset<NUM_IDS> write_id {};
-        std::array<std::atomic_flag, NUM_IDS> write_fault {};
-        std::array<std::atomic_flag, NUM_IDS> write_ack {};
-        std::bitset<NUM_IDS> sync_id {};
-        std::bitset<NUM_IDS> sync_backup_id {};
+        //std::array<std::atomic_flag, NUM_IDS> write_fault {};
+        //std::array<std::atomic_flag, NUM_IDS> write_ack {};
+        std::bitset<NUM_IDS> sync_registered_id {};
 
     private:
         bus_type& _datasignals;
+        typename S::bus_type& _dBus;
     };
 }
 }

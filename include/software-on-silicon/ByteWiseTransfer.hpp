@@ -3,7 +3,7 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer(std::tuple<Objects...>& objects);
+        BlockWiseTransfer();
 
     protected:
         bool write_object()
@@ -87,7 +87,10 @@ namespace Protocol {
         virtual void emit_readlocked(std::size_t obj_id) = 0;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
+        std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors {};
+        SOS::MemoryView::BusDMAShaker bus;
+        SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
         std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 

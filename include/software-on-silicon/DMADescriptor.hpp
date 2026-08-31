@@ -10,11 +10,12 @@ namespace Protocol {
         unsigned char id;// = NUM_IDS;
         void* obj;// = nullptr;
         unsigned long obj_size;// = 0;
-        volatile bool readLock;// = false; // SerialProcessing thread
-        volatile bool unsynced;// = false; // SerialProcessing thread
+        volatile bool readLock;// = false;
+        volatile bool unsynced;// = false;
         bool transfer;// = false;
         std::array<volatile bool, 2> read_status; // word not clock?
         std::array<volatile bool, 2> write_status; // word not clock?
+        volatile bool sync_me;
     };
     }
     // template <typename... Objects>

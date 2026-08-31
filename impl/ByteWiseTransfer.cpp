@@ -2,13 +2,17 @@ namespace SOS {
 namespace Protocol {
     /*
     template <typename... Objects>
-    BlockWiseTransfer<Objects...>::BlockWiseTransfer(std::tuple<Objects...>& objects)
+    BlockWiseTransfer<Objects...>::BlockWiseTransfer()
+         : bus2(descriptors)
+         , bus()
     {
         this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
         // apply(this->descriptors, objects); // fold expression: cpp17
     }
     */
-    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer(std::tuple<TrueColorClass, DMA, DMA>& objects)
+    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer()
+        : bus2(descriptors)
+        , bus()
     {
         const std::size_t s = 3;
         ////array of signals
@@ -18,9 +22,9 @@ namespace Protocol {
         //    r.push_back(std::future<bool>{});
         //    w.push_back(std::future<bool>{});
         //}
-        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false, {false, false}, {false, false} },
-        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false, {false, false}, {false, false} },
-        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false, {false, false}, {false, false} } },
+        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false, {false, false}, {false, false}, false },
+        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false, {false, false}, {false, false}, false },
+        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false, {false, false}, {false, false}, false } },
         s};
         std::cout<<"Initialised Descriptors"<<std::endl;
         for (std::size_t i = 0; i < this->descriptors.size(); i++) {
