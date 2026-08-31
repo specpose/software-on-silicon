@@ -42,6 +42,7 @@ namespace Protocol {
                         }
                         receive_lock = true;
                         readDestination = j;
+                        emit_readlocked(readDestination);
                         gotOne = true;
                     }
                 }
@@ -83,6 +84,7 @@ namespace Protocol {
         std::size_t writeOriginPos = 0;
         unsigned int writeCount = 0; // write3plus1
         unsigned char writeOrigin = NUM_IDS;
+        virtual void emit_readlocked(std::size_t obj_id) = 0;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
         SOS::Protocol::DescriptorHelper descriptors {};

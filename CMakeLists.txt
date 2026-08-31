@@ -2,6 +2,10 @@ cmake_minimum_required (VERSION 3.20)
 
 set(CMAKE_CXX_STANDARD 11)
 
+if (NOT MSVC)
+    add_compile_options(-ftemplate-depth=19 -fmax-errors=3)
+endif ()
+
 project(software-on-silicon)
 #find_library(stackable-functor-allocation_FOUND stackable-functor-allocation REQUIRED)
 

@@ -8,30 +8,57 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include <future>
+#include "software-on-silicon/DMADescriptor.hpp"
+#include "software-on-silicon/cpp11.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
 #include <string>
 #include "software-on-silicon/rtos_helpers.hpp"
-#include "software-on-silicon/cpp11.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "MCUFPGA/DMA.cpp"
-#include "software-on-silicon/mcufpga_helpers.hpp"
 #include "MCUFPGA/TrueColor.cpp"
+#include "software-on-silicon/mcufpga_helpers.hpp"
 #include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/MCUFPGA.hpp"
 
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing {
+class FPGAAsyncDummy : public SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = typename SOS::MemoryView::SerialProcessNotifier<TrueColorClass, DMA, DMA>;
-    FPGAProcessingSwitch(bus_type& bus)
-        : _nBus(bus)
-        , counterBus(std::get<0>(_nBus.objects))
-        , SOS::Behavior::SerialProcessing(bus)
+    FPGAAsyncDummy(bus_type& bus)
+        : SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA>()
     {
-        counterBus.signal.getAcknowledgeRef().clear();
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~FPGAAsyncDummy(){
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    void event_loop()
+    {
+        // SIGNALING
+        //if (bus.read_status[0].valid()) {
+        //auto fut = bus.read_status[0].get();
+        //if (fut) {
+            //std::get<0>(bus.objs).red++;
+            //std::get<0>(bus.objs).blue++;
+        //    bus.sync_id[0] = true;
+        //} else {
+        //    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+        //}
+        //}
+        std::this_thread::yield();
+    }
+private:
+    std::thread _thread;
+};
+class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGAAsyncDummy> {
+public:
+    FPGAProcessingSwitch(bus_type& bus, FPGAAsyncDummy::bus_type& bus2)
+        : _nBus(bus)
+        , SOS::Behavior::SerialProcessing<FPGAAsyncDummy>(bus, bus2)
+    {
+        //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
-        auto fut = write_status[1].get();
+        /*auto fut = write_status[1].get();
         if (fut) {
             // EDIT
             int writeBlinkCounter = 0;
@@ -49,8 +76,8 @@ public:
             }
             // SEND
             if (!write_status[1].valid()) {
-                sync[1] = true;
-                write_status[1] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
+                bus.sync_id[1] = true;
+                write_status[1] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
                 // CALLBACK
                 auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_nBus.objects)));
                 t.detach();
@@ -59,92 +86,80 @@ public:
             }
         } else {
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
-        }
+        }*/
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGAProcessingSwitch()
     {
         SOS::Behavior::Loop::destroy(_thread);
     }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void process_hook()
-    {
-        // SIGNALING
-        if (!read_ack[0].test_and_set()) {
-            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
-                counterBus.signal.getUpdatedRef().clear();
-            }
-        }
-        // COMPUTE
-        if (!counterBus.signal.getUpdatedRef().test_and_set()) {
-            auto red = std::get<0>(std::get<0>(counterBus.const_cables));
-            (*red)++;
-            auto blue = std::get<1>(std::get<0>(counterBus.const_cables));
-            (*(--blue))++;
-            sync[0] = true;
-            counterBus.signal.getAcknowledgeRef().clear();
-        }
-    }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing<FPGAAsyncDummy>::event_loop(); }
 
 private:
     bus_type& _nBus;
-    SOS::Protocol::CharBusGenerator<std::tuple_element<0, decltype(bus_type::objects)>::type> counterBus;
     std::thread _thread;
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing {
+class MCUAsyncDummy : public SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = typename SOS::MemoryView::SerialProcessNotifier<TrueColorClass, DMA, DMA>;
-    MCUProcessingSwitch(bus_type& bus)
-        : _nBus(bus)
-        , counterBus(std::get<0>(_nBus.objects))
-        , SOS::Behavior::SerialProcessing(bus)
+    MCUAsyncDummy(bus_type& bus)
+        : SOS::Behavior::SerialAsyncDummy<TrueColorClass, DMA, DMA>()
     {
-        counterBus.signal.getUpdatedRef().clear();
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~MCUAsyncDummy(){
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    void event_loop()
+    {
+        // SIGNALING
+        //if (bus.read_status[0].valid()) {
+        //auto fut = bus.read_status[0].get();
+        //if (fut) {
+            //std::get<0>(bus.objs).red--;
+            //std::get<0>(bus.objs).green++;
+        //    bus.sync_id[0] = true;
+        //} else {
+        //    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+        //}
+        //}
+        std::this_thread::yield();
+    }
+private:
+    std::thread _thread;
+};
+class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUAsyncDummy> {
+public:
+    MCUProcessingSwitch(bus_type& bus, MCUAsyncDummy::bus_type& bus2)
+        : _nBus(bus)
+        , SOS::Behavior::SerialProcessing<MCUAsyncDummy>(bus, bus2)
+    {
+        //counterBus.signal.getUpdatedRef().clear();
         // LOCK
-        auto fut = write_status[2].get();
+        /*auto fut = write_status[2].get();
         // EDIT
         // if (fut){
         std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_nBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_nBus.objects))+sizeof(std::get<2>(_nBus.objects)),'-');
         // SEND
         if (!write_status[2].valid()) {
-            sync[2] = true;
-            write_status[2] = std::async(std::launch::async, &SOS::Protocol::write_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
+            bus.sync_id[2] = true;
+            write_status[2] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
             // CALLBACK
             auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_nBus.objects)));
             t.detach();
         } else {
             SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
         }
-        //}
+        //}*/
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUProcessingSwitch()
     {
         SOS::Behavior::Loop::destroy(_thread);
     }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing::event_loop(); }
-    void process_hook()
-    {
-        // SIGNALING
-        if (!read_ack[0].test_and_set()) {
-            if (!counterBus.signal.getAcknowledgeRef().test_and_set()) {
-                counterBus.signal.getUpdatedRef().clear();
-            }
-        }
-        // COMPUTE
-        if (!counterBus.signal.getUpdatedRef().test_and_set()) {
-            auto red = std::get<0>(std::get<0>(counterBus.const_cables));
-            (*red)--;
-            auto green = std::get<0>(std::get<0>(counterBus.const_cables));
-            (*(++green))++;
-            sync[0] = true;
-            counterBus.signal.getAcknowledgeRef().clear();
-        }
-    }
+    virtual void event_loop() final { SOS::Behavior::SerialProcessing<MCUAsyncDummy>::event_loop(); }
 
 private:
     bus_type& _nBus;
-    SOS::Protocol::CharBusGenerator<std::tuple_element<0, decltype(bus_type::objects)>::type> counterBus;
     std::thread _thread;
 };
 class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColorClass, DMA, DMA> {
@@ -154,7 +169,7 @@ public:
         : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>(myBus)
     {
         boot_time = std::chrono::high_resolution_clock::now();
-        std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
+        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~FPGA()
@@ -163,10 +178,10 @@ public:
         //     std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
-        std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
+        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
-        dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
+        //dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
+        if (SOS::Protocol::Serial<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void request_shutdown_action() final // Only from Ctrl-C
@@ -217,7 +232,7 @@ public:
         : SOS::Behavior::SimulationMCU<MCUProcessingSwitch, TrueColorClass, DMA, DMA>(myBus)
     {
         boot_time = std::chrono::high_resolution_clock::now();
-        std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
+        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Stoppable::start(this);
     }
     ~MCU()
@@ -226,10 +241,10 @@ public:
         //     std::this_thread::yield();
         SOS::Behavior::Stoppable::destroy(_thread);
         kill_time = std::chrono::high_resolution_clock::now();
-        std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
+        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
-        dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
+        //dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
+        if (SOS::Protocol::Serial<MCUProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void request_shutdown_action() final // Only from Ctrl-C

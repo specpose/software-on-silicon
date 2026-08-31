@@ -10,10 +10,18 @@ namespace Protocol {
     */
     template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer(std::tuple<TrueColorClass, DMA, DMA>& objects)
     {
-        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false },
-        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false },
-        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false } },
-        3};
+        const std::size_t s = 3;
+        ////array of signals
+        //std::vector<std::future<bool>> r;
+        //std::vector<std::future<bool>> w;
+        //for (std::size_t i; i < s; i++){
+        //    r.push_back(std::future<bool>{});
+        //    w.push_back(std::future<bool>{});
+        //}
+        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false, {false, false}, {false, false} },
+        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false, {false, false}, {false, false} },
+        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false, {false, false}, {false, false} } },
+        s};
         std::cout<<"Initialised Descriptors"<<std::endl;
         for (std::size_t i = 0; i < this->descriptors.size(); i++) {
             std::cout << "DMAObject " << i << " ptr: " << (this->descriptors)[i].obj << " size: " << (this->descriptors)[i].obj_size << std::endl;

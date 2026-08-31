@@ -1,4 +1,42 @@
 namespace SOS {
+namespace Behavior {
+    template <typename S, typename... Others>
+    class SerialPassthruBootstrapEventController : public Controller<S>, public Stoppable, protected StoppableEventSubController {
+    public:
+        SerialPassthruBootstrapEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        : Controller<S>()
+        , Stoppable()
+        , StoppableEventSubController(signal)
+        , _foreign(passThru)
+        , _child(new S { _foreign, args... })
+        {
+        }
+        ~SerialPassthruBootstrapEventController()
+        {
+            if (_child) {
+                // SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                delete _child;
+                _child = nullptr;
+            }
+        }
+        void stop_descendants()
+        {
+            if (_child) {
+                delete _child;
+                _child = nullptr;
+            } else {
+                SFA::util::runtime_error(SFA::util::error_code::ChildHasAlreadyBeenDeleted, __FILE__, __func__, typeid(*this).name());
+            }
+        }
+        bool descendants_stopped() { return !_child; }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S* _child = nullptr;
+    };
+}
 namespace Protocol {
     struct com_vars {
         bool received_idle = false;
@@ -11,19 +49,22 @@ namespace Protocol {
         bool received_request = false;
         bool received_acknowledge = false;
     };
-    template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...> {
+    template <typename ControllerType, typename... Objects>
+    class Serial : public SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>, protected SOS::Protocol::BlockWiseTransfer<Objects...> {
     public:
-        Serial(SOS::MemoryView::SerialProcessNotifier<Objects...>& bus)
-            : bus(bus)
-            , SOS::Protocol::BlockWiseTransfer<Objects...>(bus.objects)
+        Serial(SOS::MemoryView::DoubleHandShake& signal)
+            : bus()
+            , SOS::Protocol::BlockWiseTransfer<Objects...>(objects)
+            , bus2(this->descriptors)
+            , SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType
+            , SOS::MemoryView::SerialAsyncBus<Objects...>>(signal, bus, bus2)
         {
         }
         ~Serial()
         {
             std::cout << typeid(*this).name() << " shutdown" << std::endl;
         }
-        virtual void event_loop()
+        virtual void event_loop() final
         { // final
             std::this_thread::yield();
             if (handshake()) {
@@ -54,16 +95,41 @@ namespace Protocol {
         }
 
     protected:
-        virtual bool descendants_stopped() = 0;
-        virtual bool handshake() = 0;
-        virtual void handshake_ack() = 0;
-        virtual bool aux() = 0;
-        virtual void aux_ack() = 0;
+        virtual bool descendants_stopped() final { return SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::descendants_stopped(); }
+        virtual bool handshake()  final
+        {
+            if (!SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getUpdatedRef().test_and_set()) {
+                return true;
+            }
+            return false;
+        }
+        virtual void handshake_ack() final
+        {
+            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAcknowledgeRef().clear();
+        }
+        virtual bool aux() final
+        {
+            if (!SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAuxUpdatedRef().test_and_set()) {
+                return true;
+            }
+            return false;
+        }
+        virtual void aux_ack() final
+        {
+            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAuxAcknowledgeRef().clear();
+        }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
         virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
-        virtual void stop_notifier() = 0;
+        virtual void stop_notifier() final {
+            bus.signal.getServiceInterruptedUpdatedRef().clear();
+            while (bus.signal.getServiceInterruptedAcknowledgeRef().test_and_set()) {
+                std::cout << ",";
+                std::this_thread::yield();
+            }
+            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
+        };
         virtual void request_shutdown_action() = 0;
         virtual void com_shutdown_action() = 0;
         virtual void com_sighup_action() = 0;
@@ -113,9 +179,11 @@ namespace Protocol {
         bool fpga_updated = false; // mcu_read,fpga_write bit 7
         bool mcu_acknowledge = false; // mcu_read,fpga_write bit 6
         com_vars _vars = com_vars {};
+        SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
 
     private:
-        SOS::MemoryView::SerialProcessNotifier<Objects...>& bus;
+        std::tuple<Objects...> objects {};
+        SOS::MemoryView::BusDMAShaker bus {};
         bool first_run = true;
         unsigned char requestId = NUM_IDS;
         unsigned char acknowledgeId = NUM_IDS;
@@ -295,12 +363,19 @@ namespace Protocol {
             bus.syncStopId().store(obj_id);
             bus.signal.getSyncStopAcknowledgeRef().clear();
         }
+        virtual void emit_readlocked(std::size_t obj_id)
+        {
+            while (bus.signal.getReadStartUpdatedRef().test_and_set())
+                std::this_thread::yield();
+            bus.readlockNotificationId().store(obj_id);
+            bus.signal.getReadStartAcknowledgeRef().clear();
+        }
         virtual void emit_received(std::size_t obj_id)
         {
-            while (bus.signal.getReadUpdatedRef().test_and_set())
+            while (bus.signal.getReadEndUpdatedRef().test_and_set())
                 std::this_thread::yield();
             bus.receiveNotificationId().store(obj_id);
-            bus.signal.getReadAcknowledgeRef().clear();
+            bus.signal.getReadEndAcknowledgeRef().clear();
         }
         virtual void emit_sent(std::size_t obj_id)
         {
