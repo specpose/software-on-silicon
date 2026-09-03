@@ -3,6 +3,7 @@ namespace SOS {
 #define UPPER_STATES 5
 #define NUM_IDS 64 - UPPER_STATES - LOWER_STATES
 #define NUM_SIGNALBITS 2
+#define MAX_OBJ_SIZE 252 // 8bit: max, 252%3==0
 namespace Protocol {
     extern "C" {
     struct DMADescriptor {

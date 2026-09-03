@@ -11,7 +11,11 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
+                    bus2.signal[readDestination].write_status.getSecondRef().test_and_set();
+                    bus2.signal[readDestination].write_status.getFirstRef().clear();
                     data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                    bus2.signal[readDestination].write_status.getSecondRef().test_and_set();
+                    bus2.signal[readDestination].write_status.getFirstRef().clear();
                     write3plus1++;
                     write(data);
                     return true;
@@ -54,9 +58,13 @@ namespace Protocol {
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
                     if (readDestinationPos < descriptors[readDestination].obj_size) {
+                        bus2.signal[readDestination].read_status.getSecondRef().test_and_set();
+                        bus2.signal[readDestination].read_status.getFirstRef().clear();
                         for (std::size_t i = 0; i < 3; i++) {
                             reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
+                        bus2.signal[readDestination].read_status.getFirstRef().test_and_set();
+                        bus2.signal[readDestination].read_status.getSecondRef().clear();
                     }
                     if (readDestinationPos == descriptors[readDestination].obj_size) {
                         descriptors[readDestination].readLock = false;

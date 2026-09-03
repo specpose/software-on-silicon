@@ -1,4 +1,4 @@
-typedef unsigned char DMA[252]; // 8bit: max, 252%3==0
+typedef unsigned char DMA[MAX_OBJ_SIZE];
 std::ostream& operator<<(std::ostream& os, const DMA& c) // avoid missing C string termination
 {
     //os << std::hex;

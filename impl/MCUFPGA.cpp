@@ -25,8 +25,8 @@
 class FPGASimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
 public:
     FPGASimpleDummy(bus_type& bus)
-        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus.signal)
-        , dBus(bus)
+        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus)
+
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -37,19 +37,13 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-            if (!_intrinsic[0].read_ack.test_and_set()) {
-                _intrinsic[0].read_fault.test_and_set();
-                //std::get<0>(bus.objs).red++;
-                //std::get<0>(bus.objs).blue++;
-                _intrinsic[0].sync_me.clear();
-            } else if (!_intrinsic[0].read_ack.test_and_set())
-            {
-                SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-            }
+        read(0);
+        //std::get<0>(bus.objs).red++; // Hack
+        //std::get<0>(bus.objs).blue++; // Hack
+        //write(0);
         std::this_thread::yield();
     }
 private:
-    bus_type& dBus;
     std::thread _thread;
 };
 class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGASimpleDummy> {
@@ -104,8 +98,7 @@ private:
 class MCUSimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
 public:
     MCUSimpleDummy(bus_type& bus)
-        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus.signal)
-        , dBus(bus)
+        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -116,19 +109,13 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-            if (!_intrinsic[0].read_ack.test_and_set()) {
-                _intrinsic[0].read_fault.test_and_set();
-                //std::get<0>(bus.objs).red--;
-                //std::get<0>(bus.objs).green++;
-                _intrinsic[0].sync_me.clear();
-            } else if (!_intrinsic[0].read_ack.test_and_set())
-            {
-                SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-            }
+        read(0);
+        //std::get<0>(bus.objs).red--;
+        //std::get<0>(bus.objs).green++;
+        //write(0);
         std::this_thread::yield();
     }
 private:
-    bus_type& dBus;
     std::thread _thread;
 };
 class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUSimpleDummy> {
