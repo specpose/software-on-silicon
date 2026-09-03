@@ -13,9 +13,6 @@ namespace Protocol {
         volatile bool readLock;// = false;
         volatile bool unsynced;// = false;
         bool transfer;// = false;
-        std::array<volatile bool, 2> read_status; // word not clock?
-        std::array<volatile bool, 2> write_status; // word not clock?
-        volatile bool sync_me;
     };
     }
     // template <typename... Objects>

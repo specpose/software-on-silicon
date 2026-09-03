@@ -37,16 +37,14 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-            if (dBus.descriptors[0].read_status[1]) {
-                if (dBus.descriptors[0].read_status[0]) {
-                    dBus.descriptors[0].read_status[0] = false;
-                    dBus.descriptors[0].read_status[1] = false;
-                    //std::get<0>(bus.objs).red++;
-                    //std::get<0>(bus.objs).blue++;
-                    dBus.descriptors[0].sync_me = true;
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-                }
+            if (!_intrinsic[0].read_ack.test_and_set()) {
+                _intrinsic[0].read_fault.test_and_set();
+                //std::get<0>(bus.objs).red++;
+                //std::get<0>(bus.objs).blue++;
+                _intrinsic[0].sync_me.clear();
+            } else if (!_intrinsic[0].read_ack.test_and_set())
+            {
+                SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
             }
         std::this_thread::yield();
     }
@@ -118,16 +116,14 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-            if (dBus.descriptors[0].read_status[1]) {
-                if (dBus.descriptors[0].read_status[0]) {
-                    dBus.descriptors[0].read_status[0] = false;
-                    dBus.descriptors[0].read_status[1] = false;
-                    //std::get<0>(bus.objs).red--;
-                    //std::get<0>(bus.objs).green++;
-                    dBus.descriptors[0].sync_me = true;
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
-                }
+            if (!_intrinsic[0].read_ack.test_and_set()) {
+                _intrinsic[0].read_fault.test_and_set();
+                //std::get<0>(bus.objs).red--;
+                //std::get<0>(bus.objs).green++;
+                _intrinsic[0].sync_me.clear();
+            } else if (!_intrinsic[0].read_ack.test_and_set())
+            {
+                SFA::util::logic_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
             }
         std::this_thread::yield();
     }

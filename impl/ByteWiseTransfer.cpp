@@ -22,9 +22,9 @@ namespace Protocol {
         //    r.push_back(std::future<bool>{});
         //    w.push_back(std::future<bool>{});
         //}
-        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false, {false, false}, {false, false}, false },
-        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false, {false, false}, {false, false}, false },
-        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false, {false, false}, {false, false}, false } },
+        this->descriptors = { { { static_cast<unsigned char>(0), reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false, false },
+        { static_cast<unsigned char>(1), reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false, false },
+        { static_cast<unsigned char>(2), reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false, false } },
         s};
         std::cout<<"Initialised Descriptors"<<std::endl;
         for (std::size_t i = 0; i < this->descriptors.size(); i++) {
