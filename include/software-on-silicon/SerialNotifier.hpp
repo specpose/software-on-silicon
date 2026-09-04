@@ -183,18 +183,23 @@ namespace Behavior {
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
         using SerialSimpleSubController<Objects...>::_intrinsic;
-        constexpr SerialSimpleDummy(bus_type& bus)
+        SerialSimpleDummy(bus_type& bus) // constexpr
             : Loop()
             , SerialSimpleSubController<Objects...>(bus.signal)
             , dBus(bus)
         {
+            for (std::size_t i = 0; i < read.size(); i++)
+                read[i] = false;
+            for (std::size_t i = 0; i < write.size(); i++)
+                write[i] = false;
         }
-        void read(std::size_t id) {
+        void transfer(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
                 if (!dBus.signal[id].read_fault.test_and_set()) {
                     unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
                         if (!_intrinsic[id].read_status.getSecondRef().test_and_set()) {
+                            i++;
                             doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
                         } else {
                             while (_intrinsic[id].read_status.getFirstRef().test_and_set())
@@ -203,38 +208,41 @@ namespace Behavior {
                         }
                         std::this_thread::yield();
                     }
+                    read[id] = true;
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                 }
             }
-        }
-        /*bool write(std::size_t id) {
-            _intrinsic[id].sync_me.clear(); // Once!
-            if (!_intrinsic[id].write_status.getAcknowledgeRef().test_and_set()){
-                if (!_intrinsic[id].write_ack.test_and_set()) {
-                    _intrinsic[id].write_fault.test_and_set();
+            if (!dBus.signal[id].write_ack.test_and_set()) {
+                if (!dBus.signal[id].write_fault.test_and_set()){
                     unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_status.getUpdatedRef().test_and_set()) {
-                            *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i = doubleBuffer[id][i];
+                        if (_intrinsic[id].read_status.getSecondRef().test_and_set()) {
+                            i++;
+                            auto tmp = reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
+                            *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
                         } else {
-                            while (_intrinsic[id].read_status.getAcknowledgeRef().test_and_set())
+                            while (_intrinsic[id].read_status.getFirstRef().test_and_set())
                                 std::this_thread::yield();
                             i = 0;
                         }
                     }
-                    return true;
+                    write[id] = true;
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                 }
             }
-            return false;
-        }*/
+        }
+
+    protected:
+        std::bitset<NUM_IDS> read {};
+        std::bitset<NUM_IDS> write {};
+        std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
+
     private:
         bus_type& dBus;
-        std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
     };
     class SerialEventSubController : public SubController {
     public:

@@ -37,10 +37,18 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-        read(0);
-        //std::get<0>(bus.objs).red++; // Hack
-        //std::get<0>(bus.objs).blue++; // Hack
-        //write(0);
+        transfer(0);
+        if (read[0]) {
+            //check ownership
+            //std::get<0>(bus.objs).red++; // Hack
+            //std::get<0>(bus.objs).blue++; // Hack
+            auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            (*red)--;
+            auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
+            (*blue)++;
+            _intrinsic[0].sync_me.clear();
+            write[0];
+        }
         std::this_thread::yield();
     }
 private:
@@ -109,10 +117,18 @@ public:
     {
         // SIGNALING
         !_intrinsic.getNotifyRef().test_and_set();
-        read(0);
-        //std::get<0>(bus.objs).red--;
-        //std::get<0>(bus.objs).green++;
-        //write(0);
+        transfer(0);
+        if (read[0]) {
+            //check ownership
+            //std::get<0>(bus.objs).red--;
+            //std::get<0>(bus.objs).green++;
+            auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            (*red)++;
+            auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
+            (*green)++;
+            _intrinsic[0].sync_me.clear();
+            write[0];
+        }
         std::this_thread::yield();
     }
 private:
