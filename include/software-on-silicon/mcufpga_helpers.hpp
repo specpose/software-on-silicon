@@ -15,6 +15,21 @@ void dump_objects(
         std::cout << std::endl;
     }
 };
+void dump_descriptors_binary(
+    SOS::Protocol::DescriptorHelper& descriptors,
+    std::array<unsigned long, NUM_IDS>& rx_counter,
+    std::array<unsigned long, NUM_IDS>& tx_counter,
+    std::chrono::time_point<std::chrono::high_resolution_clock> boot_time,
+    std::chrono::time_point<std::chrono::high_resolution_clock> kill_time)
+{
+    for (int i = 0; i < descriptors.count; i++) {
+        double t = std::chrono::duration_cast<std::chrono::nanoseconds>(kill_time - boot_time).count();
+        std::cout
+        << "; RX: " << rx_counter[i] << " => " << rx_counter[i] / (t / std::nano::den) << " Symbols/s"
+        << "; TX: " << tx_counter[i] << " => " << tx_counter[i] / (t / std::nano::den) << " Symbols/s" << std::endl;
+        std::cout << std::endl;
+    }
+};
 template <typename Object>
 void dump(std::shared_future<bool>&& fut, Object& obj)
 { // need the type of object to select the correct dump, id is not enough

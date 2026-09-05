@@ -11,11 +11,11 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
-                    bus2.signal[readDestination].write_status.getSecondRef().test_and_set();
-                    bus2.signal[readDestination].write_status.getFirstRef().clear();
+                    bus2.signal[writeOrigin].write_status.getSecondRef().test_and_set();
+                    bus2.signal[writeOrigin].write_status.getFirstRef().clear();
                     data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
-                    bus2.signal[readDestination].write_status.getSecondRef().test_and_set();
-                    bus2.signal[readDestination].write_status.getFirstRef().clear();
+                    bus2.signal[writeOrigin].write_status.getSecondRef().test_and_set();
+                    bus2.signal[writeOrigin].write_status.getFirstRef().clear();
                     write3plus1++;
                     write(data);
                     return true;

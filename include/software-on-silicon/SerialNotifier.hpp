@@ -189,14 +189,14 @@ namespace Behavior {
             , dBus(bus)
         {
             for (std::size_t i = 0; i < read.size(); i++)
-                read[i] = false;
+                read[i].test_and_set();
             for (std::size_t i = 0; i < write.size(); i++)
-                write[i] = false;
+                write[i].test_and_set();
         }
         void transfer(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
-                if (!dBus.signal[id].read_fault.test_and_set()) {
-                    unsigned long i = 0;
+                if (dBus.signal[id].read_fault.test_and_set()) {
+                    /*unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
                         if (!_intrinsic[id].read_status.getSecondRef().test_and_set()) {
                             i++;
@@ -207,16 +207,16 @@ namespace Behavior {
                             i = 0;
                         }
                         std::this_thread::yield();
-                    }
-                    read[id] = true;
+                    }*/
+                    read[id].clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                 }
             }
             if (!dBus.signal[id].write_ack.test_and_set()) {
-                if (!dBus.signal[id].write_fault.test_and_set()){
-                    unsigned long i = 0;
+                if (dBus.signal[id].write_fault.test_and_set()){
+                    /*unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
                         if (_intrinsic[id].read_status.getSecondRef().test_and_set()) {
                             i++;
@@ -227,8 +227,8 @@ namespace Behavior {
                                 std::this_thread::yield();
                             i = 0;
                         }
-                    }
-                    write[id] = true;
+                    }*/
+                    write[id].clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
@@ -237,11 +237,11 @@ namespace Behavior {
         }
 
     protected:
-        std::bitset<NUM_IDS> read {};
-        std::bitset<NUM_IDS> write {};
+        std::array<std::atomic_flag, NUM_IDS> read {};
+        std::array<std::atomic_flag, NUM_IDS> write {};
         std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
 
-    private:
+    //private:
         bus_type& dBus;
     };
     class SerialEventSubController : public SubController {
@@ -285,6 +285,8 @@ namespace Behavior {
             , _datasignals(bus)
             , _dBus(passThru)
         {
+            for (std::size_t i = 0; i < sync_registered_id.size(); i++)
+                sync_registered_id[i] = false;
             _intrinsic.getSyncStartUpdatedRef().clear();
             readOrWrite = true; // one sync is enough to trigger a read or write hook
             _intrinsic.getSyncStopUpdatedRef().clear();
@@ -307,11 +309,11 @@ namespace Behavior {
                 }
                 _intrinsic.getSyncStopUpdatedRef().clear();
             }
-            if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
+            /*if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.readlockNotificationId().load();
                 read_started_id[id] = true;
                 _intrinsic.getReadStartUpdatedRef().clear();
-            }
+            }*/
             if (!_intrinsic.getReadEndAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.receiveNotificationId().load();
                 read_started_id[id] = false;
@@ -328,8 +330,8 @@ namespace Behavior {
                 _intrinsic.getWriteUpdatedRef().clear();
                 readOrWrite = true;
             }
-            if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
-                for (std::size_t id = 0; id < NUM_IDS; ++id) {
+            /*if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
+                for (std::size_t id = 0; id < _dBus.signal.size(); ++id) {
                     if (read_started_id[id]) {
                         std::cout << typeid(*this).name() << ": object id " << id << " enters illegal state" << std::endl;
                         _dBus.signal[id].read_fault.clear();
@@ -337,11 +339,12 @@ namespace Behavior {
                     }
                 }
                 _intrinsic.getServiceInterruptedAcknowledgeRef().clear();
-            }
+            }*/
             if (readOrWrite) { // performance only?
-                for (std::size_t id = 0; id < NUM_IDS; id++) {
+                for (std::size_t id = 0; id < _dBus.signal.size(); id++) {
                     if (!_dBus.signal[id].sync_me.test_and_set() && !sync_registered_id[id]) {
                         if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
+                            std::cout << "Store";
                             _datasignals.syncStartId().store(id);
                             sync_registered_id[id] = true;
                             _intrinsic.getSyncStartAcknowledgeRef().clear();
@@ -351,7 +354,6 @@ namespace Behavior {
                 }
                 readOrWrite = false;
             }
-            _dBus.signal.getNotifyRef().clear();
             std::this_thread::yield();
         }
 

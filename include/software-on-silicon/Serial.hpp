@@ -82,6 +82,7 @@ namespace Protocol {
                     acknowledge_hook(); // inform_write_start; sets unsynced
                 }
                 collect_sync();
+                this->bus2.signal.getNotifyRef().clear();
                 // OUT
                 if (!write_hook()) // collect_unsynced
                     if (!this->write_object()) // inform_write_end
@@ -121,11 +122,11 @@ namespace Protocol {
         virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
         virtual void stop_notifier() final {
-            this->bus.signal.getServiceInterruptedUpdatedRef().clear();
+            /*this->bus.signal.getServiceInterruptedUpdatedRef().clear();
             while (this->bus.signal.getServiceInterruptedAcknowledgeRef().test_and_set()) {
                 std::cout << ",";
                 std::this_thread::yield();
-            }
+            }*/
             SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
         };
         virtual void request_shutdown_action() = 0;
@@ -360,10 +361,10 @@ namespace Protocol {
         }
         virtual void emit_readlocked(std::size_t obj_id)
         {
-            while (this->bus.signal.getReadStartUpdatedRef().test_and_set())
+            /*while (this->bus.signal.getReadStartUpdatedRef().test_and_set())
                 std::this_thread::yield();
             this->bus.readlockNotificationId().store(obj_id);
-            this->bus.signal.getReadStartAcknowledgeRef().clear();
+            this->bus.signal.getReadStartAcknowledgeRef().clear();*/
         }
         virtual void emit_received(std::size_t obj_id)
         {

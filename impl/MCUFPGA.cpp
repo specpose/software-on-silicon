@@ -36,19 +36,20 @@ public:
     void event_loop()
     {
         // SIGNALING
-        !_intrinsic.getNotifyRef().test_and_set();
         transfer(0);
-        if (read[0]) {
+        //if (!_intrinsic.getNotifyRef().test_and_set()) {
+        /*if (!read[0].test_and_set()) {
+            std::cout << "F";
             //check ownership
             //std::get<0>(bus.objs).red++; // Hack
             //std::get<0>(bus.objs).blue++; // Hack
-            auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            (*red)--;
-            auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
-            (*blue)++;
+            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            //(*red)--;
+            //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
+            //(*blue)++;
             _intrinsic[0].sync_me.clear();
-            write[0];
-        }
+        }*/
+        //}
         std::this_thread::yield();
     }
 private:
@@ -108,6 +109,7 @@ public:
     MCUSimpleDummy(bus_type& bus)
         : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus)
     {
+        _intrinsic[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUSimpleDummy(){
@@ -116,18 +118,19 @@ public:
     void event_loop()
     {
         // SIGNALING
-        !_intrinsic.getNotifyRef().test_and_set();
         transfer(0);
-        if (read[0]) {
+        if (!_intrinsic.getNotifyRef().test_and_set()) {
+        if (!read[0].test_and_set()) {
+            std::cout << "M";
             //check ownership
             //std::get<0>(bus.objs).red--;
             //std::get<0>(bus.objs).green++;
-            auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            (*red)++;
-            auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
-            (*green)++;
+            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            //(*red)++;
+            //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
+            //(*green)++;
             _intrinsic[0].sync_me.clear();
-            write[0];
+        }
         }
         std::this_thread::yield();
     }
@@ -187,7 +190,7 @@ public:
         kill_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
-        //dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
+        dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
         if (SOS::Protocol::Serial<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
@@ -250,7 +253,7 @@ public:
         kill_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
-        //dump_objects(_foreign.objects, rx_counter, tx_counter, boot_time, kill_time);
+        dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
         if (SOS::Protocol::Serial<MCUProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
