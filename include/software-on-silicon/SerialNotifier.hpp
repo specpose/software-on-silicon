@@ -61,10 +61,10 @@ namespace MemoryView {
             write_fault.test_and_set();
             sync_me.test_and_set();
         }
-        SOS::MemoryView::Pair read_status{}; // Serial and doubleBuffer
+        SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
         std::atomic_flag read_ack; // Processing and Async
         std::atomic_flag read_fault; // Processing and Async
-        SOS::MemoryView::Pair write_status{}; // Serial and doubleBuffer
+        SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
         std::atomic_flag write_ack; // Processing and Async
         std::atomic_flag write_fault; // Processing and Async
         std::atomic_flag sync_me; // Processing and Async
@@ -196,18 +196,18 @@ namespace Behavior {
         void transfer(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
                 if (dBus.signal[id].read_fault.test_and_set()) {
-                    /*unsigned long i = 0;
+                    unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
-                        if (!_intrinsic[id].read_status.getSecondRef().test_and_set()) {
+                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
                             i++;
                             doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
                         } else {
-                            while (_intrinsic[id].read_status.getFirstRef().test_and_set())
+                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
                                 std::this_thread::yield();
                             i = 0;
                         }
                         std::this_thread::yield();
-                    }*/
+                    }
                     read[id].clear();
                 } else
                 {
@@ -216,18 +216,18 @@ namespace Behavior {
             }
             if (!dBus.signal[id].write_ack.test_and_set()) {
                 if (dBus.signal[id].write_fault.test_and_set()){
-                    /*unsigned long i = 0;
+                    unsigned long i = 0;
                     while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_status.getSecondRef().test_and_set()) {
+                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
                             i++;
                             auto tmp = reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
                             *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
                         } else {
-                            while (_intrinsic[id].read_status.getFirstRef().test_and_set())
+                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
                                 std::this_thread::yield();
                             i = 0;
                         }
-                    }*/
+                    }
                     write[id].clear();
                 } else
                 {
