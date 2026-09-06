@@ -47,10 +47,12 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
-    // MCUFPGA.cpp
     WriteRequestHasBeenCanceledByOtherSide,
+    ObjectSyncWasNeverRequested,
+    // SerialProcessing
     TypeOfFutureHasBeenModifiedDuringEdit,
     ServiceInterruptedByComShutdown,
+    ObjectWriteCanceledByIncomingRead,
     // SymbolRateCounter.cpp
     CounterMaxedOut,
     // RingBuffer.hpp
@@ -175,10 +177,14 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Invalid DMA Object Id");
     case error_code::WriteRequestHasBeenCanceledByOtherSide:
         return std::string("Writerequest has been canceled by other side");
+    case error_code::ObjectSyncWasNeverRequested:
+        return std::string("Object sync was never requested");
     case error_code::TypeOfFutureHasBeenModifiedDuringEdit:
         return std::string("The type of the Future has been modified during Edit");
     case error_code::ServiceInterruptedByComShutdown:
         return std::string("Service interrupted by com_shutdown");
+    case error_code::ObjectWriteCanceledByIncomingRead:
+        return std::string("Object write canceled by an incoming read of the same object");
     case error_code::CounterMaxedOut:
         return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:

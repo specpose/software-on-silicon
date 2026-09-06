@@ -37,9 +37,9 @@ public:
     {
         // SIGNALING
         transfer(0);
-        //if (!_intrinsic.getNotifyRef().test_and_set()) {
-        /*if (!read[0].test_and_set()) {
-            std::cout << "F";
+        if (!_intrinsic.getNotifyRef().test_and_set()) {
+        if (!read[0].ready.test_and_set()) {
+            if (read[0].result) {
             //check ownership
             //std::get<0>(bus.objs).red++; // Hack
             //std::get<0>(bus.objs).blue++; // Hack
@@ -48,8 +48,16 @@ public:
             //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
             //(*blue)++;
             _intrinsic[0].sync_me.clear();
-        }*/
-        //}
+            }
+        }
+        if (!write[0].ready.test_and_set()) {
+            if (!write[0].result) {
+                //if (obj_id == 1 || obj_id == 2) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+                //}
+            }
+        }
+        }
         std::this_thread::yield();
     }
 private:
@@ -120,8 +128,8 @@ public:
         // SIGNALING
         transfer(0);
         if (!_intrinsic.getNotifyRef().test_and_set()) {
-        if (!read[0].test_and_set()) {
-            std::cout << "M";
+        if (!read[0].ready.test_and_set()) {
+            if (read[0].result) {
             //check ownership
             //std::get<0>(bus.objs).red--;
             //std::get<0>(bus.objs).green++;
@@ -130,6 +138,14 @@ public:
             //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
             //(*green)++;
             _intrinsic[0].sync_me.clear();
+            }
+        }
+        if (!write[0].ready.test_and_set()) {
+            if (!write[0].result) {
+                //if (obj_id == 1 || obj_id == 2) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+                //}
+            }
         }
         }
         std::this_thread::yield();

@@ -62,12 +62,12 @@ namespace MemoryView {
             sync_me.test_and_set();
         }
         SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
-        std::atomic_flag read_ack; // Processing and Async
-        std::atomic_flag read_fault; // Processing and Async
+        std::atomic_flag read_ack = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag read_fault = ATOMIC_FLAG_INIT; // Processing and Async
         SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
-        std::atomic_flag write_ack; // Processing and Async
-        std::atomic_flag write_fault; // Processing and Async
-        std::atomic_flag sync_me; // Processing and Async
+        std::atomic_flag write_ack = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag write_fault = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag sync_me = ATOMIC_FLAG_INIT; // Processing and Async
     };
     class SwitchBoard : public SOS::MemoryView::Notify, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
     {
@@ -146,6 +146,13 @@ namespace Protocol {
     //    using const_cables_type = std::tuple<Size<ArithmeticType*>>;
     //    const_cables_type const_cables;
     //};
+    struct Async {
+        Async() {
+            ready.test_and_set();
+        }
+        std::atomic_flag ready = ATOMIC_FLAG_INIT;
+        bool result = true;
+    };
     bool async_status(std::atomic_flag& fault, std::atomic_flag& ack)
     {
         bool exit = false;
@@ -188,10 +195,10 @@ namespace Behavior {
             , SerialSimpleSubController<Objects...>(bus.signal)
             , dBus(bus)
         {
-            for (std::size_t i = 0; i < read.size(); i++)
-                read[i].test_and_set();
-            for (std::size_t i = 0; i < write.size(); i++)
-                write[i].test_and_set();
+        }
+        ~SerialSimpleDummy() {
+            std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
+            std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void transfer(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
@@ -208,10 +215,14 @@ namespace Behavior {
                         }
                         std::this_thread::yield();
                     }
-                    read[id].clear();
+                    read[id].result = true;
+                    read[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                    objectReadsCanceled++;
+                    read[id].result = false;
+                    read[id].ready.clear();
                 }
             }
             if (!dBus.signal[id].write_ack.test_and_set()) {
@@ -228,21 +239,27 @@ namespace Behavior {
                             i = 0;
                         }
                     }
-                    write[id].clear();
+                    write[id].result = true;
+                    write[id].ready.clear();
                 } else
                 {
-                    SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
+                    //SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
+                    objectWritesCanceled++;
+                    write[id].result = false;
+                    write[id].ready.clear();
                 }
             }
         }
 
     protected:
-        std::array<std::atomic_flag, NUM_IDS> read {};
-        std::array<std::atomic_flag, NUM_IDS> write {};
+        std::array<SOS::Protocol::Async, NUM_IDS> read {};
+        std::array<SOS::Protocol::Async, NUM_IDS> write {};
         std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
 
     //private:
         bus_type& dBus;
+        std::size_t objectReadsCanceled = 0;
+        std::size_t objectWritesCanceled = 0;
     };
     class SerialEventSubController : public SubController {
     public:
@@ -303,17 +320,18 @@ namespace Behavior {
                         std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
                     }
                     sync_registered_id[id] = false;
+                    _dBus.signal[id].sync_me.test_and_set();
                     _dBus.signal[id].write_fault.clear();
                 } else {
-                    // Error
+                    //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
                 }
                 _intrinsic.getSyncStopUpdatedRef().clear();
             }
-            /*if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
+            if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.readlockNotificationId().load();
                 read_started_id[id] = true;
                 _intrinsic.getReadStartUpdatedRef().clear();
-            }*/
+            }
             if (!_intrinsic.getReadEndAcknowledgeRef().test_and_set()) {
                 const auto id = _datasignals.receiveNotificationId().load();
                 read_started_id[id] = false;

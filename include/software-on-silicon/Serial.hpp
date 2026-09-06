@@ -63,7 +63,7 @@ namespace Protocol {
             std::cout << typeid(*this).name() << " shutdown" << std::endl;
         }
         virtual void event_loop() final
-        { // final
+        {
             std::this_thread::yield();
             if (handshake()) {
                 // IN
@@ -78,15 +78,15 @@ namespace Protocol {
                         read_hook(data);
                     else
                         this->read_object(data); // inform_read_end
+                    collect_sync_hook();
                     transfer_hook(); // inform_read_start; may check unsynced
                     acknowledge_hook(); // inform_write_start; sets unsynced
                 }
-                collect_sync();
-                this->bus2.signal.getNotifyRef().clear();
                 // OUT
                 if (!write_hook()) // collect_unsynced
                     if (!this->write_object()) // inform_write_end
                         send_idleRequest();
+                this->bus2.signal.getNotifyRef().clear();
                 if (_vars.sent_sighup)
                     aux_ack();
                 handshake_ack();
@@ -299,6 +299,7 @@ namespace Protocol {
                             if (!this->descriptors[j].readLock) {
                                 this->descriptors[j].transfer = true;
                                 this->descriptors[j].unsynced = false;
+                                emit_sync_canceled(j);
                                 // std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -327,7 +328,6 @@ namespace Protocol {
                         if (!this->descriptors[j].unsynced) {
                             if (!this->descriptors[j].transfer) {
                                 this->descriptors[j].readLock = true;
-                                emit_sync_canceled(j);
                                 // std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
@@ -344,7 +344,7 @@ namespace Protocol {
             }
             requestId = NUM_IDS;
         }
-        void collect_sync()
+        void collect_sync_hook()
         {
             if (!this->bus.signal.getSyncStartAcknowledgeRef().test_and_set()) {
                 const auto id = this->bus.syncStartId().load();
@@ -357,14 +357,15 @@ namespace Protocol {
             while (this->bus.signal.getSyncStopUpdatedRef().test_and_set())
                 std::this_thread::yield();
             this->bus.syncStopId().store(obj_id);
+            this->descriptors[obj_id].unsynced = false;
             this->bus.signal.getSyncStopAcknowledgeRef().clear();
         }
         virtual void emit_readlocked(std::size_t obj_id)
         {
-            /*while (this->bus.signal.getReadStartUpdatedRef().test_and_set())
+            while (this->bus.signal.getReadStartUpdatedRef().test_and_set())
                 std::this_thread::yield();
             this->bus.readlockNotificationId().store(obj_id);
-            this->bus.signal.getReadStartAcknowledgeRef().clear();*/
+            this->bus.signal.getReadStartAcknowledgeRef().clear();
         }
         virtual void emit_received(std::size_t obj_id)
         {
