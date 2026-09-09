@@ -1,5 +1,33 @@
 namespace SOS {
+namespace Protocol {
+    enum SequentialDuplex : unsigned char { // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
+        serviceinterrupted = 0xF5, // Out
+        writeend = 0xF6, // Out
+        readend = 0xF7, // Out
+        writestart = 0xF8, // Out
+        readstart = 0xF9, // Out
+        init = 0xFA, // In, out of order
+        syncstart = 0xFB, // In. After descriptorssend, readstart and writeend
+        descriptorssend = 0xFC, // In, out of order. After init
+        transfersend = 0xFD, // Both, out of order
+        transferrequest = 0xFE, // Both, out of order
+        nocommand = 0xFF // Both
+    };
+}
 namespace MemoryView {
+    struct SequentialCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
+        using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWordRef() { return std::get<1>(*this); }
+    };
+    struct SequentialBus : public SOS::MemoryView::BusShaker { // FIX: ComBus
+        using cables_type = std::tuple<SequentialCable>;
+        SequentialBus() {
+            std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::SequentialDuplex::nocommand);
+            std::get<0>(cables).getWordRef().store(NUM_IDS);
+        }
+        cables_type cables {};
+    };
     class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 12> {
     public:
         DMAObjectShake()
@@ -268,7 +296,7 @@ namespace Behavior {
     };
     class SerialEventSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusDMAShaker; // Custom: bus_traits?
+        using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
         constexpr SerialEventSubController(typename bus_type::signal_type& signal)
             : SubController()
             , _intrinsic(signal)
@@ -281,7 +309,7 @@ namespace Behavior {
     template <typename S, typename... Others>
     class SerialPassthruEventController : public Controller<S>, public Loop, protected SerialEventSubController {
     public:
-        using bus_type = SOS::MemoryView::BusDMAShaker; // Custom: bus_traits?
+        using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
         SerialPassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
             : Controller<S>()
             , Loop()
@@ -300,90 +328,75 @@ namespace Behavior {
     template <typename S>
     class SerialProcessing : public SOS::Behavior::SerialPassthruEventController<S> {
     public:
-        using bus_type = SOS::MemoryView::BusDMAShaker;
+        using bus_type = SOS::MemoryView::SequentialBus;
         using SerialPassthruEventController<S>::_intrinsic;
         SerialProcessing(bus_type& bus, typename S::bus_type& passThru)
             : SOS::Behavior::SerialPassthruEventController<S>(bus.signal, passThru)
-            , _datasignals(bus)
+            , newBus(bus)
             , _dBus(passThru)
         {
             for (std::size_t i = 0; i < sync_registered_id.size(); i++)
                 sync_registered_id[i] = false;
-            _intrinsic.getSyncStopUpdatedRef().clear();
-            _intrinsic.getReadStartUpdatedRef().clear();
-            _intrinsic.getReadEndUpdatedRef().clear();
-            _intrinsic.getWriteStartUpdatedRef().clear();
-            _intrinsic.getWriteEndUpdatedRef().clear();
-            _intrinsic.getServiceInterruptedUpdatedRef().clear();
-            _intrinsic.getSyncStartUpdatedRef().clear();
+            newBus.signal.getUpdatedRef().clear();
         }
         void event_loop()
         {
-            if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.syncStopId().load();
-                if (sync_registered_id[id]) {
-                    if (id == 1 || id == 2) {
-                        std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
+            if (init) {
+            } else if (transferIn) { // check transfer_me
+                //setop nocommand
+            } else if (transferOut) {
+                //setop transfersend
+            } else {
+                if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
+                    auto instruction = std::get<0>(newBus.cables).getOpcodeRef().load();
+                    auto id = std::get<0>(newBus.cables).getWordRef().load();
+                    std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
+                    std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
+                    switch (instruction) {
+                        case SOS::Protocol::init:
+                            send_sync();
+                            break;
+                        case SOS::Protocol::transferrequest:
+                            break;
+                        case SOS::Protocol::readstart:
+                            if (sync_registered_id[id]) {
+                                if (id == 1 || id == 2) {
+                                    std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
+                                }
+                                sync_registered_id[id] = false;
+                                _dBus.signal[id].sync_me.test_and_set();
+                                _dBus.signal[id].write_fault.clear();
+                            } else { // Nothing to do
+                                //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
+                            }
+                            read_started_id[id] = true;
+                            send_sync();
+                            break;
+                        case SOS::Protocol::readend:
+                            read_started_id[id] = false;
+                            _dBus.signal[id].read_ack.clear();
+                            break;
+                        case SOS::Protocol::writestart:
+                            sync_registered_id[id] = false;
+                            break;
+                        case SOS::Protocol::writeend:
+                            if (id == 1 || id == 2) {
+                                std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
+                            }
+                            send_sync();
+                            _dBus.signal[id].write_ack.clear();
+                            break;
+                        case SOS::Protocol::serviceinterrupted:
+                            for (std::size_t i = 0; i < _dBus.signal.size(); ++i) {
+                                if (read_started_id[i]) {
+                                    std::cout << typeid(*this).name() << ": object id " << i << " enters illegal state" << std::endl;
+                                    _dBus.signal[i].read_fault.clear();
+                                    read_started_id[i] = false;
+                                }
+                            }
+                            break;
                     }
-                    sync_registered_id[id] = false;
-                    _dBus.signal[id].sync_me.test_and_set();
-                    _dBus.signal[id].write_fault.clear();
-                } else { // Nothing to do
-                    //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-                }
-                _intrinsic.getSyncStopUpdatedRef().clear();
-            }
-            if (!_intrinsic.getReadStartAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.readlockNotificationId().load();
-                read_started_id[id] = true;
-                _intrinsic.getReadStartUpdatedRef().clear();
-            }
-            if (!_intrinsic.getReadEndAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.receivedNotificationId().load();
-                read_started_id[id] = false;
-                _dBus.signal[id].read_ack.clear();
-                _intrinsic.getReadEndUpdatedRef().clear();
-            }
-            if (!_intrinsic.getWriteStartAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.transferNotificationId().load();
-                sync_registered_id[id] = false;
-                _intrinsic.getWriteStartUpdatedRef().clear();
-            }
-            if (!_intrinsic.getWriteEndAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.sentNotificationId().load();
-                if (id == 1 || id == 2) {
-                    std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
-                }
-                _dBus.signal[id].write_ack.clear();
-                _intrinsic.getWriteEndUpdatedRef().clear();
-            }
-            if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
-                for (std::size_t id = 0; id < _dBus.signal.size(); ++id) {
-                    if (read_started_id[id]) {
-                        std::cout << typeid(*this).name() << ": object id " << id << " enters illegal state" << std::endl;
-                        _dBus.signal[id].read_fault.clear();
-                        read_started_id[id] = false;
-                    }
-                }
-                _intrinsic.getServiceInterruptedAcknowledgeRef().clear();
-            }
-            if (!foundOne) {
-                for (std::size_t id = 0; id < _dBus.signal.size(); id++) {
-                    if (!_dBus.signal[id].sync_me.test_and_set() && !sync_registered_id[id]) {
-                        foundOne = true;
-                        foundId = id;
-                        break;
-                    }
-                }
-            }
-            if (foundOne) {
-                if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
-                    std::cout << "Store";
-                    _datasignals.syncStartId().store(foundId);
-                    _dBus.signal[foundId].sync_me.test_and_set();
-                    sync_registered_id[foundId] = true;
-                    foundOne = false;
-                    _intrinsic.getSyncStartAcknowledgeRef().clear();
+                    newBus.signal.getUpdatedRef().clear();
                 }
             }
             std::this_thread::yield();
@@ -396,8 +409,30 @@ namespace Behavior {
         std::size_t foundId = NUM_IDS;
 
     private:
-        bus_type& _datasignals;
+        void send_sync() {
+            if (!foundOne) {
+                for (std::size_t id = 0; id < _dBus.signal.size(); id++) {
+                    if (!_dBus.signal[id].sync_me.test_and_set() && !sync_registered_id[id]) {
+                        foundOne = true;
+                        foundId = id;
+                        break;
+                    }
+                }
+            }
+            if (foundOne) {
+                std::cout << "Store";
+                std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::syncstart);
+                std::get<0>(newBus.cables).getWordRef().store(foundId);
+                _dBus.signal[foundId].sync_me.test_and_set();
+                sync_registered_id[foundId] = true;
+                foundOne = false;
+            }
+        }
+        bus_type& newBus;
         typename S::bus_type& _dBus;
+        bool transferIn = false;
+        bool transferOut = false;
+        bool init = false;
     };
 }
 }

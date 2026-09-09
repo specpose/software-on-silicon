@@ -21,9 +21,10 @@ namespace Protocol {
                     return true;
                 } else { // write3plus1==3
                     if (writeOriginPos == descriptors[writeOrigin].obj_size) {
+                        emit_sent(writeOrigin);
                         descriptors[writeOrigin].transfer = false;
                         send_lock = false;
-                        emit_sent(writeOrigin);
+                        collect_sync();
                         ++tx_counter[writeOrigin]; // DEBUG
                         // std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
@@ -46,7 +47,6 @@ namespace Protocol {
                         }
                         receive_lock = true;
                         readDestination = j;
-                        emit_readlocked(readDestination);
                         gotOne = true;
                     }
                 }
@@ -92,13 +92,13 @@ namespace Protocol {
         std::size_t writeOriginPos = 0;
         unsigned int writeCount = 0; // write3plus1
         unsigned char writeOrigin = NUM_IDS;
-        virtual void emit_readlocked(std::size_t obj_id) = 0;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
+        virtual void collect_sync() = 0;
         std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors {};
-        SOS::MemoryView::BusDMAShaker bus;
         SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
+        SOS::MemoryView::SequentialBus bus3 {};
         std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 

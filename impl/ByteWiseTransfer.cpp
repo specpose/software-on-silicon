@@ -4,7 +4,7 @@ namespace Protocol {
     template <typename... Objects>
     BlockWiseTransfer<Objects...>::BlockWiseTransfer()
          : bus2(descriptors)
-         , bus()
+         , bus3()
     {
         this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
         // apply(this->descriptors, objects); // fold expression: cpp17
@@ -12,7 +12,7 @@ namespace Protocol {
     */
     template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer()
         : bus2(descriptors)
-        , bus()
+        , bus3()
     {
         const std::size_t s = 3;
         ////array of signals
