@@ -1,9 +1,9 @@
 namespace SOS {
 namespace MemoryView {
-    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 10> {
+    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 12> {
     public:
         DMAObjectShake()
-            : std::array<std::atomic_flag, 10> {}
+            : std::array<std::atomic_flag, 12> {}
         {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
@@ -15,6 +15,8 @@ namespace MemoryView {
             std::get<7>(*this).test_and_set();
             std::get<8>(*this).test_and_set();
             std::get<9>(*this).test_and_set();
+            std::get<10>(*this).test_and_set();
+            std::get<11>(*this).test_and_set();
         }
         std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
         std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
@@ -22,12 +24,14 @@ namespace MemoryView {
         std::atomic_flag& getReadEndAcknowledgeRef() { return std::get<3>(*this); }
         std::atomic_flag& getServiceInterruptedUpdatedRef() { return std::get<4>(*this); }
         std::atomic_flag& getServiceInterruptedAcknowledgeRef() { return std::get<5>(*this); }
-        std::atomic_flag& getWriteUpdatedRef() { return std::get<6>(*this); }
-        std::atomic_flag& getWriteAcknowledgeRef() { return std::get<7>(*this); }
-        std::atomic_flag& getSyncStartUpdatedRef() { return std::get<8>(*this); }
-        std::atomic_flag& getSyncStartAcknowledgeRef() { return std::get<9>(*this); }
-        std::atomic_flag& getSyncStopUpdatedRef() { return updated; }
-        std::atomic_flag& getSyncStopAcknowledgeRef() { return acknowledge; }
+        std::atomic_flag& getWriteStartUpdatedRef() { return std::get<6>(*this); }
+        std::atomic_flag& getWriteStartAcknowledgeRef() { return std::get<7>(*this); }
+        std::atomic_flag& getWriteEndUpdatedRef() { return std::get<8>(*this); }
+        std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<9>(*this); }
+        std::atomic_flag& getSyncStopUpdatedRef() { return std::get<10>(*this);; }
+        std::atomic_flag& getSyncStopAcknowledgeRef() { return std::get<11>(*this); }
+        std::atomic_flag& getSyncStartUpdatedRef() { return updated; }
+        std::atomic_flag& getSyncStartAcknowledgeRef() { return acknowledge; }
     };
     template<std::size_t N>
     struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, N> {
@@ -42,15 +46,16 @@ namespace MemoryView {
     struct BusDMAShaker : bus<
                               bus_dma_shaker_tag,
                               SOS::MemoryView::DMAObjectShake,
-                              std::tuple<DestinationAndOrigin<5>>,
+                              std::tuple<DestinationAndOrigin<6>>,
                               bus_traits<Bus>::const_cables_type> {
         signal_type signal;
         cables_type cables {};
-        typename DestinationAndOrigin<5>::value_type& readlockNotificationId() { return std::get<0>(std::get<0>(cables)); }
-        typename DestinationAndOrigin<5>::value_type& receiveNotificationId() { return std::get<1>(std::get<0>(cables)); }
-        typename DestinationAndOrigin<5>::value_type& sendNotificationId() { return std::get<2>(std::get<0>(cables)); }
-        typename DestinationAndOrigin<5>::value_type& syncStopId() { return std::get<3>(std::get<0>(cables)); }
-        typename DestinationAndOrigin<5>::value_type& syncStartId() { return std::get<4>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& readlockNotificationId() { return std::get<0>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& receivedNotificationId() { return std::get<1>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& transferNotificationId() { return std::get<2>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& sentNotificationId() { return std::get<3>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& syncStopId() { return std::get<4>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& syncStartId() { return std::get<5>(std::get<0>(cables)); }
     };
     struct DMAObjectAsyncSwitch
     {
@@ -243,7 +248,7 @@ namespace Behavior {
                     write[id].ready.clear();
                 } else
                 {
-                    //SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
+                    SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                     objectWritesCanceled++;
                     write[id].result = false;
                     write[id].ready.clear();
@@ -304,12 +309,13 @@ namespace Behavior {
         {
             for (std::size_t i = 0; i < sync_registered_id.size(); i++)
                 sync_registered_id[i] = false;
-            _intrinsic.getSyncStartUpdatedRef().clear();
-            readOrWrite = true; // one sync is enough to trigger a read or write hook
             _intrinsic.getSyncStopUpdatedRef().clear();
-            _intrinsic.getWriteUpdatedRef().clear();
+            _intrinsic.getReadStartUpdatedRef().clear();
             _intrinsic.getReadEndUpdatedRef().clear();
+            _intrinsic.getWriteStartUpdatedRef().clear();
+            _intrinsic.getWriteEndUpdatedRef().clear();
             _intrinsic.getServiceInterruptedUpdatedRef().clear();
+            _intrinsic.getSyncStartUpdatedRef().clear();
         }
         void event_loop()
         {
@@ -322,7 +328,7 @@ namespace Behavior {
                     sync_registered_id[id] = false;
                     _dBus.signal[id].sync_me.test_and_set();
                     _dBus.signal[id].write_fault.clear();
-                } else {
+                } else { // Nothing to do
                     //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
                 }
                 _intrinsic.getSyncStopUpdatedRef().clear();
@@ -333,22 +339,25 @@ namespace Behavior {
                 _intrinsic.getReadStartUpdatedRef().clear();
             }
             if (!_intrinsic.getReadEndAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.receiveNotificationId().load();
+                const auto id = _datasignals.receivedNotificationId().load();
                 read_started_id[id] = false;
                 _dBus.signal[id].read_ack.clear();
                 _intrinsic.getReadEndUpdatedRef().clear();
-                readOrWrite = true;
             }
-            if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.sendNotificationId().load();
+            if (!_intrinsic.getWriteStartAcknowledgeRef().test_and_set()) {
+                const auto id = _datasignals.transferNotificationId().load();
+                sync_registered_id[id] = false;
+                _intrinsic.getWriteStartUpdatedRef().clear();
+            }
+            if (!_intrinsic.getWriteEndAcknowledgeRef().test_and_set()) {
+                const auto id = _datasignals.sentNotificationId().load();
                 if (id == 1 || id == 2) {
                     std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
                 }
                 _dBus.signal[id].write_ack.clear();
-                _intrinsic.getWriteUpdatedRef().clear();
-                readOrWrite = true;
+                _intrinsic.getWriteEndUpdatedRef().clear();
             }
-            /*if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
+            if (!_intrinsic.getServiceInterruptedUpdatedRef().test_and_set()) {
                 for (std::size_t id = 0; id < _dBus.signal.size(); ++id) {
                     if (read_started_id[id]) {
                         std::cout << typeid(*this).name() << ": object id " << id << " enters illegal state" << std::endl;
@@ -357,28 +366,34 @@ namespace Behavior {
                     }
                 }
                 _intrinsic.getServiceInterruptedAcknowledgeRef().clear();
-            }*/
-            if (readOrWrite) { // performance only?
+            }
+            if (!foundOne) {
                 for (std::size_t id = 0; id < _dBus.signal.size(); id++) {
                     if (!_dBus.signal[id].sync_me.test_and_set() && !sync_registered_id[id]) {
-                        if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
-                            std::cout << "Store";
-                            _datasignals.syncStartId().store(id);
-                            sync_registered_id[id] = true;
-                            _intrinsic.getSyncStartAcknowledgeRef().clear();
-                        }
+                        foundOne = true;
+                        foundId = id;
                         break;
                     }
                 }
-                readOrWrite = false;
+            }
+            if (foundOne) {
+                if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
+                    std::cout << "Store";
+                    _datasignals.syncStartId().store(foundId);
+                    _dBus.signal[foundId].sync_me.test_and_set();
+                    sync_registered_id[foundId] = true;
+                    foundOne = false;
+                    _intrinsic.getSyncStartAcknowledgeRef().clear();
+                }
             }
             std::this_thread::yield();
         }
 
     protected:
-        bool readOrWrite = false;
         std::bitset<NUM_IDS> read_started_id {};
         std::bitset<NUM_IDS> sync_registered_id {};
+        bool foundOne = false;
+        std::size_t foundId = NUM_IDS;
 
     private:
         bus_type& _datasignals;

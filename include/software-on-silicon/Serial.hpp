@@ -78,10 +78,10 @@ namespace Protocol {
                         read_hook(data);
                     else
                         this->read_object(data); // inform_read_end
-                    collect_sync_hook();
                     transfer_hook(); // inform_read_start; may check unsynced
-                    acknowledge_hook(); // inform_write_start; sets unsynced
+                    acknowledge_hook(); // inform_write_start; may override unsynced
                 }
+                collect_sync_hook(); // may set unsynced
                 // OUT
                 if (!write_hook()) // collect_unsynced
                     if (!this->write_object()) // inform_write_end
@@ -122,11 +122,11 @@ namespace Protocol {
         virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
         virtual void stop_notifier() final {
-            /*this->bus.signal.getServiceInterruptedUpdatedRef().clear();
+            this->bus.signal.getServiceInterruptedUpdatedRef().clear();
             while (this->bus.signal.getServiceInterruptedAcknowledgeRef().test_and_set()) {
                 std::cout << ",";
                 std::this_thread::yield();
-            }*/
+            }
             SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
         };
         virtual void request_shutdown_action() = 0;
@@ -299,7 +299,7 @@ namespace Protocol {
                             if (!this->descriptors[j].readLock) {
                                 this->descriptors[j].transfer = true;
                                 this->descriptors[j].unsynced = false;
-                                emit_sync_canceled(j);
+                                emit_transfer(j);
                                 // std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
                                 gotOne = true;
                             } else {
@@ -328,6 +328,7 @@ namespace Protocol {
                         if (!this->descriptors[j].unsynced) {
                             if (!this->descriptors[j].transfer) {
                                 this->descriptors[j].readLock = true;
+                                emit_sync_canceled(j);
                                 // std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
                                 send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
                             } else {
@@ -357,7 +358,6 @@ namespace Protocol {
             while (this->bus.signal.getSyncStopUpdatedRef().test_and_set())
                 std::this_thread::yield();
             this->bus.syncStopId().store(obj_id);
-            this->descriptors[obj_id].unsynced = false;
             this->bus.signal.getSyncStopAcknowledgeRef().clear();
         }
         virtual void emit_readlocked(std::size_t obj_id)
@@ -371,15 +371,22 @@ namespace Protocol {
         {
             while (this->bus.signal.getReadEndUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            this->bus.receiveNotificationId().store(obj_id);
+            this->bus.receivedNotificationId().store(obj_id);
             this->bus.signal.getReadEndAcknowledgeRef().clear();
+        }
+        virtual void emit_transfer(std::size_t obj_id)
+        {
+            while (this->bus.signal.getWriteStartUpdatedRef().test_and_set())
+                std::this_thread::yield();
+            this->bus.transferNotificationId().store(obj_id);
+            this->bus.signal.getWriteStartAcknowledgeRef().clear();
         }
         virtual void emit_sent(std::size_t obj_id)
         {
-            while (this->bus.signal.getWriteUpdatedRef().test_and_set())
+            while (this->bus.signal.getWriteEndUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            this->bus.sendNotificationId().store(obj_id);
-            this->bus.signal.getWriteAcknowledgeRef().clear();
+            this->bus.sentNotificationId().store(obj_id);
+            this->bus.signal.getWriteEndAcknowledgeRef().clear();
         }
         bool getFirstTransfer()
         {
