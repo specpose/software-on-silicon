@@ -1,17 +1,19 @@
 namespace SOS {
 namespace Protocol {
-    enum SequentialDuplex : unsigned char { // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
-        serviceinterrupted = 0xF5, // Out
-        writeend = 0xF6, // Out
-        readend = 0xF7, // Out
-        writestart = 0xF8, // Out
-        readstart = 0xF9, // Out
-        init = 0xFA, // In, out of order
-        syncstart = 0xFB, // In. After descriptorssend, readstart and writeend
-        descriptorssend = 0xFC, // In, out of order. After init
-        transfersend = 0xFD, // Both, out of order
-        transferrequest = 0xFE, // Both, out of order
-        nocommand = 0xFF // Both
+    // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
+    enum SequentialLogicRequest : unsigned char {
+        serviceinterrupted = 0xF9, // Out
+        writeend = 0xFA, // Out
+        readend = 0xFB, // Out
+        writestart = 0xFC, // Out
+        readstart = 0xFD, // Out
+        init = 0xFF // Out
+    };
+    enum SequentialLogicResponse : unsigned char {
+        descriptorssend = 0xFB, // In, out of order. After init
+        transfersend = 0xFC, // In, out of order. At writestart
+        transferrequest = 0xFD, // In, out of order. After readend
+        nocommand = 0xFF // In
     };
 }
 namespace MemoryView {
@@ -23,7 +25,7 @@ namespace MemoryView {
     struct SequentialBus : public SOS::MemoryView::BusShaker { // FIX: ComBus
         using cables_type = std::tuple<SequentialCable>;
         SequentialBus() {
-            std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::SequentialDuplex::nocommand);
+            std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::nocommand);
             std::get<0>(cables).getWordRef().store(NUM_IDS);
         }
         cables_type cables {};
@@ -236,18 +238,6 @@ namespace Behavior {
         void transfer(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
                 if (dBus.signal[id].read_fault.test_and_set()) {
-                    unsigned long i = 0;
-                    while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
-                            i++;
-                            doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
-                        } else {
-                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
-                                std::this_thread::yield();
-                            i = 0;
-                        }
-                        std::this_thread::yield();
-                    }
                     read[id].result = true;
                     read[id].ready.clear();
                 } else
@@ -260,18 +250,6 @@ namespace Behavior {
             }
             if (!dBus.signal[id].write_ack.test_and_set()) {
                 if (dBus.signal[id].write_fault.test_and_set()){
-                    unsigned long i = 0;
-                    while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
-                            i++;
-                            auto tmp = reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
-                            *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
-                        } else {
-                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
-                                std::this_thread::yield();
-                            i = 0;
-                        }
-                    }
                     write[id].result = true;
                     write[id].ready.clear();
                 } else
@@ -287,7 +265,6 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::Async, NUM_IDS> read {};
         std::array<SOS::Protocol::Async, NUM_IDS> write {};
-        std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
 
     //private:
         bus_type& dBus;
@@ -335,17 +312,34 @@ namespace Behavior {
             , newBus(bus)
             , _dBus(passThru)
         {
-            for (std::size_t i = 0; i < sync_registered_id.size(); i++)
-                sync_registered_id[i] = false;
             newBus.signal.getUpdatedRef().clear();
         }
         void event_loop()
         {
             if (init) {
-            } else if (transferIn) { // check transfer_me
-                //setop nocommand
-            } else if (transferOut) {
-                //setop transfersend
+            } else if (std::get<0>(transferIn)) {
+                unsigned long i = 0;
+                while (i < _dBus.descriptors[std::get<1>(transferIn)].obj_size) {
+                    if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
+                        i++;
+                        doubleBuffer[std::get<1>(transferIn)][i] = std::get<0>(newBus.cables).getWordRef().load();
+                        newBus.signal.getUpdatedRef().clear();
+                    }
+                    std::this_thread::yield();
+                }
+                std::get<0>(transferIn) = false;
+                _dBus.signal[std::get<1>(transferIn)].read_ack.clear();
+            } else if (std::get<0>(transferOut)) {
+                unsigned long i = 0;
+                while (i < _dBus.descriptors[std::get<1>(transferOut)].obj_size) {
+                    if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
+                        i++;
+                        std::get<0>(newBus.cables).getWordRef().store(doubleBuffer[std::get<1>(transferOut)][i]);
+                        newBus.signal.getUpdatedRef().clear();
+                    }
+                    std::this_thread::yield();
+                }
+                std::get<0>(transferOut) = false;
             } else {
                 if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
                     auto instruction = std::get<0>(newBus.cables).getOpcodeRef().load();
@@ -354,36 +348,26 @@ namespace Behavior {
                     std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
                     switch (instruction) {
                         case SOS::Protocol::init:
-                            send_sync();
-                            break;
-                        case SOS::Protocol::transferrequest:
                             break;
                         case SOS::Protocol::readstart:
-                            if (sync_registered_id[id]) {
-                                if (id == 1 || id == 2) {
-                                    std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
-                                }
-                                sync_registered_id[id] = false;
-                                _dBus.signal[id].sync_me.test_and_set();
-                                _dBus.signal[id].write_fault.clear();
-                            } else { // Nothing to do
-                                //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-                            }
+                            //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
                             read_started_id[id] = true;
-                            send_sync();
                             break;
                         case SOS::Protocol::readend:
                             read_started_id[id] = false;
-                            _dBus.signal[id].read_ack.clear();
+                            std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::transferrequest);
+                            std::get<0>(newBus.cables).getWordRef().store(id);
+                            transferIn = {true, id};
                             break;
                         case SOS::Protocol::writestart:
-                            sync_registered_id[id] = false;
+                            std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::transfersend);
+                            std::get<0>(newBus.cables).getWordRef().store(id);
+                            transferOut = {true, id};
                             break;
                         case SOS::Protocol::writeend:
                             if (id == 1 || id == 2) {
                                 std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
                             }
-                            send_sync();
                             _dBus.signal[id].write_ack.clear();
                             break;
                         case SOS::Protocol::serviceinterrupted:
@@ -404,34 +388,13 @@ namespace Behavior {
 
     protected:
         std::bitset<NUM_IDS> read_started_id {};
-        std::bitset<NUM_IDS> sync_registered_id {};
-        bool foundOne = false;
-        std::size_t foundId = NUM_IDS;
 
     private:
-        void send_sync() {
-            if (!foundOne) {
-                for (std::size_t id = 0; id < _dBus.signal.size(); id++) {
-                    if (!_dBus.signal[id].sync_me.test_and_set() && !sync_registered_id[id]) {
-                        foundOne = true;
-                        foundId = id;
-                        break;
-                    }
-                }
-            }
-            if (foundOne) {
-                std::cout << "Store";
-                std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::syncstart);
-                std::get<0>(newBus.cables).getWordRef().store(foundId);
-                _dBus.signal[foundId].sync_me.test_and_set();
-                sync_registered_id[foundId] = true;
-                foundOne = false;
-            }
-        }
         bus_type& newBus;
         typename S::bus_type& _dBus;
-        bool transferIn = false;
-        bool transferOut = false;
+        std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
+        std::tuple<bool, std::size_t> transferIn = {false, NUM_IDS};
+        std::tuple<bool, std::size_t> transferOut = {false, NUM_IDS};
         bool init = false;
     };
 }
