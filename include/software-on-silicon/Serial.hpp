@@ -277,7 +277,7 @@ namespace Protocol {
                 _vars.sent_idle = true;
         }
         unsigned char receive_transferRequest(unsigned char mod) { return mod - LOWER_STATES; }
-        void send_transferRequest(decltype(DMADescriptor::id) item)
+        void send_transferRequest(unsigned char item)
         {
             if (item < NUM_IDS) {
                 send_request();

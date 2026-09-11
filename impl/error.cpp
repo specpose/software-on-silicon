@@ -17,16 +17,13 @@ enum SFA::util::error_code : unsigned char {
     PreviousTransferRequestsWereNotCleared,
     DuplicateComShutdown,
     DuplicateSighup,
-    DuplicateReadlockRequest,
     SyncedObjectsAreNotSupposedToHaveaTransfer,
-    IncomingReadlockIsCancelingLocalWriteOperation,
-    IncomingReadlockIsRejectedOrOmitted,
     AcknowledgeReceivedWithoutAnyRequest,
     ReceivedATransferAcknowledgeOnSyncedObject,
     ReceivedATransferAcknowledgeOnReadlockedObject,
     ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer,
     ReadlockPredatesAcknowledge,
-    AcknowledgeIdDoesNotReferenceAValidObject, // 2x
+    AcknowledgeIdDoesNotReferenceAValidObject,
     PreviousTransferHasNotBeenAcknowledged,
     InvalidAcknowledgeId,
     SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired,
@@ -103,14 +100,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Duplicate comShutdown");
     case error_code::DuplicateSighup:
         return std::string("Duplicate sighup");
-    case error_code::DuplicateReadlockRequest:
-        return std::string("Duplicate readLock request");
     case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer:
         return std::string("Synced objects are not supposed to have a transfer");
-    case error_code::IncomingReadlockIsCancelingLocalWriteOperation:
-        std::string("Incoming readLock is canceling local write operation");
-    case error_code::IncomingReadlockIsRejectedOrOmitted:
-        std::string("Incoming readLock is rejected or omitted");
     case error_code::AcknowledgeReceivedWithoutAnyRequest:
         return std::string("Acknowledge received without any request");
     case error_code::ReceivedATransferAcknowledgeOnSyncedObject:

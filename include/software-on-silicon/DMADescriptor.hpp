@@ -8,7 +8,6 @@ namespace Protocol {
     extern "C" {
     struct DMADescriptor {
         void method(){};
-        unsigned char id;// = NUM_IDS;
         void* obj;// = nullptr;
         unsigned long obj_size;// = 0;
         volatile bool readLock;// = false;
