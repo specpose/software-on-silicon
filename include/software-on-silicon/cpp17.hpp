@@ -18,13 +18,13 @@ namespace Protocol {
         template <typename First>
         void assign(First& obj_ref)
         {
-            (*this)[count] = DMADescriptor{ static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false, false };
+            (*this)[count] = DMADescriptor{ static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false };
             count++;
         }
         template <typename First, typename... Others>
         void assign(First& obj_ref, Others&... objects)
         {
-            (*this)[count] = DMADescriptor{ static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false, false };
+            (*this)[count] = DMADescriptor{ static_cast<unsigned char>(count), reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false };
             count++;
             assign(objects...);
         }

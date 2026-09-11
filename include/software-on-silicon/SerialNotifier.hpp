@@ -7,12 +7,14 @@ namespace Protocol {
         readend = 0xFB, // Out
         writestart = 0xFC, // Out
         readstart = 0xFD, // Out
+        checksync = 0xFE, // Out
         init = 0xFF // Out
     };
     enum SequentialLogicResponse : unsigned char {
         descriptorssend = 0xFB, // In, out of order. After init
         transfersend = 0xFC, // In, out of order. At writestart
         transferrequest = 0xFD, // In, out of order. After readend
+        syncresponse = 0xFE, // In
         nocommand = 0xFF // In
     };
 }
@@ -348,6 +350,15 @@ namespace Behavior {
                     std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
                     switch (instruction) {
                         case SOS::Protocol::init:
+                            break;
+                        case SOS::Protocol::checksync:
+                            std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::syncresponse);
+                            if (!_dBus.signal[id].sync_me.test_and_set()) {
+                                _dBus.signal[id].sync_me.clear();
+                                std::get<0>(newBus.cables).getWordRef().store(id);
+                            } else {
+                                std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
+                            }
                             break;
                         case SOS::Protocol::readstart:
                             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());

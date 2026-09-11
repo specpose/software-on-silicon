@@ -12,7 +12,6 @@ namespace Protocol {
         void* obj;// = nullptr;
         unsigned long obj_size;// = 0;
         volatile bool readLock;// = false;
-        volatile bool unsynced;// = false;
         bool transfer;// = false;
     };
     }
