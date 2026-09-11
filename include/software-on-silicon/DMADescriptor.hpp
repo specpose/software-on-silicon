@@ -10,7 +10,7 @@ namespace Protocol {
         void method(){};
         void* obj;// = nullptr;
         unsigned long obj_size;// = 0;
-        volatile bool readLock;// = false;
+        bool readLock;// = false;
         bool transfer;// = false;
     };
     }

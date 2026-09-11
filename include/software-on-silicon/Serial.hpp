@@ -321,24 +321,25 @@ namespace Protocol {
         }
         void transfer_hook()
         {
-            if (incomingRequest < NUM_IDS)
-                if (incomingRequest != waitingConfirmation) // start_transfer has priority over send_acknowledge
-                    if (!this->descriptors[incomingRequest].readLock) // BUG: requires read_object
-                        //if (this->descriptors[incomingRequest].readLock)
-                        //    SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(incomingRequest), __func__, typeid(*this).name());
-                        if (!check_sync(incomingRequest)) { // BUG
-                            if (!this->descriptors[incomingRequest].transfer) {
-                                emit_readlocked(incomingRequest);
-                                this->descriptors[incomingRequest].readLock = true;
-                                std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
-                                send_acknowledge();
-                            } else {
-                                SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
-                            }
-                        } else {
-                            if (!this->descriptors[incomingRequest].transfer) // OVERRIDE
-                                SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
-                        }
+            if (incomingRequest < NUM_IDS) {
+                if (incomingRequest != waitingConfirmation) {// start_transfer has priority over send_acknowledge
+                    if (this->descriptors[incomingRequest].readLock)
+                        SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(incomingRequest), __func__, typeid(*this).name());
+                    //if (!check_sync(incomingRequest)) { // BUG
+                    if (!this->descriptors[incomingRequest].transfer) {
+                        emit_readlocked(incomingRequest);
+                        this->descriptors[incomingRequest].readLock = true;
+                        std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
+                        send_acknowledge();
+                    } else {
+                        SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
+                    }
+                    //} else {
+                    //    if (!this->descriptors[incomingRequest].transfer) // OVERRIDE
+                    //        SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
+                    //}
+                }
+            }
 
         }
         virtual void collect_request() final
