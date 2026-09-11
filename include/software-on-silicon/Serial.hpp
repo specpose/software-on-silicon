@@ -76,12 +76,26 @@ namespace Protocol {
                     this->read_bits(data);
                     std::tie(_vars.received_request, _vars.received_acknowledge) = receive_signals();
                     _vars.received_idle = false;
-                    if (_vars.received_request)
+                    if (_vars.received_request) {
                         read_hook(data);
-                    else
-                        this->read_object(data); // inform_read_end
-                    transfer_hook(); // inform_read_start; may check unsynced
-                    acknowledge_hook(); // inform_write_start; may override unsynced
+                        transfer_hook();
+                    } else {
+                        this->read_object(data);
+                    }
+                    if (_vars.received_acknowledge) {
+                        if (!_vars.acknowledgeRequested) {
+                            SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
+                        } else {
+                            acknowledge_hook();
+                            acknowledgeId = NUM_IDS;
+                            requestId = NUM_IDS;
+                            _vars.acknowledgeRequested = false;
+                        }
+                    } else {
+                        if (_vars.acknowledgeRequested) {
+                            SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
+                        }
+                    }
                 }
                 // OUT
                 if (!write_hook()) // collect_unsynced
@@ -283,69 +297,48 @@ namespace Protocol {
             this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             _vars.sent_sighup = true;
         }
-        // send_acknowledge has priority over start_transfer, but requires last read_object byte
         void acknowledge_hook()
         {
-            if (_vars.received_acknowledge) {
-                if (!_vars.acknowledgeRequested) {
-                    SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
-                } else {
-                    bool gotOne = false;
-                    for (unsigned char j = 0; j < this->descriptors.size() && !gotOne; j++) {
-                        if (j == acknowledgeId) {
-                            if (this->descriptors[j].readLock)
-                                SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
-                            if (this->descriptors[j].transfer)
-                                SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
-                            if (!this->descriptors[j].readLock) {
-                                this->descriptors[j].transfer = true;
-                                //this->descriptors[j].unsynced = false;
-                                std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
-                                emit_transfer(j);
-                                collect_send();
-                                gotOne = true;
-                            } else {
-                                SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
-                            }
+            if (acknowledgeId != requestId) { // send_acknowledge has priority over start_transfer
+                bool gotOne = false;
+                for (unsigned char j = 0; j < this->descriptors.size() && !gotOne; j++) {
+                    if (this->descriptors[j].id == acknowledgeId) {
+                        if (this->descriptors[j].readLock)
+                            SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
+                        if (this->descriptors[j].transfer)
+                            SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
+                        if (!this->descriptors[j].readLock) { // requires last read_object byte
+                            this->descriptors[j].transfer = true;
+                            //this->descriptors[j].unsynced = false;
+                            std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
+                            emit_transfer(j);
+                            collect_send();
+                            gotOne = true;
+                        } else {
+                            SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
                         }
                     }
-                    if (!gotOne)
-                        SFA::util::logic_error(SFA::util::error_code::AcknowledgeIdDoesNotReferenceAValidObject, __FILE__, __func__, typeid(*this).name());
                 }
-            } else {
-                if (_vars.acknowledgeRequested) {
-                    SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
-                }
+                if (!gotOne)
+                    SFA::util::logic_error(SFA::util::error_code::AcknowledgeIdDoesNotReferenceAValidObject, __FILE__, __func__, typeid(*this).name());
             }
-            acknowledgeId = NUM_IDS;
-            _vars.acknowledgeRequested = false;
         }
         void transfer_hook()
         {
-            if (_vars.received_request && !(_vars.received_acknowledge && acknowledgeId == requestId)) {
-                for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                    if (this->descriptors[j].id == requestId) {
-                        if (this->descriptors[j].readLock)
-                            SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(requestId), __func__, typeid(*this).name());
-                        if (!check_sync(j)) {
-                            if (!this->descriptors[j].transfer) {
-                                emit_readlocked(j);
-                                this->descriptors[j].readLock = true;
-                                std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
-                                send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
-                            } else {
-                                SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
-                            }
-                        } else {
-                            if (!this->descriptors[j].transfer) // OVERRIDE
-                                SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
-                        }
+            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
+                if (this->descriptors[j].id == requestId) {
+                    if (this->descriptors[j].readLock)
+                        SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(requestId), __func__, typeid(*this).name());
+                    if (!this->descriptors[j].transfer) {
+                        emit_readlocked(j);
+                        this->descriptors[j].readLock = true;
+                        std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
+                        send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
+                    } else {
+                        SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
                     }
                 }
-            } else { // VALID STATE
-                // SFA::util::logic_error(SFA::util::error_code::IncomingReadlockIsRejectedOrOmitted,__FILE__,__func__, typeid(*this).name());//The other side has to cope with it
             }
-            requestId = NUM_IDS;
         }
         virtual void collect_request() final
         {
