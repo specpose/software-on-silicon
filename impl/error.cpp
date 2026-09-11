@@ -17,7 +17,9 @@ enum SFA::util::error_code : unsigned char {
     PreviousTransferRequestsWereNotCleared,
     DuplicateComShutdown,
     DuplicateSighup,
+    DuplicateReadlockRequest,
     SyncedObjectsAreNotSupposedToHaveaTransfer,
+    IncomingReadlockIsCancelingLocalWriteOperation,
     AcknowledgeReceivedWithoutAnyRequest,
     ReceivedATransferAcknowledgeOnSyncedObject,
     ReceivedATransferAcknowledgeOnReadlockedObject,
@@ -100,8 +102,12 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Duplicate comShutdown");
     case error_code::DuplicateSighup:
         return std::string("Duplicate sighup");
+    case error_code::DuplicateReadlockRequest:
+        return std::string("Duplicate readLock request");
     case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer:
         return std::string("Synced objects are not supposed to have a transfer");
+    case error_code::IncomingReadlockIsCancelingLocalWriteOperation:
+        return std::string("Incoming readLock is canceling local write operation");
     case error_code::AcknowledgeReceivedWithoutAnyRequest:
         return std::string("Acknowledge received without any request");
     case error_code::ReceivedATransferAcknowledgeOnSyncedObject:
@@ -197,11 +203,10 @@ const std::string SFA::util::error_message(error_code what)
     }
     return std::string("No error was supplied after initialization of static SFA::util::error");
 }
-static SFA::util::error_code error = SFA::util::error_code::noerror;
 void SFA::util::logic_error(error_code what, std::string file_name, std::string function_name, const char* modname)
 {
-    if (error == error_code::noerror)
-        error = what;
+    SFA::util::error_code error = SFA::util::error_code::noerror;
+    error = what;
     if (!modname)
         modname = "";
     std::cerr << std::endl
@@ -210,8 +215,8 @@ void SFA::util::logic_error(error_code what, std::string file_name, std::string 
 };
 void SFA::util::runtime_error(error_code what, std::string file_name, std::string function_name, const char* modname)
 {
-    if (error == error_code::noerror)
-        error = what;
+    SFA::util::error_code error = SFA::util::error_code::noerror;
+    error = what;
     if (!modname)
         modname = "";
     std::cerr << std::endl

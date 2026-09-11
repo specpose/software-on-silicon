@@ -76,34 +76,34 @@ namespace Protocol {
                     this->read_bits(data);
                     std::tie(_vars.received_request, _vars.received_acknowledge) = receive_signals();
                     _vars.received_idle = false;
+                    incomingRequest = NUM_IDS;
                     if (_vars.received_request) {
-                        requestId = NUM_IDS;
                         read_hook(data);
-                        if (requestId != NUM_IDS)
-                            transfer_hook();
                     } else {
                         this->read_object(data);
                     }
+                    transfer_hook(); // requires readLock status from last read byte. if incomingRequest is not the same as the getFirstTransfer we have requested in the previous cycle, we approve the incomingRequest
                     if (_vars.received_acknowledge) {
                         if (!_vars.acknowledgeRequested) {
                             SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
                         } else {
-                            if (acknowledgeId != NUM_IDS)
-                                acknowledge_hook();
+                            acknowledge_hook(); // requires readLock update from transfer_hook
+                            _vars.acknowledgeRequested = false;
                         }
-                        _vars.acknowledgeRequested = false;
                     } else {
                         if (_vars.acknowledgeRequested) {
+                            _vars.acknowledgeRequested = false;
                             //clear sync_me
-                            //this->bus2.signal[acknowledgeId].sync_me.test_and_set();
+                            //this->bus2.signal[waitingConfirmation].sync_me.test_and_set();
                             SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
+                        } else {
                         }
                     }
                 }
                 // OUT
-                acknowledgeId = NUM_IDS;
-                if (!write_hook()) // collect_unsynced
-                    if (!this->write_object()) // inform_write_end
+                waitingConfirmation = NUM_IDS;
+                if (!write_hook())
+                    if (!this->write_object())
                         send_idleRequest();
                 this->bus2.signal.getNotifyRef().clear();
                 if (_vars.sent_sighup)
@@ -202,8 +202,8 @@ namespace Protocol {
 
     private:
         bool first_run = true;
-        unsigned char requestId = NUM_IDS;
-        unsigned char acknowledgeId = NUM_IDS;
+        unsigned char incomingRequest = NUM_IDS;
+        unsigned char waitingConfirmation = NUM_IDS;
         void read_hook(unsigned char& data)
         {
             auto state_code = std::bitset<8> { data };
@@ -245,7 +245,7 @@ namespace Protocol {
             } else {
                 if (_vars.received_sighup)
                     SFA::util::logic_error(SFA::util::error_code::NotIdleAfterSighup, __FILE__, __func__, typeid(*this).name());
-                requestId = receive_transferRequest(state_code.to_ulong());
+                incomingRequest = receive_transferRequest(state_code.to_ulong());
             }
         }
         void send_poweronRequest()
@@ -303,16 +303,16 @@ namespace Protocol {
         }
         void acknowledge_hook()
         {
-            if (acknowledgeId != requestId) { // send_acknowledge has priority over start_transfer
-                if (this->descriptors[acknowledgeId].readLock)
+            if (waitingConfirmation < NUM_IDS) {
+                if (this->descriptors[waitingConfirmation].readLock)
                     SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
-                if (this->descriptors[acknowledgeId].transfer)
+                if (this->descriptors[waitingConfirmation].transfer)
                     SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
-                if (!this->descriptors[acknowledgeId].readLock) { // requires last read_object byte
-                    this->descriptors[acknowledgeId].transfer = true;
-                    //this->descriptors[acknowledgeId].unsynced = false;
-                    std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
-                    emit_transfer(acknowledgeId);
+                if (!this->descriptors[waitingConfirmation].readLock) { // requires last read_object byte
+                    this->descriptors[waitingConfirmation].transfer = true;
+                    //this->descriptors[waitingConfirmation].unsynced = false;
+                    std::cout << typeid(*this).name() << "." << "A" << std::to_string(waitingConfirmation) << std::endl;
+                    emit_transfer(waitingConfirmation);
                     collect_send();
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
@@ -321,15 +321,25 @@ namespace Protocol {
         }
         void transfer_hook()
         {
-            if (!this->descriptors[requestId].readLock)
-                if (!this->descriptors[requestId].transfer) {
-                    emit_readlocked(requestId);
-                    this->descriptors[requestId].readLock = true;
-                    std::cout << typeid(*this).name() << "." << "L" << std::to_string(requestId) << std::endl;
-                    send_acknowledge();
-                } else {
-                    SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
-                }
+            if (incomingRequest < NUM_IDS)
+                if (incomingRequest != waitingConfirmation) // start_transfer has priority over send_acknowledge
+                    if (!this->descriptors[incomingRequest].readLock) // BUG: requires read_object
+                        //if (this->descriptors[incomingRequest].readLock)
+                        //    SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(incomingRequest), __func__, typeid(*this).name());
+                        if (!check_sync(incomingRequest)) { // BUG
+                            if (!this->descriptors[incomingRequest].transfer) {
+                                emit_readlocked(incomingRequest);
+                                this->descriptors[incomingRequest].readLock = true;
+                                std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
+                                send_acknowledge();
+                            } else {
+                                SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
+                            }
+                        } else {
+                            if (!this->descriptors[incomingRequest].transfer) // OVERRIDE
+                                SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
+                        }
+
         }
         virtual void collect_request() final
         {
@@ -436,7 +446,7 @@ namespace Protocol {
                 if (check_sync(j) && !this->descriptors[j].transfer) {
                     if (this->descriptors[j].readLock)
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
-                    acknowledgeId = j;
+                    waitingConfirmation = j;
                     _vars.acknowledgeRequested = true;
                     send_transferRequest(j);
                     return true;
