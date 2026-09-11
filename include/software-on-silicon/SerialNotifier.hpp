@@ -351,6 +351,10 @@ namespace Behavior {
                             break;
                         case SOS::Protocol::readstart:
                             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
+                            if (!_dBus.signal[id].sync_me.test_and_set()) {
+                                _dBus.signal[id].write_fault.clear();
+                                _dBus.signal[id].write_ack.clear();
+                            }
                             read_started_id[id] = true;
                             break;
                         case SOS::Protocol::readend:
@@ -360,6 +364,7 @@ namespace Behavior {
                             transferIn = {true, id};
                             break;
                         case SOS::Protocol::writestart:
+                            _dBus.signal[id].sync_me.test_and_set();
                             std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::transfersend);
                             std::get<0>(newBus.cables).getWordRef().store(id);
                             transferOut = {true, id};

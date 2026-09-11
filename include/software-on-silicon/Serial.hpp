@@ -301,7 +301,7 @@ namespace Protocol {
                                 SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
                             if (!this->descriptors[j].readLock) {
                                 this->descriptors[j].transfer = true;
-                                this->descriptors[j].unsynced = false;
+                                //this->descriptors[j].unsynced = false;
                                 emit_transfer(j);
                                 collect_send();
                                 // std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
