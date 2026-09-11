@@ -77,8 +77,10 @@ namespace Protocol {
                     std::tie(_vars.received_request, _vars.received_acknowledge) = receive_signals();
                     _vars.received_idle = false;
                     if (_vars.received_request) {
+                        requestId = NUM_IDS;
                         read_hook(data);
-                        transfer_hook();
+                        if (requestId != NUM_IDS)
+                            transfer_hook();
                     } else {
                         this->read_object(data);
                     }
@@ -86,18 +88,20 @@ namespace Protocol {
                         if (!_vars.acknowledgeRequested) {
                             SFA::util::logic_error(SFA::util::error_code::AcknowledgeReceivedWithoutAnyRequest, __FILE__, __func__, typeid(*this).name());
                         } else {
-                            acknowledge_hook();
-                            acknowledgeId = NUM_IDS;
-                            requestId = NUM_IDS;
-                            _vars.acknowledgeRequested = false;
+                            if (acknowledgeId != NUM_IDS)
+                                acknowledge_hook();
                         }
+                        _vars.acknowledgeRequested = false;
                     } else {
                         if (_vars.acknowledgeRequested) {
+                            //clear sync_me
+                            //this->bus2.signal[acknowledgeId].sync_me.test_and_set();
                             SFA::util::runtime_error(SFA::util::error_code::PreviousTransferHasNotBeenAcknowledged, __FILE__, __func__, typeid(*this).name());
                         }
                     }
                 }
                 // OUT
+                acknowledgeId = NUM_IDS;
                 if (!write_hook()) // collect_unsynced
                     if (!this->write_object()) // inform_write_end
                         send_idleRequest();
@@ -300,88 +304,73 @@ namespace Protocol {
         void acknowledge_hook()
         {
             if (acknowledgeId != requestId) { // send_acknowledge has priority over start_transfer
-                bool gotOne = false;
-                for (unsigned char j = 0; j < this->descriptors.size() && !gotOne; j++) {
-                    if (this->descriptors[j].id == acknowledgeId) {
-                        if (this->descriptors[j].readLock)
-                            SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
-                        if (this->descriptors[j].transfer)
-                            SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
-                        if (!this->descriptors[j].readLock) { // requires last read_object byte
-                            this->descriptors[j].transfer = true;
-                            //this->descriptors[j].unsynced = false;
-                            std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
-                            emit_transfer(j);
-                            collect_send();
-                            gotOne = true;
-                        } else {
-                            SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
-                        }
-                    }
+                if (this->descriptors[acknowledgeId].readLock)
+                    SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
+                if (this->descriptors[acknowledgeId].transfer)
+                    SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
+                if (!this->descriptors[acknowledgeId].readLock) { // requires last read_object byte
+                    this->descriptors[acknowledgeId].transfer = true;
+                    //this->descriptors[acknowledgeId].unsynced = false;
+                    std::cout << typeid(*this).name() << "." << "A" << std::to_string(acknowledgeId) << std::endl;
+                    emit_transfer(acknowledgeId);
+                    collect_send();
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
                 }
-                if (!gotOne)
-                    SFA::util::logic_error(SFA::util::error_code::AcknowledgeIdDoesNotReferenceAValidObject, __FILE__, __func__, typeid(*this).name());
             }
         }
         void transfer_hook()
         {
-            for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (this->descriptors[j].id == requestId) {
-                    if (this->descriptors[j].readLock)
-                        SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(requestId), __func__, typeid(*this).name());
-                    if (!this->descriptors[j].transfer) {
-                        emit_readlocked(j);
-                        this->descriptors[j].readLock = true;
-                        std::cout << typeid(*this).name() << "." << "L" << std::to_string(j) << std::endl;
-                        send_acknowledge(); // ALWAYS: use write_bits to set request and acknowledge flags
-                    } else {
-                        SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
-                    }
+            if (!this->descriptors[requestId].readLock)
+                if (!this->descriptors[requestId].transfer) {
+                    emit_readlocked(requestId);
+                    this->descriptors[requestId].readLock = true;
+                    std::cout << typeid(*this).name() << "." << "L" << std::to_string(requestId) << std::endl;
+                    send_acknowledge();
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
                 }
-            }
         }
         virtual void collect_request() final
         {
-            bool requested = false;
             while (this->bus3.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
             auto instruction = std::get<0>(this->bus3.cables).getOpcodeRef().load();
             auto id = std::get<0>(this->bus3.cables).getWordRef().load();
             std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
             std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            if (instruction == SOS::Protocol::transferrequest)
-                requested = true;
-            this->bus3.signal.getUpdatedRef().clear();
-            unsigned long i = 0;
-            while (i < this->descriptors[id].obj_size) {
-                if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
-                    i++;
-                    std::get<0>(this->bus3.cables).getWordRef().store(*reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i);
-                    this->bus3.signal.getAcknowledgeRef().clear();
+            if (instruction == SOS::Protocol::transferrequest) {
+                this->bus3.signal.getUpdatedRef().clear();
+                unsigned long i = 0;
+                while (i < this->descriptors[id].obj_size) {
+                    if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
+                        i++;
+                        std::get<0>(this->bus3.cables).getWordRef().store(*reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i);
+                        this->bus3.signal.getAcknowledgeRef().clear();
+                    }
+                    std::this_thread::yield();
                 }
-                std::this_thread::yield();
             }
         }
         virtual void collect_send() {
-            bool send = false;
             while (this->bus3.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
             auto instruction = std::get<0>(this->bus3.cables).getOpcodeRef().load();
             auto id = std::get<0>(this->bus3.cables).getWordRef().load();
             std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
             std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            if (instruction == SOS::Protocol::transfersend)
-                send = true;
-            this->bus3.signal.getUpdatedRef().clear();
-            unsigned long i = 0;
-            while (i < this->descriptors[id].obj_size) {
-                if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
-                    i++;
-                    auto tmp = reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i;
-                    *reinterpret_cast<unsigned char*>(tmp) = std::get<0>(this->bus3.cables).getWordRef().load();
-                    this->bus3.signal.getAcknowledgeRef().clear();
+            if (instruction == SOS::Protocol::transfersend){
+                this->bus3.signal.getUpdatedRef().clear();
+                unsigned long i = 0;
+                while (i < this->descriptors[id].obj_size) {
+                    if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
+                        i++;
+                        auto tmp = reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i;
+                        *reinterpret_cast<unsigned char*>(tmp) = std::get<0>(this->bus3.cables).getWordRef().load();
+                        this->bus3.signal.getAcknowledgeRef().clear();
+                    }
+                    std::this_thread::yield();
                 }
-                std::this_thread::yield();
             }
         }
         virtual bool check_sync(std::size_t obj_id) {
@@ -449,7 +438,7 @@ namespace Protocol {
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                     acknowledgeId = j;
                     _vars.acknowledgeRequested = true;
-                    send_transferRequest(this->descriptors[j].id);
+                    send_transferRequest(j);
                     return true;
                 }
             }

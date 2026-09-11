@@ -324,7 +324,7 @@ namespace Behavior {
                 while (i < _dBus.descriptors[std::get<1>(transferIn)].obj_size) {
                     if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
                         i++;
-                        doubleBuffer[std::get<1>(transferIn)][i] = std::get<0>(newBus.cables).getWordRef().load();
+                        //doubleBuffer[std::get<1>(transferIn)][i] = std::get<0>(newBus.cables).getWordRef().load();
                         newBus.signal.getUpdatedRef().clear();
                     }
                     std::this_thread::yield();
@@ -336,7 +336,7 @@ namespace Behavior {
                 while (i < _dBus.descriptors[std::get<1>(transferOut)].obj_size) {
                     if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
                         i++;
-                        std::get<0>(newBus.cables).getWordRef().store(doubleBuffer[std::get<1>(transferOut)][i]);
+                        //std::get<0>(newBus.cables).getWordRef().store(doubleBuffer[std::get<1>(transferOut)][i]);
                         newBus.signal.getUpdatedRef().clear();
                     }
                     std::this_thread::yield();
