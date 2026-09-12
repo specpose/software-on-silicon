@@ -1,42 +1,24 @@
 namespace SOS {
-namespace Behavior {
+/*namespace Behavior {
     template <typename S, typename... Others>
-    class SerialPassthruBootstrapEventController : public Controller<S>, public Stoppable, protected StoppableEventSubController {
+    class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        SerialPassthruBootstrapEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
         : Controller<S>()
-        , Stoppable()
-        , StoppableEventSubController(signal)
+        , Loop()
+        , EventSubController(signal)
         , _foreign(passThru)
-        , _child(new S { _foreign, args... })
+        , _child( _foreign, args... )
         {
         }
-        ~SerialPassthruBootstrapEventController()
-        {
-            if (_child) {
-                // SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
-                delete _child;
-                _child = nullptr;
-            }
-        }
-        void stop_descendants()
-        {
-            if (_child) {
-                delete _child;
-                _child = nullptr;
-            } else {
-                SFA::util::runtime_error(SFA::util::error_code::ChildHasAlreadyBeenDeleted, __FILE__, __func__, typeid(*this).name());
-            }
-        }
-        bool descendants_stopped() { return !_child; }
 
     protected:
         typename S::bus_type& _foreign;
 
     private:
-        S* _child = nullptr;
+        S _child = nullptr;
     };
-}
+}*/
 namespace Protocol {
     struct com_vars {
         bool received_idle = false;
@@ -48,20 +30,18 @@ namespace Protocol {
         bool acknowledgeRequested = false;
         bool received_request = false;
         bool received_acknowledge = false;
+        bool descendants_notified = false;
     };
     template <typename ControllerType, typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>  {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>  {
     public:
         Serial(SOS::MemoryView::DoubleHandShake& signal)
             : SOS::Protocol::BlockWiseTransfer<Objects...>()
-            , SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType
+            , SOS::Behavior::PassthruEventController<ControllerType
             , SOS::MemoryView::SerialAsyncBus<Objects...>>(signal, this->bus3, this->bus2)
         {
         }
-        ~Serial()
-        {
-            std::cout << typeid(*this).name() << " shutdown" << std::endl;
-        }
+        virtual ~Serial() {}; // request_shutdown_action
         virtual void event_loop() final
         {
             std::this_thread::yield();
@@ -70,8 +50,6 @@ namespace Protocol {
                 if (first_run) {
                     emit_init();
                 } else {
-                    if (aux())
-                        request_shutdown_action();
                     unsigned char data = this->read_byte();
                     this->read_bits(data);
                     std::tie(_vars.received_request, _vars.received_acknowledge) = receive_signals();
@@ -106,35 +84,21 @@ namespace Protocol {
                     if (!this->write_object())
                         send_idleRequest();
                 this->bus2.signal.getNotifyRef().clear();
-                if (_vars.sent_sighup)
-                    aux_ack();
                 handshake_ack();
             }
         }
 
     protected:
-        virtual bool descendants_stopped() final { return SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::descendants_stopped(); }
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
         }
         virtual void handshake_ack() final
         {
-            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAcknowledgeRef().clear();
-        }
-        virtual bool aux() final
-        {
-            if (!SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAuxUpdatedRef().test_and_set()) {
-                return true;
-            }
-            return false;
-        }
-        virtual void aux_ack() final
-        {
-            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAuxAcknowledgeRef().clear();
+            SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
@@ -148,9 +112,9 @@ namespace Protocol {
             std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::serviceinterrupted);
             std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
             this->bus3.signal.getAcknowledgeRef().clear();
-            SOS::Behavior::SerialPassthruBootstrapEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
+            _vars.descendants_notified = true;
+            //SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
         };
-        virtual void request_shutdown_action() = 0;
         virtual void com_shutdown_action() = 0;
         virtual void com_sighup_action() = 0;
         virtual bool exit_query() = 0;
@@ -271,7 +235,7 @@ namespace Protocol {
             send_request();
             auto id_bits = std::bitset<8> { state::idle };
             this->write_bits(id_bits);
-            // std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
+            std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
             this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             if (_vars.sent_sighup)
                 _vars.sent_idle = true;

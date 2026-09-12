@@ -237,14 +237,14 @@ namespace Behavior {
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
-        void transfer(std::size_t id) {
+        void resolve(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
                 if (dBus.signal[id].read_fault.test_and_set()) {
                     read[id].result = true;
                     read[id].ready.clear();
                 } else
                 {
-                    SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                    //SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
                     read[id].result = false;
                     read[id].ready.clear();
@@ -389,7 +389,7 @@ namespace Behavior {
                         case SOS::Protocol::serviceinterrupted:
                             for (std::size_t i = 0; i < _dBus.signal.size(); ++i) {
                                 if (read_started_id[i]) {
-                                    std::cout << typeid(*this).name() << ": object id " << i << " enters illegal state" << std::endl;
+                                    std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
                                     _dBus.signal[i].read_fault.clear();
                                     read_started_id[i] = false;
                                 }

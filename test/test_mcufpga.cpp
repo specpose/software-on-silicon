@@ -1,11 +1,11 @@
 #include "MCUFPGA.cpp"
 COM_BUFFER fpga_in_buffer;
 COM_BUFFER fpga_out_buffer;
-SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
 bool firstrun = true;
+static std::atomic_flag delete_fpga = ATOMIC_FLAG_INIT;
 COM_BUFFER mcu_in_buffer;
 COM_BUFFER mcu_out_buffer;
-SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
+static std::atomic_flag delete_mcu = ATOMIC_FLAG_INIT;
 
 #include <unistd.h>
 #include <signal.h>
@@ -47,7 +47,7 @@ void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFE
 void usr1_handler(int signum, siginfo_t* info, void* extra)
 {
     std::cout << signum << ": thread id " << getpid() << std::endl;
-    fpgabus.signal.getAuxUpdatedRef().clear();
+    delete_fpga.clear();
 }
 
 int main()
@@ -56,9 +56,12 @@ int main()
     FILE* pidFile = fopen(pidPath, "w");
     fprintf(pidFile, "%ld", (long)getpid());
     fclose(pidFile);
+    SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
     auto host = new MCU(mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
     bool host_request_stop = false;
     bool host_delete = false;
+    delete_mcu.test_and_set();
+    SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
     auto client = new FPGA(fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
     struct sigaction usr1 = { 0 };
     usr1.sa_sigaction = &usr1_handler;
@@ -66,7 +69,7 @@ int main()
     usr1.sa_flags = SA_SIGINFO;
     sigaction(SIGUSR1, &usr1, NULL);
     bool client_delete = false;
-    bool stop = false;
+    delete_fpga.test_and_set();
     bool nomoresignal = false;
     const auto start = std::chrono::high_resolution_clock::now();
     auto nomoresignal_time = start;
@@ -82,11 +85,11 @@ int main()
         // HOST THREAD
         if (nomoresignal && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - nomoresignal_time).count() < 2)) {
             if (!host_request_stop) {
-                mcubus.signal.getAuxUpdatedRef().clear();
+                delete_mcu.clear();
                 host_request_stop = true;
             } else {
                 if (host && !host_delete)
-                    if (!mcubus.signal.getAuxAcknowledgeRef().test_and_set()) {
+                    if (!delete_mcu.test_and_set()) {
                         delete host;
                         host = nullptr;
                         host_delete = true;
@@ -95,7 +98,7 @@ int main()
         }
         // CLIENT THREAD
         if (client && !client_delete)
-            if (!fpgabus.signal.getAuxAcknowledgeRef().test_and_set()) {
+            if (!delete_fpga.test_and_set()) {
                 delete client;
                 client = nullptr;
                 client_delete = true;

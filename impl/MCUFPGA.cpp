@@ -18,6 +18,7 @@
 #include "MCUFPGA/TrueColor.cpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include "ByteWiseTransfer.cpp"
+#include "software-on-silicon/MemoryController.hpp" // REMOVE Passthru
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/MCUFPGA.hpp"
@@ -36,7 +37,7 @@ public:
     void event_loop()
     {
         // SIGNALING
-        transfer(0);
+        resolve(0);
         if (!_intrinsic.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
@@ -126,7 +127,7 @@ public:
     void event_loop()
     {
         // SIGNALING
-        transfer(0);
+        resolve(0);
         if (!_intrinsic.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
@@ -196,13 +197,17 @@ public:
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
-        _thread = SOS::Behavior::Stoppable::start(this);
+        _thread = SOS::Behavior::Loop::start(this);
     }
-    ~FPGA()
+    virtual ~FPGA() final
     {
-        // while (!exit_query())
-        //     std::this_thread::yield();
-        SOS::Behavior::Stoppable::destroy(_thread);
+        //Interface
+        this->stop_notifier();
+        while (!exit_query())
+            std::this_thread::yield();
+        std::cout << typeid(*this).name() << " shutdown" << std::endl;
+        SOS::Behavior::Loop::destroy(_thread);
+        //Debug
         kill_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
@@ -210,10 +215,6 @@ public:
         if (SOS::Protocol::Serial<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
-    virtual void request_shutdown_action() final // Only from Ctrl-C
-    {
-        stop_notifier();
-    };
     virtual void com_hotplug_action() final
     {
         this->clear_read_receive();
@@ -232,7 +233,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (!transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && descendants_stopped())
+        if (!transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && _vars.descendants_notified)
             return true;
         return false;
     }
@@ -259,22 +260,22 @@ public:
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
-        _thread = SOS::Behavior::Stoppable::start(this);
+        _thread = SOS::Behavior::Loop::start(this);
     }
-    ~MCU()
+    virtual ~MCU() final
     {
-        // while (!exit_query())
-        //     std::this_thread::yield();
-        SOS::Behavior::Stoppable::destroy(_thread);
+        //Interface
+        while (!exit_query())
+            std::this_thread::yield();
+        std::cout << typeid(*this).name() << " shutdown" << std::endl;
+        SOS::Behavior::Loop::destroy(_thread);
+        //Debug
         kill_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
         if (SOS::Protocol::Serial<MCUProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
-    }
-    virtual void request_shutdown_action() final // Only from Ctrl-C
-    {
     }
     virtual void com_hotplug_action() final
     {
@@ -299,7 +300,7 @@ public:
     }
     virtual bool incoming_shutdown_query() final
     {
-        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && descendants_stopped())
+        if (_vars.received_com_shutdown && !transfers_pending() && !_vars.acknowledgeRequested && !_vars.received_acknowledge && _vars.descendants_notified)
             return true;
         return false;
     }

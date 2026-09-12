@@ -94,6 +94,8 @@ namespace Behavior {
             , SOS::Protocol::Serial<ControllerType, Objects...>(myBus.signal)
         {
         }
+        ~SimulationFPGA() {
+        };
 
     private:
         virtual unsigned char read_byte() final
@@ -151,6 +153,8 @@ namespace Behavior {
             : SOS::Protocol::SimulationBuffers<COM_BUFFER>(std::get<0>(myBus.const_cables), std::get<0>(myBus.cables))
             , SOS::Protocol::Serial<ControllerType, Objects...>(myBus.signal)
         {
+        }
+        ~SimulationMCU() {
         }
 
     private:

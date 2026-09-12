@@ -29,7 +29,7 @@ enum SFA::util::error_code : unsigned char {
     PreviousTransferHasNotBeenAcknowledged,
     InvalidAcknowledgeId,
     SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired,
-    DMAObjectHasEnteredAnIllegalSyncState,
+    DMAObjectHasEnteredAnInaccessibleSyncState,
     FoundATransferObjectWhichIsUnsynced,
     FoundATransferObjectWhichIsReadlocked,
     PreviousObjectWriteHasNotBeenCompleted,
@@ -126,8 +126,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Invalid acknowledgeId");
     case error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired:
         return std::string("Synced status has not been overriden when readLock was acquired");
-    case error_code::DMAObjectHasEnteredAnIllegalSyncState:
-        return std::string("DMAObject has entered an illegal sync state");
+    case error_code::DMAObjectHasEnteredAnInaccessibleSyncState:
+        return std::string("DMAObject has entered an inaccessible sync state");
     case error_code::FoundATransferObjectWhichIsUnsynced:
         return std::string("Found a transfer object which is unsynced");
     case error_code::FoundATransferObjectWhichIsReadlocked:
