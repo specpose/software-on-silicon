@@ -277,7 +277,6 @@ namespace Protocol {
                     //this->descriptors[waitingConfirmation].unsynced = false;
                     std::cout << typeid(*this).name() << "." << "A" << std::to_string(waitingConfirmation) << std::endl;
                     emit_transfer(waitingConfirmation);
-                    collect_send();
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
                 }
@@ -305,48 +304,6 @@ namespace Protocol {
                 }
             }
 
-        }
-        virtual void collect_request() final
-        {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            auto instruction = std::get<0>(this->bus3.cables).getOpcodeRef().load();
-            auto id = std::get<0>(this->bus3.cables).getWordRef().load();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
-            std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            if (instruction == SOS::Protocol::transferrequest) {
-                this->bus3.signal.getUpdatedRef().clear();
-                unsigned long i = 0;
-                while (i < this->descriptors[id].obj_size) {
-                    if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
-                        i++;
-                        std::get<0>(this->bus3.cables).getWordRef().store(*reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i);
-                        this->bus3.signal.getAcknowledgeRef().clear();
-                    }
-                    std::this_thread::yield();
-                }
-            }
-        }
-        virtual void collect_send() {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            auto instruction = std::get<0>(this->bus3.cables).getOpcodeRef().load();
-            auto id = std::get<0>(this->bus3.cables).getWordRef().load();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
-            std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            if (instruction == SOS::Protocol::transfersend){
-                this->bus3.signal.getUpdatedRef().clear();
-                unsigned long i = 0;
-                while (i < this->descriptors[id].obj_size) {
-                    if (!this->bus3.signal.getUpdatedRef().test_and_set()) {
-                        i++;
-                        auto tmp = reinterpret_cast<unsigned char*>(this->descriptors[id].obj)+i;
-                        *reinterpret_cast<unsigned char*>(tmp) = std::get<0>(this->bus3.cables).getWordRef().load();
-                        this->bus3.signal.getAcknowledgeRef().clear();
-                    }
-                    std::this_thread::yield();
-                }
-            }
         }
         virtual bool check_sync(std::size_t obj_id) {
             while (this->bus3.signal.getUpdatedRef().test_and_set())

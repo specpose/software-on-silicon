@@ -23,10 +23,10 @@
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/MCUFPGA.hpp"
 
-class FPGASimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
+class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
     FPGASimpleDummy(bus_type& bus)
-        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus)
+        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
 
     {
         _thread = SOS::Behavior::Loop::start(this);
@@ -113,10 +113,10 @@ private:
     bus_type& _nBus;
     std::thread _thread;
 };
-class MCUSimpleDummy : public SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA> {
+class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
     MCUSimpleDummy(bus_type& bus)
-        : SOS::Behavior::SerialSimpleDummy<TrueColorClass, DMA, DMA>(bus)
+        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
     {
         _intrinsic[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);

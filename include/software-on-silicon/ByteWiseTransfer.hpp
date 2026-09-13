@@ -69,7 +69,6 @@ namespace Protocol {
                         descriptors[readDestination].readLock = false;
                         receive_lock = false;
                         emit_received(readDestination);
-                        collect_request();
                         ++rx_counter[readDestination]; // DEBUG
                         // std::cout << typeid(*this).name() << "." << "R" << std::to_string(readDestination) << std::endl;
                         readDestinationPos = 0;
@@ -94,7 +93,6 @@ namespace Protocol {
         unsigned char writeOrigin = NUM_IDS;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
-        virtual void collect_request() = 0;
         std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors {};
         SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
