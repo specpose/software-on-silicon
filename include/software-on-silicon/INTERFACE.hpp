@@ -215,12 +215,12 @@ namespace Behavior {
         AsyncController()
             : Controller<S>()
             , Loop()
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;
@@ -232,12 +232,12 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;
@@ -249,12 +249,12 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , EventSubController(signal)
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;

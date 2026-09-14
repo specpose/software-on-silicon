@@ -96,10 +96,10 @@ namespace MemoryView {
             write_fault.test_and_set();
             sync_me.test_and_set();
         }
-        SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
+        //SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
         std::atomic_flag read_ack = ATOMIC_FLAG_INIT; // Processing and Async
         std::atomic_flag read_fault = ATOMIC_FLAG_INIT; // Processing and Async
-        SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
+        //SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
         std::atomic_flag write_ack = ATOMIC_FLAG_INIT; // Processing and Async
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT; // Processing and Async
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT; // Processing and Async
@@ -117,9 +117,8 @@ namespace MemoryView {
         bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
-        SerialAsyncBus(SOS::Protocol::DescriptorHelper& descr) : descriptors(descr) {}
+        //SerialAsyncBus() : signal() {}
         signal_type signal;
-        SOS::Protocol::DescriptorHelper& descriptors;
     };
 }
 namespace Protocol {
@@ -221,7 +220,7 @@ namespace Behavior {
         typename bus_type::signal_type& _intrinsic;
     };
     template <typename... Objects>
-    class SequentialResolver : public Loop, protected SerialSimpleSubController<Objects...> {
+    class SequentialResolver : public Loop, protected SerialSimpleSubController<Objects...> { // SerialSimpleDummy
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
         using SerialSimpleSubController<Objects...>::_intrinsic;
@@ -238,18 +237,18 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!dBus.signal[id].read_ack.test_and_set()) {
                 if (dBus.signal[id].read_fault.test_and_set()) {
-                    unsigned long i = 0;
-                    while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
-                            i++;
-                            doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
-                        } else {
-                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
-                                std::this_thread::yield();
-                            i = 0;
-                        }
-                        std::this_thread::yield();
-                    }
+                    //unsigned long i = 0;
+                    //while (i < dBus.descriptors[id].obj_size) {
+                    //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
+                    //        i++;
+                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
+                    //    } else {
+                    //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
+                    //            std::this_thread::yield();
+                    //        i = 0;
+                    //    }
+                    //    std::this_thread::yield();
+                    //}
                     read[id].result = true;
                     read[id].ready.clear();
                 } else
@@ -262,18 +261,18 @@ namespace Behavior {
             }
             if (!dBus.signal[id].write_ack.test_and_set()) {
                 if (dBus.signal[id].write_fault.test_and_set()){
-                    unsigned long i = 0;
-                    while (i < dBus.descriptors[id].obj_size) {
-                        if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
-                            i++;
-                            auto tmp = reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
-                            *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
-                        } else {
-                            while (_intrinsic[id].read_op.getSecondRef().test_and_set())
-                                std::this_thread::yield();
-                            i = 0;
-                        }
-                    }
+                    //unsigned long i = 0;
+                    //while (i < dBus.descriptors[id].obj_size) {
+                    //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
+                    //        i++;
+                    //        auto tmp = reinterpret_cast<unsigned char*>(dBus.descriptors[id].obj)+i;
+                    //        *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
+                    //    } else {
+                    //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
+                    //            std::this_thread::yield();
+                    //        i = 0;
+                    //    }
+                    //}
                     write[id].result = true;
                     write[id].ready.clear();
                 } else
@@ -296,7 +295,7 @@ namespace Behavior {
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };
-    class SerialEventSubController : public SubController {
+    /*class SerialEventSubController : public SubController {
     public:
         using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
         constexpr SerialEventSubController(typename bus_type::signal_type& signal)
@@ -308,101 +307,98 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
-    template <typename S, typename... Others>
-    class SerialPassthruEventController : public Controller<S>, public Loop, protected SerialEventSubController {
+    template <typename S>
+    class SerialEventController : public Controller<S>, public Loop, protected SerialEventSubController {
     public:
         using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
-        SerialPassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        SerialEventController(typename bus_type::signal_type& signal)
             : Controller<S>()
             , Loop()
             , SerialEventSubController(signal)
-            , _foreign(passThru)
-            , _child(_foreign, args...)
+            , _child(S { _foreign })
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type _foreign = typename S::bus_type {};
 
     private:
         S _child;
-    };
+    };*/
     template <typename S>
-    class SerialProcessing : public SOS::Behavior::SerialPassthruEventController<S> {
+    class SerialProcessing : public SOS::Behavior::EventController<S> {
     public:
         using bus_type = SOS::MemoryView::SequentialBus;
-        using SerialPassthruEventController<S>::_intrinsic;
-        SerialProcessing(bus_type& bus, typename S::bus_type& passThru)
-            : SOS::Behavior::SerialPassthruEventController<S>(bus.signal, passThru)
-            , newBus(bus)
-            , _dBus(passThru)
+        SerialProcessing(bus_type& bus)
+            : SOS::Behavior::EventController<S>(bus.signal)
+            , _sBus(bus)
         {
-            newBus.signal.getUpdatedRef().clear();
+            this->_intrinsic.getUpdatedRef().clear();
         }
         void event_loop()
         {
             if (init) {
             } else {
-                if (!newBus.signal.getAcknowledgeRef().test_and_set()) {
-                    auto instruction = std::get<0>(newBus.cables).getOpcodeRef().load();
-                    auto id = std::get<0>(newBus.cables).getWordRef().load();
-                    std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
-                    std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
+                if (!this->_intrinsic.getAcknowledgeRef().test_and_set()) {
+                    auto instruction = std::get<0>(_sBus.cables).getOpcodeRef().load();
+                    auto id = std::get<0>(_sBus.cables).getWordRef().load();
+                    std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
+                    std::get<0>(_sBus.cables).getWordRef().store(NUM_IDS);
                     switch (instruction) {
                         case SOS::Protocol::init:
                             break;
                         case SOS::Protocol::checksync:
-                            std::get<0>(newBus.cables).getOpcodeRef().store(SOS::Protocol::syncresponse);
-                            if (!_dBus.signal[id].sync_me.test_and_set()) {
-                                _dBus.signal[id].sync_me.clear();
-                                std::get<0>(newBus.cables).getWordRef().store(id);
+                            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::syncresponse);
+                            if (!this->_foreign.signal[id].sync_me.test_and_set()) {
+                                this->_foreign.signal[id].sync_me.clear();
+                                std::get<0>(_sBus.cables).getWordRef().store(id);
                             } else {
-                                std::get<0>(newBus.cables).getWordRef().store(NUM_IDS);
+                                std::get<0>(_sBus.cables).getWordRef().store(NUM_IDS);
                             }
                             break;
                         case SOS::Protocol::readstart:
                             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-                            if (!_dBus.signal[id].sync_me.test_and_set()) {
-                                _dBus.signal[id].write_fault.clear();
-                                _dBus.signal[id].write_ack.clear();
+                            if (!this->_foreign.signal[id].sync_me.test_and_set()) {
+                                this->_foreign.signal[id].write_fault.clear();
+                                this->_foreign.signal[id].write_ack.clear();
                             }
                             read_started_id[id] = true;
                             break;
                         case SOS::Protocol::readend:
                             read_started_id[id] = false;
-                            _dBus.signal[id].read_ack.clear();
+                            this->_foreign.signal[id].read_ack.clear();
                             break;
                         case SOS::Protocol::writestart:
-                            _dBus.signal[id].sync_me.test_and_set();
+                            this->_foreign.signal[id].sync_me.test_and_set();
                             break;
                         case SOS::Protocol::writeend:
                             if (id == 1 || id == 2) {
                                 std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
                             }
-                            _dBus.signal[id].write_ack.clear();
+                            this->_foreign.signal[id].write_ack.clear();
                             break;
                         case SOS::Protocol::serviceinterrupted:
-                            for (std::size_t i = 0; i < _dBus.signal.size(); ++i) {
+                            for (std::size_t i = 0; i < this->_foreign.signal.size(); ++i) {
                                 if (read_started_id[i]) {
                                     std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
-                                    _dBus.signal[i].read_fault.clear();
+                                    this->_foreign.signal[i].read_fault.clear();
                                     read_started_id[i] = false;
                                 }
                             }
                             break;
                     }
-                    newBus.signal.getUpdatedRef().clear();
+                    this->_intrinsic.getUpdatedRef().clear();
                 }
             }
+            this->_foreign.signal.getNotifyRef().clear();
             std::this_thread::yield();
         }
 
     protected:
         std::bitset<NUM_IDS> read_started_id {};
+        bus_type& _sBus;
 
     private:
-        bus_type& newBus;
-        typename S::bus_type& _dBus;
         bool init = false;
     };
 }

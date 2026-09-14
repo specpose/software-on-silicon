@@ -18,7 +18,6 @@
 #include "MCUFPGA/TrueColor.cpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include "ByteWiseTransfer.cpp"
-#include "software-on-silicon/MemoryController.hpp" // REMOVE Passthru
 #include "software-on-silicon/Serial.hpp"
 #define COM_BUFFER std::array<unsigned char, 1>
 #include "software-on-silicon/MCUFPGA.hpp"
@@ -66,9 +65,8 @@ private:
 };
 class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGASimpleDummy> {
 public:
-    FPGAProcessingSwitch(bus_type& bus, FPGASimpleDummy::bus_type& bus2)
-        : SOS::Behavior::SerialProcessing<FPGASimpleDummy>(bus, bus2)
-        , _nBus(bus)
+    FPGAProcessingSwitch(bus_type& bus)
+        : SOS::Behavior::SerialProcessing<FPGASimpleDummy>(bus)
     {
         //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
@@ -77,8 +75,8 @@ public:
             // EDIT
             int writeBlinkCounter = 0;
             bool writeBlink = true;
-            for (std::size_t i = 0; i < sizeof(std::get<1>(_nBus.objects)); i++) {
-                std::get<1>(_nBus.objects)[i] = writeBlink? '*' : '_';
+            for (std::size_t i = 0; i < sizeof(std::get<1>(_sBus.objects)); i++) {
+                std::get<1>(_sBus.objects)[i] = writeBlink? '*' : '_';
                 writeBlinkCounter++;
                 if (writeBlink && writeBlinkCounter == 84) {
                     writeBlink = false;
@@ -93,7 +91,7 @@ public:
                 bus.sync_id[1] = true;
                 write_status[1] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
                 // CALLBACK
-                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_nBus.objects)));
+                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_sBus.objects)));
                 t.detach();
             } else {
                 SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
@@ -110,7 +108,6 @@ public:
     virtual void event_loop() final { SOS::Behavior::SerialProcessing<FPGASimpleDummy>::event_loop(); }
 
 private:
-    bus_type& _nBus;
     std::thread _thread;
 };
 class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
@@ -156,22 +153,21 @@ private:
 };
 class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUSimpleDummy> {
 public:
-    MCUProcessingSwitch(bus_type& bus, MCUSimpleDummy::bus_type& bus2)
-        : SOS::Behavior::SerialProcessing<MCUSimpleDummy>(bus, bus2)
-        , _nBus(bus)
+    MCUProcessingSwitch(bus_type& bus)
+        : SOS::Behavior::SerialProcessing<MCUSimpleDummy>(bus)
     {
         //counterBus.signal.getUpdatedRef().clear();
         // LOCK
         /*auto fut = write_status[2].get();
         // EDIT
         // if (fut){
-        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_nBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_nBus.objects))+sizeof(std::get<2>(_nBus.objects)),'-');
+        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects))+sizeof(std::get<2>(_sBus.objects)),'-');
         // SEND
         if (!write_status[2].valid()) {
             bus.sync_id[2] = true;
             write_status[2] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
             // CALLBACK
-            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_nBus.objects)));
+            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_sBus.objects)));
             t.detach();
         } else {
             SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
@@ -186,7 +182,6 @@ public:
     virtual void event_loop() final { SOS::Behavior::SerialProcessing<MCUSimpleDummy>::event_loop(); }
 
 private:
-    bus_type& _nBus;
     std::thread _thread;
 };
 class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColorClass, DMA, DMA> {

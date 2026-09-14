@@ -33,12 +33,11 @@ namespace Protocol {
         bool descendants_notified = false;
     };
     template <typename ControllerType, typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>  {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventController<ControllerType>  {
     public:
         Serial(SOS::MemoryView::DoubleHandShake& signal)
             : SOS::Protocol::BlockWiseTransfer<Objects...>()
-            , SOS::Behavior::PassthruEventController<ControllerType
-            , SOS::MemoryView::SerialAsyncBus<Objects...>>(signal, this->bus3, this->bus2)
+            , SOS::Behavior::EventController<ControllerType>(signal)
         {
         }
         virtual ~Serial() {}; // request_shutdown_action
@@ -83,7 +82,7 @@ namespace Protocol {
                 if (!write_hook())
                     if (!this->write_object())
                         send_idleRequest();
-                this->bus2.signal.getNotifyRef().clear();
+                //this->bus2.signal.getNotifyRef().clear();
                 handshake_ack();
             }
         }
@@ -91,29 +90,29 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::EventController<ControllerType>::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
         }
         virtual void handshake_ack() final
         {
-            SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::_intrinsic.getAcknowledgeRef().clear();
+            SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
         virtual std::tuple<bool, bool> receive_signals() = 0; // 2 and 4
         virtual void com_hotplug_action() = 0;
         virtual void stop_notifier() final {
-            while (this->bus3.signal.getUpdatedRef().test_and_set()) {
+            while (this->_foreign.signal.getUpdatedRef().test_and_set()) {
                 std::cout << ",";
                 std::this_thread::yield();
             }
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::serviceinterrupted);
-            std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::serviceinterrupted);
+            std::get<0>(this->_foreign.cables).getWordRef().store(NUM_IDS);
+            this->_foreign.signal.getAcknowledgeRef().clear();
             _vars.descendants_notified = true;
-            //SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>::stop_descendants();
+            //SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>:stop_descendants();
         };
         virtual void com_shutdown_action() = 0;
         virtual void com_sighup_action() = 0;
@@ -306,61 +305,61 @@ namespace Protocol {
 
         }
         virtual bool check_sync(std::size_t obj_id) {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::checksync);
-            std::get<0>(this->bus3.cables).getWordRef().store(obj_id);
-            this->bus3.signal.getAcknowledgeRef().clear();
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::checksync);
+            std::get<0>(this->_foreign.cables).getWordRef().store(obj_id);
+            this->_foreign.signal.getAcknowledgeRef().clear();
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            auto instruction = std::get<0>(this->bus3.cables).getOpcodeRef().load();
-            auto id = std::get<0>(this->bus3.cables).getWordRef().load();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
-            std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            this->bus3.signal.getUpdatedRef().clear();
+            auto instruction = std::get<0>(this->_foreign.cables).getOpcodeRef().load();
+            auto id = std::get<0>(this->_foreign.cables).getWordRef().load();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
+            std::get<0>(this->_foreign.cables).getWordRef().store(NUM_IDS);
+            this->_foreign.signal.getUpdatedRef().clear();
             if (instruction == SOS::Protocol::syncresponse && id == obj_id)
                 return true;
             return false;
         }
         virtual void emit_init()
         {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::init);
-            std::get<0>(this->bus3.cables).getWordRef().store(NUM_IDS);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::init);
+            std::get<0>(this->_foreign.cables).getWordRef().store(NUM_IDS);
+            this->_foreign.signal.getAcknowledgeRef().clear();
         }
         virtual void emit_readlocked(std::size_t obj_id)
         {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::readstart);
-            std::get<0>(this->bus3.cables).getWordRef().store(obj_id);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::readstart);
+            std::get<0>(this->_foreign.cables).getWordRef().store(obj_id);
+            this->_foreign.signal.getAcknowledgeRef().clear();
         }
         virtual void emit_received(std::size_t obj_id)
         {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::readend);
-            std::get<0>(this->bus3.cables).getWordRef().store(obj_id);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::readend);
+            std::get<0>(this->_foreign.cables).getWordRef().store(obj_id);
+            this->_foreign.signal.getAcknowledgeRef().clear();
         }
         virtual void emit_transfer(std::size_t obj_id)
         {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::writestart);
-            std::get<0>(this->bus3.cables).getWordRef().store(obj_id);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::writestart);
+            std::get<0>(this->_foreign.cables).getWordRef().store(obj_id);
+            this->_foreign.signal.getAcknowledgeRef().clear();
         }
         virtual void emit_sent(std::size_t obj_id)
         {
-            while (this->bus3.signal.getUpdatedRef().test_and_set())
+            while (this->_foreign.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
-            std::get<0>(this->bus3.cables).getOpcodeRef().store(SOS::Protocol::writeend);
-            std::get<0>(this->bus3.cables).getWordRef().store(obj_id);
-            this->bus3.signal.getAcknowledgeRef().clear();
+            std::get<0>(this->_foreign.cables).getOpcodeRef().store(SOS::Protocol::writeend);
+            std::get<0>(this->_foreign.cables).getWordRef().store(obj_id);
+            this->_foreign.signal.getAcknowledgeRef().clear();
         }
         bool getFirstTransfer()
         {
