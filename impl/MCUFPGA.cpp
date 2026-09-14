@@ -28,6 +28,7 @@ public:
         : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
 
     {
+        _intrinsic[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGASimpleDummy(){
@@ -115,7 +116,6 @@ public:
     MCUSimpleDummy(bus_type& bus)
         : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
     {
-        _intrinsic[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUSimpleDummy(){
