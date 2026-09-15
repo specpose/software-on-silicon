@@ -24,11 +24,11 @@
 
 class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
-    FPGASimpleDummy(bus_type& bus)
-        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
+    FPGASimpleDummy()
+        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
 
     {
-        _intrinsic[0].sync_me.clear();
+        foreign.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGASimpleDummy(){
@@ -38,7 +38,7 @@ public:
     {
         // SIGNALING
         resolve(0);
-        if (!_intrinsic.getNotifyRef().test_and_set()) {
+        if (!foreign.signal.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
             //check ownership
@@ -48,7 +48,7 @@ public:
             //(*red)--;
             //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
             //(*blue)++;
-            _intrinsic[0].sync_me.clear();
+            foreign.signal[0].sync_me.clear();
             }
         }
         if (!write[0].ready.test_and_set()) {
@@ -98,8 +98,8 @@ private:
 
 class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
-    MCUSimpleDummy(bus_type& bus)
-        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>(bus)
+    MCUSimpleDummy()
+        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -110,7 +110,7 @@ public:
     {
         // SIGNALING
         resolve(0);
-        if (!_intrinsic.getNotifyRef().test_and_set()) {
+        if (!foreign.signal.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
             //check ownership
@@ -120,7 +120,7 @@ public:
             //(*red)++;
             //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
             //(*green)++;
-            _intrinsic[0].sync_me.clear();
+            foreign.signal[0].sync_me.clear();
             }
         }
         if (!write[0].ready.test_and_set()) {
