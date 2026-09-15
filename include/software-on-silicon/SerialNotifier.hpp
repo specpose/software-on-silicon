@@ -206,12 +206,20 @@ namespace Protocol {
     }
 }
 namespace Behavior {
+    template <typename... Objects> // CUSTOM
+    class SerialAsyncDummy : public Loop, protected SubController {
+    public:
+        SerialAsyncDummy()
+        : Loop()
+        , SubController()
+        {
+        }
+    };
     template <typename... Objects>
-    class SequentialResolver : public Loop, protected SubController { // SerialAsyncDummy
+    class SequentialResolver : public SerialAsyncDummy<Objects...> {
     public:
         SequentialResolver() // constexpr
-            : Loop()
-            , SubController()
+            : SerialAsyncDummy<Objects...>()
         {
         }
         ~SequentialResolver() {

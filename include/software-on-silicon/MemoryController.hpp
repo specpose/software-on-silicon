@@ -113,7 +113,6 @@ namespace Behavior {
     template <typename S, typename... Others>
     class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        using bus_type = SOS::MemoryView::BusShaker;
         PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
             : Controller<S>()
             , Loop()
