@@ -105,7 +105,6 @@ namespace Behavior {
         bus_type::signal_type& _intrinsic;
     };
     // BootstrapDummies: Can start and stop themselves via the Stoppable interface and a mix-in _thread in the impl
-    template <typename... Others>
     class StoppableAsyncDummy : public Stoppable, protected StoppableAsyncSubController {
     public:
         StoppableAsyncDummy(typename bus_type::signal_type& signal)
@@ -114,19 +113,17 @@ namespace Behavior {
         {
         }
     };
-    template <typename... Others>
     class StoppableSimpleDummy : public Stoppable, protected StoppableSimpleSubController {
     public:
-        StoppableSimpleDummy(typename bus_type::signal_type& signal, Others&... args)
+        StoppableSimpleDummy(typename bus_type::signal_type& signal)
             : Stoppable()
             , StoppableSimpleSubController(signal)
         {
         }
     };
-    template <typename... Others>
     class StoppableEventDummy : public Stoppable, protected StoppableEventSubController {
     public:
-        StoppableEventDummy(typename bus_type::signal_type& signal, Others&... args)
+        StoppableEventDummy(typename bus_type::signal_type& signal)
             : Stoppable()
             , StoppableEventSubController(signal)
         {

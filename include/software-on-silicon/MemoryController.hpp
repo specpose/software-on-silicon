@@ -185,13 +185,13 @@ namespace Behavior {
         blocker_length_ct& _memorycontroller_block;
     };
     template <typename OutputBuffer, typename MemoryControllerType>
-    class Reader : public SOS::Behavior::EventDummy<>,
+    class Reader : public SOS::Behavior::EventDummy,
                    public virtual SOS::Behavior::ReadTask<OutputBuffer, MemoryControllerType> {
     public:
         using bus_type = typename SOS::MemoryView::ReaderBus<OutputBuffer>;
         Reader(typename bus_type::signal_type& rB_signal, typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& bB_signal)
             : _blocked_signal(bB_signal)
-            , SOS::Behavior::EventDummy<>(rB_signal)
+            , SOS::Behavior::EventDummy(rB_signal)
         {
         }
 

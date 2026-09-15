@@ -173,7 +173,6 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
-    template <typename... Others>
     class AsyncDummy : public Loop, protected SubController {
     public:
         AsyncDummy()
@@ -182,19 +181,17 @@ namespace Behavior {
         {
         }
     };
-    template <typename... Others>
     class SimpleDummy : public Loop, protected SimpleSubController {
     public:
-        SimpleDummy(typename bus_type::signal_type& signal, Others&... args)
+        SimpleDummy(typename bus_type::signal_type& signal)
             : Loop()
             , SimpleSubController(signal)
         {
         }
     };
-    template <typename... Others>
     class EventDummy : public Loop, protected EventSubController {
     public:
-        EventDummy(typename bus_type::signal_type& signal, Others&... args)
+        EventDummy(typename bus_type::signal_type& signal)
             : Loop()
             , EventSubController(signal)
         {

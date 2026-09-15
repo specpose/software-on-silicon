@@ -97,11 +97,11 @@ namespace Protocol {
         std::bitset<NUM_IDS> read_started_id {};
     };
     template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy<>, private SyncProcessor<Objects...>  {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy, private SyncProcessor<Objects...>  {
     public:
         Serial(SOS::MemoryView::HandShake& signal)
             : SOS::Protocol::BlockWiseTransfer<Objects...>()
-            , SOS::Behavior::EventDummy<>(signal)
+            , SOS::Behavior::EventDummy(signal)
             , SyncProcessor<Objects...>()
         {
         }
@@ -155,14 +155,14 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::EventDummy<>::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::EventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
         }
         virtual void handshake_ack() final
         {
-            SOS::Behavior::EventDummy<>::_intrinsic.getAcknowledgeRef().clear();
+            SOS::Behavior::EventDummy::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
