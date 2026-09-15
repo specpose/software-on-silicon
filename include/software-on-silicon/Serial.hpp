@@ -55,58 +55,46 @@ namespace Protocol {
                 return true;
             return false;
         }
-        void emit_init()
-        {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::init);
-            std::get<0>(_sBus.cables).getWordRef().store(NUM_IDS);
-            _sBus.signal.getAcknowledgeRef().clear();
-        }
+        void emit_init() {}
         void emit_interrupted()
         {
-            while (_sBus.signal.getUpdatedRef().test_and_set()) {
-                std::cout << ",";
-                std::this_thread::yield();
+            for (std::size_t i = 0; i < intrinsic.signal.size(); ++i) {
+                if (read_started_id[i]) {
+                    std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
+                    intrinsic.signal[i].read_fault.clear();
+                    read_started_id[i] = false;
+                }
             }
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::serviceinterrupted);
-            std::get<0>(_sBus.cables).getWordRef().store(NUM_IDS);
-            _sBus.signal.getAcknowledgeRef().clear();
         }
         void emit_readlocked(std::size_t obj_id)
         {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::readstart);
-            std::get<0>(_sBus.cables).getWordRef().store(obj_id);
-            _sBus.signal.getAcknowledgeRef().clear();
-        }
-        void emit_received(std::size_t obj_id)
-        {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::readend);
-            std::get<0>(_sBus.cables).getWordRef().store(obj_id);
-            _sBus.signal.getAcknowledgeRef().clear();
+            //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
+            if (!intrinsic.signal[obj_id].sync_me.test_and_set()) {
+                intrinsic.signal[obj_id].write_fault.clear();
+                intrinsic.signal[obj_id].write_ack.clear();
+            }
+            read_started_id[obj_id] = true;
         }
         void emit_transfer(std::size_t obj_id)
         {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::writestart);
-            std::get<0>(_sBus.cables).getWordRef().store(obj_id);
-            _sBus.signal.getAcknowledgeRef().clear();
+            intrinsic.signal[obj_id].sync_me.test_and_set();
+        }
+        void emit_received(std::size_t obj_id)
+        {
+            read_started_id[obj_id] = false;
+            intrinsic.signal[obj_id].read_ack.clear();
         }
         void emit_sent(std::size_t obj_id)
         {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::writeend);
-            std::get<0>(_sBus.cables).getWordRef().store(obj_id);
-            _sBus.signal.getAcknowledgeRef().clear();
+            if (obj_id == 1 || obj_id == 2) {
+                std::cout << typeid(*this).name() << ": write of object id " << obj_id << " succeeded" << std::endl;
+            }
+            intrinsic.signal[obj_id].write_ack.clear();
         }
     private:
-        SOS::MemoryView::SequentialBus& _sBus;
+        SOS::MemoryView::SequentialBus& _sBus; // REMOVE
+        bus_type intrinsic {};
+        std::bitset<NUM_IDS> read_started_id {};
     };
     template <typename ControllerType, typename... Objects>
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventController<ControllerType>, private SyncProcessor<Objects...>  {
@@ -159,7 +147,7 @@ namespace Protocol {
                 if (!write_hook())
                     if (!this->write_object())
                         send_idleRequest();
-                //this->bus2.signal.getNotifyRef().clear();
+                this->bus2.signal.getNotifyRef().clear();
                 handshake_ack();
             }
         }
