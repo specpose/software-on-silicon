@@ -3,7 +3,8 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer();
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        BlockWiseTransfer(bus_type& bus);
 
     protected:
         bool write_object()
@@ -79,9 +80,34 @@ namespace Protocol {
                 SFA::util::logic_error(SFA::util::error_code::NoIdleReceivedAndNoReceivelockObtained, __FILE__, __func__, typeid(*this).name());
             }
         }
-        virtual unsigned char read_byte() = 0;
+        virtual unsigned char read_byte()
+        {
+            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getInBufferStartRef(), std::get<0>(_com.const_cables).getInBufferStartRef());
+            if (std::get<0>(_com.cables).getReadOffsetRef().load() > bufferLength)
+                SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
+            auto next = std::get<0>(_com.cables).getReadOffsetRef().load();
+            auto byte = *(std::get<0>(_com.const_cables).getInBufferStartRef() + next);
+            next++;
+            if (next >= bufferLength)
+                std::get<0>(_com.cables).getReadOffsetRef().store(0);
+            else
+                std::get<0>(_com.cables).getReadOffsetRef().store(next);
+            return byte;
+        }
         virtual void read_bits(std::bitset<8> temp) = 0;
-        virtual void write_byte(unsigned char) = 0;
+        virtual void write_byte(unsigned char byte)
+        {
+            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getOutBufferStartRef(), std::get<0>(_com.const_cables).getOutBufferEndRef());
+            if (std::get<0>(_com.cables).getWriteOffsetRef().load() > bufferLength)
+                SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
+            auto next = std::get<0>(_com.cables).getWriteOffsetRef().load();
+            *(std::get<0>(_com.const_cables).getOutBufferStartRef() + next) = byte;
+            next++;
+            if (next >= bufferLength)
+                std::get<0>(_com.cables).getWriteOffsetRef().store(0);
+            else
+                std::get<0>(_com.cables).getWriteOffsetRef().store(next);
+        }
         virtual void write_bits(std::bitset<8>& out) = 0;
         bool receive_lock = false;
         std::size_t readDestinationPos = 0;
@@ -97,6 +123,7 @@ namespace Protocol {
         SOS::Protocol::DescriptorHelper descriptors {};
         //SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
         //SOS::MemoryView::SequentialBus bus3 {};
+        bus_type& _com;
         std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 

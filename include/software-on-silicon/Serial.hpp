@@ -1,24 +1,4 @@
 namespace SOS {
-/*namespace Behavior {
-    template <typename S, typename... Others>
-    class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
-    public:
-        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
-        : Controller<S>()
-        , Loop()
-        , EventSubController(signal)
-        , _foreign(passThru)
-        , _child( _foreign, args... )
-        {
-        }
-
-    protected:
-        typename S::bus_type& _foreign;
-
-    private:
-        S _child = nullptr;
-    };
-}*/
 namespace Protocol {
     struct com_vars {
         bool received_idle = false;
@@ -96,12 +76,37 @@ namespace Protocol {
         bus_type intrinsic {};
         std::bitset<NUM_IDS> read_started_id {};
     };
-    template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy, private SyncProcessor<Objects...>  {
+}
+namespace Behavior {
+    class SerialEventSubController : public SubController {
     public:
-        Serial(SOS::MemoryView::HandShake& signal)
-            : SOS::Protocol::BlockWiseTransfer<Objects...>()
-            , SOS::Behavior::EventDummy(signal)
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        constexpr SerialEventSubController(typename bus_type::signal_type& signal)
+        : SubController()
+        , _intrinsic(signal)
+        {
+        }
+
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
+    class SerialEventDummy : public SOS::Behavior::Loop, protected SOS::Behavior::SerialEventSubController {
+    public:
+        SerialEventDummy(typename bus_type::signal_type& signal)
+        : Loop()
+        , SerialEventSubController(signal)
+        {
+        }
+    };
+}
+namespace Protocol {
+    template <typename... Objects>
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy, private SyncProcessor<Objects...>  {
+    public:
+        //using SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
+        Serial(bus_type& bus)
+            : SOS::Protocol::BlockWiseTransfer<Objects...>(bus)
+            , SOS::Behavior::SerialEventDummy(bus.signal)
             , SyncProcessor<Objects...>()
         {
         }
@@ -155,14 +160,14 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::EventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::SerialEventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
         }
         virtual void handshake_ack() final
         {
-            SOS::Behavior::EventDummy::_intrinsic.getAcknowledgeRef().clear();
+            SOS::Behavior::SerialEventDummy::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
@@ -419,6 +424,108 @@ namespace Protocol {
                     return true;
                 }
             return false;
+        }
+    };
+}
+namespace Behavior {
+    template <typename... Objects>
+    class SimulationFPGA : public SOS::Protocol::Serial<Objects...> {
+    public:
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        SimulationFPGA(bus_type& myBus)
+        : SOS::Protocol::Serial<Objects...>(myBus)
+        {
+        }
+        ~SimulationFPGA() {
+        };
+
+    private:
+        // SerialFPGA
+        virtual void read_bits(std::bitset<8> temp) final
+        {
+            SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
+            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = temp[6];
+            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = false;
+        }
+        virtual void write_bits(std::bitset<8>& out) final
+        {
+            if (SOS::Protocol::Serial<Objects...>::fpga_updated)
+                out.set(7, 1);
+            else
+                out.set(7, 0);
+            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge)
+                out.set(6, 1);
+            else
+                out.set(6, 0);
+        }
+        virtual void send_acknowledge() final
+        {
+            if (SOS::Protocol::Serial<Objects...>::mcu_updated) {
+                SOS::Protocol::Serial<Objects...>::mcu_acknowledge = true;
+            }
+        }
+        virtual void send_request() final
+        {
+            SOS::Protocol::Serial<Objects...>::fpga_updated = true;
+        }
+        virtual std::tuple<bool, bool> receive_signals() final
+        {
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::mcu_updated, false };
+            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge) {
+                SOS::Protocol::Serial<Objects...>::fpga_updated = false;
+                std::get<1>(result) = true;
+            }
+            return result;
+        }
+    };
+    template <typename... Objects>
+    class SimulationMCU : public SOS::Protocol::Serial<Objects...> {
+    public:
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        SimulationMCU(bus_type& myBus)
+        : SOS::Protocol::Serial<Objects...>(myBus)
+        {
+        }
+        ~SimulationMCU() {
+        }
+
+    private:
+        // SerialMCU
+        virtual void read_bits(std::bitset<8> temp) final
+        {
+            SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];
+            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = temp[6];
+            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = false;
+        }
+        virtual void write_bits(std::bitset<8>& out) final
+        {
+            if (SOS::Protocol::Serial<Objects...>::mcu_updated)
+                out.set(7, 1);
+            else
+                out.set(7, 0);
+            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge)
+                out.set(6, 1);
+            else
+                out.set(6, 0);
+        }
+        virtual void send_acknowledge() final
+        {
+            if (SOS::Protocol::Serial<Objects...>::fpga_updated) {
+                SOS::Protocol::Serial<Objects...>::fpga_acknowledge = true;
+            }
+        }
+        virtual void send_request() final
+        {
+            SOS::Protocol::Serial<Objects...>::mcu_updated = true;
+        }
+        virtual std::tuple<bool, bool> receive_signals() final
+        {
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::fpga_updated, false };
+            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge) {
+                SOS::Protocol::Serial<Objects...>::mcu_updated = false;
+                std::get<1>(result) = true;
+            }
+            return result;
         }
     };
 }

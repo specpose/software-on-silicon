@@ -293,35 +293,5 @@ namespace Behavior {
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };
-    /*class SerialEventSubController : public SubController {
-    public:
-        using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
-        constexpr SerialEventSubController(typename bus_type::signal_type& signal)
-            : SubController()
-            , _intrinsic(signal)
-        {
-        }
-
-    protected:
-        bus_type::signal_type& _intrinsic;
-    };
-    template <typename S>
-    class SerialEventController : public Controller<S>, public Loop, protected SerialEventSubController {
-    public:
-        using bus_type = SOS::MemoryView::SequentialBus; // Custom: bus_traits?
-        SerialEventController(typename bus_type::signal_type& signal)
-            : Controller<S>()
-            , Loop()
-            , SerialEventSubController(signal)
-            , _child(S { _foreign })
-        {
-        }
-
-    protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
-
-    private:
-        S _child;
-    };*/
 }
 }

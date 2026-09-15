@@ -13,14 +13,14 @@
 #include "software-on-silicon/SerialNotifier.hpp"
 #include <string>
 #include "software-on-silicon/rtos_helpers.hpp"
+#define COM_BUFFER std::array<unsigned char, 1>
+#include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "MCUFPGA/DMA.cpp"
 #include "MCUFPGA/TrueColor.cpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
-#define COM_BUFFER std::array<unsigned char, 1>
-#include "software-on-silicon/MCUFPGA.hpp"
 
 class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
