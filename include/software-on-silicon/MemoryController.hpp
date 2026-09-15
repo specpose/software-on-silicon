@@ -75,6 +75,48 @@ namespace MemoryView {
     };
 }
 namespace Behavior {
+    template <typename OtherBus>
+    class PassthruAsyncDummy : public Loop, protected SubController { // Useless: Refactoring only
+    public:
+        PassthruAsyncDummy(OtherBus& other)
+        : Loop()
+        , SubController()
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
+    template <typename OtherBus>
+    class PassthruSimpleDummy : public Loop, protected SimpleSubController { // Useless: Refactoring only
+    public:
+        PassthruSimpleDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , SimpleSubController(signal)
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
+    template <typename OtherBus>
+    class PassthruEventDummy : public Loop, protected EventSubController { // Useless: Refactoring only
+    public:
+        PassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , EventSubController(signal)
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
     template <typename S>
     class PassthruAsyncController : public Controller<S>, public Loop {
     public:

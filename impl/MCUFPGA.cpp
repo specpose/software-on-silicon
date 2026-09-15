@@ -28,7 +28,7 @@ public:
         : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
 
     {
-        foreign.signal[0].sync_me.clear();
+        _foreign.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGASimpleDummy(){
@@ -38,7 +38,7 @@ public:
     {
         // SIGNALING
         resolve(0);
-        if (!foreign.signal.getNotifyRef().test_and_set()) {
+        if (!_foreign.signal.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
             //check ownership
@@ -48,7 +48,7 @@ public:
             //(*red)--;
             //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
             //(*blue)++;
-            foreign.signal[0].sync_me.clear();
+            _foreign.signal[0].sync_me.clear();
             }
         }
         if (!write[0].ready.test_and_set()) {
@@ -110,7 +110,7 @@ public:
     {
         // SIGNALING
         resolve(0);
-        if (!foreign.signal.getNotifyRef().test_and_set()) {
+        if (!_foreign.signal.getNotifyRef().test_and_set()) {
         if (!read[0].ready.test_and_set()) {
             if (read[0].result) {
             //check ownership
@@ -120,7 +120,7 @@ public:
             //(*red)++;
             //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
             //(*green)++;
-            foreign.signal[0].sync_me.clear();
+            _foreign.signal[0].sync_me.clear();
             }
         }
         if (!write[0].ready.test_and_set()) {

@@ -206,20 +206,25 @@ namespace Protocol {
     }
 }
 namespace Behavior {
-    template <typename... Objects> // CUSTOM
-    class SerialAsyncDummy : public Loop, protected SubController {
+    template <typename OtherBus>
+    class SerialPassthruAsyncDummy : public Loop, protected SubController { // Useless: Refactoring only
     public:
-        SerialAsyncDummy()
+        SerialPassthruAsyncDummy(OtherBus& other)
         : Loop()
         , SubController()
+        , _foreign(other)
         {
         }
+
+    protected:
+        OtherBus& _foreign;
+
     };
     template <typename... Objects>
-    class SequentialResolver : public SerialAsyncDummy<Objects...> {
+    class SequentialResolver : public SerialPassthruAsyncDummy<SOS::MemoryView::SerialAsyncBus<Objects...>> {
     public:
         SequentialResolver() // constexpr
-            : SerialAsyncDummy<Objects...>()
+            : SerialPassthruAsyncDummy<SOS::MemoryView::SerialAsyncBus<Objects...>>(sBus)
         {
         }
         ~SequentialResolver() {
@@ -227,13 +232,13 @@ namespace Behavior {
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void resolve(std::size_t id) {
-            if (!foreign.signal[id].read_ack.test_and_set()) {
-                if (foreign.signal[id].read_fault.test_and_set()) {
+            if (!this->_foreign.signal[id].read_ack.test_and_set()) {
+                if (this->_foreign.signal[id].read_fault.test_and_set()) {
                     //unsigned long i = 0;
-                    //while (i < foreign.descriptors[id].obj_size) {
+                    //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
                     //        i++;
-                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(foreign.descriptors[id].obj)+i;
+                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
                     //    } else {
                     //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
                     //            std::this_thread::yield();
@@ -251,13 +256,13 @@ namespace Behavior {
                     read[id].ready.clear();
                 }
             }
-            if (!foreign.signal[id].write_ack.test_and_set()) {
-                if (foreign.signal[id].write_fault.test_and_set()){
+            if (!this->_foreign.signal[id].write_ack.test_and_set()) {
+                if (this->_foreign.signal[id].write_fault.test_and_set()){
                     //unsigned long i = 0;
-                    //while (i < foreign.descriptors[id].obj_size) {
+                    //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
                     //        i++;
-                    //        auto tmp = reinterpret_cast<unsigned char*>(foreign.descriptors[id].obj)+i;
+                    //        auto tmp = reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
                     //        *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
                     //    } else {
                     //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
@@ -282,8 +287,9 @@ namespace Behavior {
         std::array<SOS::Protocol::Async, NUM_IDS> write {};
 
     //private:
-        SOS::MemoryView::SerialAsyncBus<Objects...> foreign {};
         std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
+    private:
+        SOS::MemoryView::SerialAsyncBus<Objects...> sBus {};
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };
