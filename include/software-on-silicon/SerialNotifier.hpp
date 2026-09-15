@@ -22,7 +22,7 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWordRef() { return std::get<1>(*this); }
     };
-    struct SequentialBus : public SOS::MemoryView::BusShaker { // FIX: ComBus
+    struct SequentialBus : public SOS::MemoryView::BusShaker {
         using cables_type = std::tuple<SequentialCable>;
         SequentialBus() {
             std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::nocommand);

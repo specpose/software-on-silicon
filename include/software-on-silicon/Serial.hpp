@@ -19,7 +19,12 @@ namespace Protocol {
         SyncProcessor() {}
     protected:
         bool check_sync(std::size_t obj_id) {
-            while (_sBus.signal.getUpdatedRef().test_and_set())
+            if (!intrinsic.signal[obj_id].sync_me.test_and_set()) {
+                intrinsic.signal[obj_id].sync_me.clear();
+                return true;
+            }
+            return false;
+            /*while (_sBus.signal.getUpdatedRef().test_and_set())
                 std::this_thread::yield();
             std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::checksync);
             std::get<0>(_sBus.cables).getWordRef().store(obj_id);
@@ -33,7 +38,7 @@ namespace Protocol {
             _sBus.signal.getUpdatedRef().clear();
             if (instruction == SOS::Protocol::syncresponse && id == obj_id)
                 return true;
-            return false;
+            return false;*/
         }
         void emit_init() {}
         void emit_interrupted()

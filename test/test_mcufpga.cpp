@@ -49,6 +49,11 @@ void usr1_handler(int signum, siginfo_t* info, void* extra)
     std::cout << signum << ": thread id " << getpid() << std::endl;
     delete_fpga.clear();
 }
+void usr2_handler(int signum, siginfo_t* info, void* extra)
+{
+    std::cout << signum << ": thread id " << getpid() << std::endl;
+    delete_mcu.clear();
+}
 
 int main()
 {
@@ -58,6 +63,11 @@ int main()
     fclose(pidFile);
     SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
     auto host = new MCU(mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
+    struct sigaction usr2 = { 0 };
+    usr2.sa_sigaction = &usr2_handler;
+    sigemptyset(&usr2.sa_mask);
+    usr2.sa_flags = SA_SIGINFO;
+    sigaction(SIGUSR2, &usr2, NULL);
     bool host_request_stop = false;
     bool host_delete = false;
     delete_mcu.test_and_set();
@@ -83,19 +93,12 @@ int main()
     while (!host_delete && !client_delete) {
         std::this_thread::yield();
         // HOST THREAD
-        if (nomoresignal && !(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - nomoresignal_time).count() < 2)) {
-            if (!host_request_stop) {
-                delete_mcu.clear();
-                host_request_stop = true;
-            } else {
-                if (host && !host_delete)
-                    if (!delete_mcu.test_and_set()) {
-                        delete host;
-                        host = nullptr;
-                        host_delete = true;
-                    }
+        if (host && !host_delete)
+            if (!delete_mcu.test_and_set()) {
+                delete host;
+                host = nullptr;
+                host_delete = true;
             }
-        }
         // CLIENT THREAD
         if (client && !client_delete)
             if (!delete_fpga.test_and_set()) {

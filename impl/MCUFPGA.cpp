@@ -22,7 +22,7 @@
 #include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
 
-class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
+/*class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
     FPGASimpleDummy()
         : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
@@ -63,7 +63,7 @@ public:
     }
 private:
     std::thread _thread;
-};
+};*/
         //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
         /*auto fut = write_status[1].get();
@@ -96,7 +96,7 @@ private:
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
 
-class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
+/*class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
     MCUSimpleDummy()
         : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
@@ -135,7 +135,7 @@ public:
     }
 private:
     std::thread _thread;
-};
+};*/
 
         //counterBus.signal.getUpdatedRef().clear();
         // LOCK
