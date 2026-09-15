@@ -36,7 +36,7 @@ namespace Protocol {
     class SyncProcessor {
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        SyncProcessor(SOS::MemoryView::SequentialBus& bus) : _sBus(bus) {}
+        SyncProcessor() {}
     protected:
         bool check_sync(std::size_t obj_id) {
             while (_sBus.signal.getUpdatedRef().test_and_set())
@@ -92,17 +92,17 @@ namespace Protocol {
             intrinsic.signal[obj_id].write_ack.clear();
         }
     private:
-        SOS::MemoryView::SequentialBus& _sBus; // REMOVE
+        SOS::MemoryView::SequentialBus _sBus {}; // REMOVE
         bus_type intrinsic {};
         std::bitset<NUM_IDS> read_started_id {};
     };
-    template <typename ControllerType, typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventController<ControllerType>, private SyncProcessor<Objects...>  {
+    template <typename... Objects>
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy<>, private SyncProcessor<Objects...>  {
     public:
-        Serial(SOS::MemoryView::DoubleHandShake& signal)
+        Serial(SOS::MemoryView::HandShake& signal)
             : SOS::Protocol::BlockWiseTransfer<Objects...>()
-            , SOS::Behavior::EventController<ControllerType>(signal)
-            , SyncProcessor<Objects...>(this->_foreign)
+            , SOS::Behavior::EventDummy<>(signal)
+            , SyncProcessor<Objects...>()
         {
         }
         virtual ~Serial() {}; // request_shutdown_action
@@ -147,7 +147,7 @@ namespace Protocol {
                 if (!write_hook())
                     if (!this->write_object())
                         send_idleRequest();
-                this->bus2.signal.getNotifyRef().clear();
+                //this->bus2.signal.getNotifyRef().clear(); // was in SerialProcessing
                 handshake_ack();
             }
         }
@@ -155,14 +155,14 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::EventController<ControllerType>::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::EventDummy<>::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
         }
         virtual void handshake_ack() final
         {
-            SOS::Behavior::EventController<ControllerType>::_intrinsic.getAcknowledgeRef().clear();
+            SOS::Behavior::EventDummy<>::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1

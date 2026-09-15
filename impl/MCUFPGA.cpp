@@ -64,11 +64,6 @@ public:
 private:
     std::thread _thread;
 };
-class FPGAProcessingSwitch : public SOS::Behavior::SerialProcessing<FPGASimpleDummy> {
-public:
-    FPGAProcessingSwitch(bus_type& bus)
-        : SOS::Behavior::SerialProcessing<FPGASimpleDummy>(bus)
-    {
         //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
         /*auto fut = write_status[1].get();
@@ -100,17 +95,7 @@ public:
         } else {
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
-        _thread = SOS::Behavior::Loop::start(this);
-    }
-    ~FPGAProcessingSwitch()
-    {
-        SOS::Behavior::Loop::destroy(_thread);
-    }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing<FPGASimpleDummy>::event_loop(); }
 
-private:
-    std::thread _thread;
-};
 class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
 public:
     MCUSimpleDummy(bus_type& bus)
@@ -151,11 +136,7 @@ public:
 private:
     std::thread _thread;
 };
-class MCUProcessingSwitch : public SOS::Behavior::SerialProcessing<MCUSimpleDummy> {
-public:
-    MCUProcessingSwitch(bus_type& bus)
-        : SOS::Behavior::SerialProcessing<MCUSimpleDummy>(bus)
-    {
+
         //counterBus.signal.getUpdatedRef().clear();
         // LOCK
         /*auto fut = write_status[2].get();
@@ -173,22 +154,12 @@ public:
             SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
         }
         //}*/
-        _thread = SOS::Behavior::Loop::start(this);
-    }
-    ~MCUProcessingSwitch()
-    {
-        SOS::Behavior::Loop::destroy(_thread);
-    }
-    virtual void event_loop() final { SOS::Behavior::SerialProcessing<MCUSimpleDummy>::event_loop(); }
 
-private:
-    std::thread _thread;
-};
-class FPGA : public SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColorClass, DMA, DMA> {
+class FPGA : public SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     FPGA(bus_type& myBus)
-        : SOS::Behavior::SimulationFPGA<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>(myBus)
+        : SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA>(myBus)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -207,7 +178,7 @@ public:
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
         dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<FPGAProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
+        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void com_hotplug_action() final
@@ -247,11 +218,11 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread;
 };
-class MCU : public SOS::Behavior::SimulationMCU<MCUProcessingSwitch, TrueColorClass, DMA, DMA> {
+class MCU : public SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
     MCU(bus_type& myBus)
-        : SOS::Behavior::SimulationMCU<MCUProcessingSwitch, TrueColorClass, DMA, DMA>(myBus)
+        : SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA>(myBus)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -269,7 +240,7 @@ public:
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
         dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<MCUProcessingSwitch, TrueColorClass, DMA, DMA>::reads_pending())
+        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
             SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void com_hotplug_action() final
