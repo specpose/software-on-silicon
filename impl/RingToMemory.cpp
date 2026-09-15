@@ -97,14 +97,14 @@ private:
     MEMORY_CONTROLLER memorycontroller {};
 };
 // multiple inheritance: destruction order
-class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>> {
+class RingBufferImpl : public SOS::Behavior::RingBuffer<RING_BUFFER>, private RingBufferTaskImpl, public SOS::Behavior::DoublePassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>> {
 public:
     // multiple inheritance: construction order
     RingBufferImpl(SOS::MemoryView::RingBufferBus<RING_BUFFER>& rB, SOS::MemoryView::ReaderBus<BLOCK>& rd)
         : SOS::Behavior::RingBuffer<RING_BUFFER>(rB.signal)
         , RingBufferTaskImpl(std::get<0>(rB.cables), std::get<0>(rB.const_cables))
         , RingBufferTask(std::get<0>(rB.cables), std::get<0>(rB.const_cables))
-        , SOS::Behavior::PassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal, rd, _blocker)
+        , SOS::Behavior::DoublePassthruSimpleController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(rB.signal, rd, _blocker)
     {
         // multiple inheritance: PassthruSimpleController, not ReaderImpl
         _thread = start(this);

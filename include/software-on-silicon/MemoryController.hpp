@@ -75,14 +75,14 @@ namespace MemoryView {
     };
 }
 namespace Behavior {
-    template <typename S, typename... Others>
+    template <typename S>
     class PassthruAsyncController : public Controller<S>, public Loop {
     public:
-        PassthruAsyncController(typename S::bus_type& passThru, Others&... args)
-            : Controller<S>()
-            , Loop()
-            , _foreign(passThru)
-            , _child(_foreign, args...)
+        PassthruAsyncController(typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , _foreign(passThru)
+        , _child(_foreign)
         {
         }
 
@@ -92,15 +92,50 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename... Others>
+    template <typename S, typename OtherBus>
+    class DoublePassthruAsyncController : public Controller<S>, public Loop {
+    public:
+        DoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
+            : Controller<S>()
+            , Loop()
+            , _foreign(passThru)
+            , _child(_foreign, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S>
     class PassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , SimpleSubController(signal)
+        , _foreign(passThru)
+        , _child(_foreign)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename OtherBus>
+    class DoublePassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
+    public:
+        DoublePassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
             , _foreign(passThru)
-            , _child(_foreign, args...)
+            , _child(_foreign, other)
         {
         }
 
@@ -110,15 +145,33 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename... Others>
+    template <typename S>
     class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , EventSubController(signal)
+        , _foreign(passThru)
+        , _child(_foreign)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename OtherBus>
+    class DoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
+    public:
+        DoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , EventSubController(signal)
             , _foreign(passThru)
-            , _child(_foreign, args...)
+            , _child(_foreign, other)
         {
         }
 
