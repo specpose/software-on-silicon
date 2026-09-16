@@ -187,9 +187,15 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.received_sighup)
+        if (_vars.sent_sighup)
             return true;
         return false;
+    }
+    virtual bool handshake_query() final
+    {
+        if (_vars.sent_sighup)
+            return false;
+        return true;
     }
     virtual void com_shutdown_action() final
     {
@@ -253,9 +259,13 @@ public:
     }
     virtual bool exit_query() final
     {
-        if (_vars.received_sighup)
-            return true;
-        return false;
+        if (!_vars.sent_sighup)
+            return false;
+        return true;
+    }
+    virtual bool handshake_query() final
+    {
+        return true;
     }
     virtual void com_shutdown_action() final
     {

@@ -93,7 +93,7 @@ int main()
     while (!host_delete && !client_delete) {
         std::this_thread::yield();
         // HOST THREAD
-        if (host && !host_delete)
+        if (host && !host_delete && !client && client_delete)
             if (!delete_mcu.test_and_set()) {
                 delete host;
                 host = nullptr;

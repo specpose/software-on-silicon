@@ -119,6 +119,7 @@ namespace Protocol {
         virtual void event_loop() final
         {
             std::this_thread::yield();
+            if (handshake_query())
             if (handshake()) {
                 // IN
                 if (first_run) {
@@ -188,6 +189,7 @@ namespace Protocol {
         virtual bool exit_query() = 0;
         virtual bool incoming_shutdown_query() = 0;
         virtual bool outgoing_sighup_query() = 0;
+        virtual bool handshake_query() = 0;
         void clear_read_receive()
         {
             if (this->receive_lock || this->readCount != 0) {
