@@ -90,7 +90,7 @@ int main()
             client_funct(fpga_in_buffer, mcu_in_buffer, fpga_out_buffer, mcu_out_buffer, mcubus, fpgabus);
             std::this_thread::yield();
         } });
-    while (!host_delete && !client_delete) {
+    while (!host_delete) {
         std::this_thread::yield();
         // HOST THREAD
         if (host && !host_delete && !client && client_delete)
