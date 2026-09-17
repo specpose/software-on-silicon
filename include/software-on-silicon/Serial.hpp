@@ -16,37 +16,22 @@ namespace Protocol {
     class SyncProcessor {
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        SyncProcessor() {}
+        SyncProcessor(bus_type& bus) : _sBus(bus) {}
     protected:
         bool check_sync(std::size_t obj_id) {
-            if (!intrinsic.signal[obj_id].sync_me.test_and_set()) {
-                intrinsic.signal[obj_id].sync_me.clear();
+            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
+                _sBus.signal[obj_id].sync_me.clear();
                 return true;
             }
             return false;
-            /*while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::checksync);
-            std::get<0>(_sBus.cables).getWordRef().store(obj_id);
-            _sBus.signal.getAcknowledgeRef().clear();
-            while (_sBus.signal.getUpdatedRef().test_and_set())
-                std::this_thread::yield();
-            auto instruction = std::get<0>(_sBus.cables).getOpcodeRef().load();
-            auto id = std::get<0>(_sBus.cables).getWordRef().load();
-            std::get<0>(_sBus.cables).getOpcodeRef().store(SOS::Protocol::nocommand);
-            std::get<0>(_sBus.cables).getWordRef().store(NUM_IDS);
-            _sBus.signal.getUpdatedRef().clear();
-            if (instruction == SOS::Protocol::syncresponse && id == obj_id)
-                return true;
-            return false;*/
         }
         void emit_init() {}
         void emit_interrupted()
         {
-            for (std::size_t i = 0; i < intrinsic.signal.size(); ++i) {
+            for (std::size_t i = 0; i < _sBus.signal.size(); ++i) {
                 if (read_started_id[i]) {
                     std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
-                    intrinsic.signal[i].read_fault.clear();
+                    _sBus.signal[i].read_fault.clear();
                     read_started_id[i] = false;
                 }
             }
@@ -54,31 +39,30 @@ namespace Protocol {
         void emit_readlocked(std::size_t obj_id)
         {
             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-            if (!intrinsic.signal[obj_id].sync_me.test_and_set()) {
-                intrinsic.signal[obj_id].write_fault.clear();
-                intrinsic.signal[obj_id].write_ack.clear();
+            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
+                _sBus.signal[obj_id].write_fault.clear();
+                _sBus.signal[obj_id].write_ack.clear();
             }
             read_started_id[obj_id] = true;
         }
         void emit_transfer(std::size_t obj_id)
         {
-            intrinsic.signal[obj_id].sync_me.test_and_set();
+            _sBus.signal[obj_id].sync_me.test_and_set();
         }
         void emit_received(std::size_t obj_id)
         {
             read_started_id[obj_id] = false;
-            intrinsic.signal[obj_id].read_ack.clear();
+            _sBus.signal[obj_id].read_ack.clear();
         }
         void emit_sent(std::size_t obj_id)
         {
             if (obj_id == 1 || obj_id == 2) {
                 std::cout << typeid(*this).name() << ": write of object id " << obj_id << " succeeded" << std::endl;
             }
-            intrinsic.signal[obj_id].write_ack.clear();
+            _sBus.signal[obj_id].write_ack.clear();
         }
     private:
-        SOS::MemoryView::SequentialBus _sBus {}; // REMOVE
-        bus_type intrinsic {};
+        bus_type& _sBus;
         std::bitset<NUM_IDS> read_started_id {};
     };
 }
@@ -108,11 +92,10 @@ namespace Protocol {
     template <typename... Objects>
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy, private SyncProcessor<Objects...>  {
     public:
-        //using SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
-        Serial(bus_type& bus)
+        Serial(bus_type& bus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
             : SOS::Protocol::BlockWiseTransfer<Objects...>(bus)
             , SOS::Behavior::SerialEventDummy(bus.signal)
-            , SyncProcessor<Objects...>()
+            , SyncProcessor<Objects...>(other)
         {
         }
         virtual ~Serial() {}; // request_shutdown_action
@@ -182,7 +165,6 @@ namespace Protocol {
         virtual void stop_notifier() final {
             SyncProcessor<Objects...>::emit_interrupted();
             _vars.descendants_notified = true;
-            //SOS::Behavior::PassthruEventController<ControllerType, SOS::MemoryView::SerialAsyncBus<Objects...>>:stop_descendants();
         };
         virtual void com_shutdown_action() = 0;
         virtual void com_sighup_action() = 0;
@@ -358,7 +340,6 @@ namespace Protocol {
                 if (incomingRequest != waitingConfirmation) {// start_transfer has priority over send_acknowledge
                     if (this->descriptors[incomingRequest].readLock)
                         SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(incomingRequest), __func__, typeid(*this).name());
-                    //if (!SyncProcessor<Objects...>::check_sync(incomingRequest)) { // BUG
                     if (!this->descriptors[incomingRequest].transfer) {
                         SyncProcessor<Objects...>::emit_readlocked(incomingRequest);
                         this->descriptors[incomingRequest].readLock = true;
@@ -367,10 +348,6 @@ namespace Protocol {
                     } else {
                         SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
                     }
-                    //} else {
-                    //    if (!this->descriptors[incomingRequest].transfer) // OVERRIDE
-                    //        SFA::util::runtime_error(SFA::util::error_code::IncomingReadlockIsCancelingLocalWriteOperation, __FILE__, __func__, typeid(*this).name());
-                    //}
                 }
             }
 
@@ -439,8 +416,8 @@ namespace Behavior {
     class SimulationFPGA : public SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationFPGA(bus_type& myBus)
-        : SOS::Protocol::Serial<Objects...>(myBus)
+        SimulationFPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        : SOS::Protocol::Serial<Objects...>(myBus, other)
         {
         }
         ~SimulationFPGA() {
@@ -489,8 +466,8 @@ namespace Behavior {
     class SimulationMCU : public SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationMCU(bus_type& myBus)
-        : SOS::Protocol::Serial<Objects...>(myBus)
+        SimulationMCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        : SOS::Protocol::Serial<Objects...>(myBus, other)
         {
         }
         ~SimulationMCU() {

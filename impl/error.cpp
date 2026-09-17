@@ -19,7 +19,6 @@ enum SFA::util::error_code : unsigned char {
     DuplicateSighup,
     DuplicateReadlockRequest,
     SyncedObjectsAreNotSupposedToHaveaTransfer,
-    IncomingReadlockIsCancelingLocalWriteOperation,
     AcknowledgeReceivedWithoutAnyRequest,
     ReceivedATransferAcknowledgeOnSyncedObject,
     ReceivedATransferAcknowledgeOnReadlockedObject,
@@ -106,8 +105,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Duplicate readLock request");
     case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer:
         return std::string("Synced objects are not supposed to have a transfer");
-    case error_code::IncomingReadlockIsCancelingLocalWriteOperation:
-        return std::string("Incoming readLock is canceling local write operation");
     case error_code::AcknowledgeReceivedWithoutAnyRequest:
         return std::string("Acknowledge received without any request");
     case error_code::ReceivedATransferAcknowledgeOnSyncedObject:

@@ -10,11 +10,11 @@
 #include <future>
 #include "software-on-silicon/DMADescriptor.hpp"
 #include "software-on-silicon/cpp11.hpp"
+#define COM_BUFFER std::array<unsigned char, 1>
+#include "software-on-silicon/rtos_helpers.hpp"
+#include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
 #include <string>
-#include "software-on-silicon/rtos_helpers.hpp"
-#define COM_BUFFER std::array<unsigned char, 1>
-#include "software-on-silicon/MCUFPGA.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "MCUFPGA/DMA.cpp"
 #include "MCUFPGA/TrueColor.cpp"
@@ -22,144 +22,11 @@
 #include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
 
-/*class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
-public:
-    FPGASimpleDummy()
-        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
-
-    {
-        _foreign.signal[0].sync_me.clear();
-        _thread = SOS::Behavior::Loop::start(this);
-    }
-    ~FPGASimpleDummy(){
-        SOS::Behavior::Loop::destroy(_thread);
-    }
-    void event_loop()
-    {
-        // SIGNALING
-        resolve(0);
-        if (!_foreign.signal.getNotifyRef().test_and_set()) {
-        if (!read[0].ready.test_and_set()) {
-            if (read[0].result) {
-            //check ownership
-            //std::get<0>(bus.objs).red++; // Hack
-            //std::get<0>(bus.objs).blue++; // Hack
-            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            //(*red)--;
-            //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
-            //(*blue)++;
-            _foreign.signal[0].sync_me.clear();
-            }
-        }
-        if (!write[0].ready.test_and_set()) {
-            if (!write[0].result) {
-                //if (obj_id == 1 || obj_id == 2) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-                //}
-            }
-        }
-        }
-        std::this_thread::yield();
-    }
-private:
-    std::thread _thread;
-};*/
-        //counterBus.signal.getAcknowledgeRef().clear();
-        // LOCK
-        /*auto fut = write_status[1].get();
-        if (fut) {
-            // EDIT
-            int writeBlinkCounter = 0;
-            bool writeBlink = true;
-            for (std::size_t i = 0; i < sizeof(std::get<1>(_sBus.objects)); i++) {
-                std::get<1>(_sBus.objects)[i] = writeBlink? '*' : '_';
-                writeBlinkCounter++;
-                if (writeBlink && writeBlinkCounter == 84) {
-                    writeBlink = false;
-                    writeBlinkCounter = 0;
-                } else if (!writeBlink && writeBlinkCounter == 168) {
-                    writeBlink = true;
-                    writeBlinkCounter = 0;
-                }
-            }
-            // SEND
-            if (!write_status[1].valid()) {
-                bus.sync_id[1] = true;
-                write_status[1] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
-                // CALLBACK
-                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_sBus.objects)));
-                t.detach();
-            } else {
-                SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
-            }
-        } else {
-            SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
-        }*/
-
-/*class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA> {
-public:
-    MCUSimpleDummy()
-        : SOS::Behavior::SequentialResolver<TrueColorClass, DMA, DMA>()
-    {
-        _thread = SOS::Behavior::Loop::start(this);
-    }
-    ~MCUSimpleDummy(){
-        SOS::Behavior::Loop::destroy(_thread);
-    }
-    void event_loop()
-    {
-        // SIGNALING
-        resolve(0);
-        if (!_foreign.signal.getNotifyRef().test_and_set()) {
-        if (!read[0].ready.test_and_set()) {
-            if (read[0].result) {
-            //check ownership
-            //std::get<0>(bus.objs).red--;
-            //std::get<0>(bus.objs).green++;
-            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            //(*red)++;
-            //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
-            //(*green)++;
-            _foreign.signal[0].sync_me.clear();
-            }
-        }
-        if (!write[0].ready.test_and_set()) {
-            if (!write[0].result) {
-                //if (obj_id == 1 || obj_id == 2) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-                //}
-            }
-        }
-        }
-        std::this_thread::yield();
-    }
-private:
-    std::thread _thread;
-};*/
-
-        //counterBus.signal.getUpdatedRef().clear();
-        // LOCK
-        /*auto fut = write_status[2].get();
-        // EDIT
-        // if (fut){
-        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects))+sizeof(std::get<2>(_sBus.objects)),'-');
-        // SEND
-        if (!write_status[2].valid()) {
-            bus.sync_id[2] = true;
-            write_status[2] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
-            // CALLBACK
-            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_sBus.objects)));
-            t.detach();
-        } else {
-            SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
-        }
-        //}*/
-
 class FPGA : public SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    FPGA(bus_type& myBus)
-        : SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA>(myBus)
+    FPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& other)
+        : SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA>(myBus, other)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -227,8 +94,8 @@ private:
 class MCU : public SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    MCU(bus_type& myBus)
-        : SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA>(myBus)
+    MCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& other)
+        : SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA>(myBus, other)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -295,3 +162,136 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread;
 };
+
+class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<FPGA, TrueColorClass, DMA, DMA> {
+public:
+    FPGASimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+        : SOS::Behavior::SequentialResolver<FPGA, TrueColorClass, DMA, DMA>(passThru)
+
+    {
+        _sBus.signal[0].sync_me.clear();
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~FPGASimpleDummy(){
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    void event_loop()
+    {
+        // SIGNALING
+        resolve(0);
+        if (!_sBus.signal.getNotifyRef().test_and_set()) {
+        if (!read[0].ready.test_and_set()) {
+            if (read[0].result) {
+            //check ownership
+            //std::get<0>(bus.objs).red++; // Hack
+            //std::get<0>(bus.objs).blue++; // Hack
+            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            //(*red)--;
+            //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
+            //(*blue)++;
+            _sBus.signal[0].sync_me.clear();
+            }
+        }
+        if (!write[0].ready.test_and_set()) {
+            if (!write[0].result) {
+                //if (obj_id == 1 || obj_id == 2) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+                //}
+            }
+        }
+        }
+        std::this_thread::yield();
+    }
+private:
+    std::thread _thread;
+};
+        //counterBus.signal.getAcknowledgeRef().clear();
+        // LOCK
+        /*auto fut = write_status[1].get();
+        if (fut) {
+            // EDIT
+            int writeBlinkCounter = 0;
+            bool writeBlink = true;
+            for (std::size_t i = 0; i < sizeof(std::get<1>(_sBus.objects)); i++) {
+                std::get<1>(_sBus.objects)[i] = writeBlink? '*' : '_';
+                writeBlinkCounter++;
+                if (writeBlink && writeBlinkCounter == 84) {
+                    writeBlink = false;
+                    writeBlinkCounter = 0;
+                } else if (!writeBlink && writeBlinkCounter == 168) {
+                    writeBlink = true;
+                    writeBlinkCounter = 0;
+                }
+            }
+            // SEND
+            if (!write_status[1].valid()) {
+                bus.sync_id[1] = true;
+                write_status[1] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
+                // CALLBACK
+                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_sBus.objects)));
+                t.detach();
+            } else {
+                SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
+            }
+        } else {
+            SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
+        }*/
+
+class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<MCU, TrueColorClass, DMA, DMA> {
+public:
+    MCUSimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+        : SOS::Behavior::SequentialResolver<MCU, TrueColorClass, DMA, DMA>(passThru)
+    {
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~MCUSimpleDummy(){
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    void event_loop()
+    {
+        // SIGNALING
+        resolve(0);
+        if (!_sBus.signal.getNotifyRef().test_and_set()) {
+        if (!read[0].ready.test_and_set()) {
+            if (read[0].result) {
+            //check ownership
+            //std::get<0>(bus.objs).red--;
+            //std::get<0>(bus.objs).green++;
+            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+            //(*red)++;
+            //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
+            //(*green)++;
+            _sBus.signal[0].sync_me.clear();
+            }
+        }
+        if (!write[0].ready.test_and_set()) {
+            if (!write[0].result) {
+                //if (obj_id == 1 || obj_id == 2) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+                //}
+            }
+        }
+        }
+        std::this_thread::yield();
+    }
+private:
+    std::thread _thread;
+};
+
+        //counterBus.signal.getUpdatedRef().clear();
+        // LOCK
+        /*auto fut = write_status[2].get();
+        // EDIT
+        // if (fut){
+        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects))+sizeof(std::get<2>(_sBus.objects)),'-');
+        // SEND
+        if (!write_status[2].valid()) {
+            bus.sync_id[2] = true;
+            write_status[2] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
+            // CALLBACK
+            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_sBus.objects)));
+            t.detach();
+        } else {
+            SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
+        }
+        //}*/

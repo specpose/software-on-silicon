@@ -157,17 +157,6 @@ namespace MemoryView {
     // };
 }
 namespace Protocol {
-    //template <typename ObjectWithOwnership>
-    //class ObjectBusGenerator : public SOS::MemoryView::BusShaker {
-    //public:
-    //    ObjectBusGenerator() = delete;
-    //    ObjectBusGenerator(ObjectWithOwnership& obj)
-    //    : SOS::MemoryView::BusShaker {}
-    //    , obj{obj}
-    //    {
-    //    }
-    //    ObjectWithOwnership& obj;
-    //};
     //template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof % 3 == 0 && Sizeof % 12 != 0 && Sizeof % 24 != 0 && Sizeof % 12288 != 0, unsigned char>::type>
     //class CharBusGenerator : public SOS::MemoryView::BusShaker {
     //public:
@@ -206,25 +195,29 @@ namespace Protocol {
     }
 }
 namespace Behavior {
-    template <typename OtherBus>
-    class SerialPassthruAsyncDummy : public Loop, protected SubController { // Useless: Refactoring only
+    template <typename S, typename OtherBus>
+    class SerialDoublePassthruAsyncController : public Controller<S>, public Loop {
     public:
-        SerialPassthruAsyncDummy(OtherBus& other)
-        : Loop()
-        , SubController()
-        , _foreign(other)
+        SerialDoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
+        : Controller<S>()
+        , Loop()
+        , _foreign(passThru)
+        , _child(_foreign, other)
         {
         }
 
     protected:
-        OtherBus& _foreign;
+        typename S::bus_type& _foreign;
 
+    private:
+        S _child;
     };
-    template <typename... Objects>
-    class SequentialResolver : public SerialPassthruAsyncDummy<SOS::MemoryView::SerialAsyncBus<Objects...>> {
+    template <typename S, typename... Objects>
+    class SequentialResolver : public SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>> {
     public:
-        SequentialResolver() // constexpr
-            : SerialPassthruAsyncDummy<SOS::MemoryView::SerialAsyncBus<Objects...>>(sBus)
+        using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
+        SequentialResolver(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
+            : SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>>(passThru, _sBus)
         {
         }
         ~SequentialResolver() {
@@ -232,8 +225,8 @@ namespace Behavior {
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void resolve(std::size_t id) {
-            if (!this->_foreign.signal[id].read_ack.test_and_set()) {
-                if (this->_foreign.signal[id].read_fault.test_and_set()) {
+            if (!this->_sBus.signal[id].read_ack.test_and_set()) {
+                if (this->_sBus.signal[id].read_fault.test_and_set()) {
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
@@ -256,8 +249,8 @@ namespace Behavior {
                     read[id].ready.clear();
                 }
             }
-            if (!this->_foreign.signal[id].write_ack.test_and_set()) {
-                if (this->_foreign.signal[id].write_fault.test_and_set()){
+            if (!this->_sBus.signal[id].write_ack.test_and_set()) {
+                if (this->_sBus.signal[id].write_fault.test_and_set()){
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
@@ -285,11 +278,11 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::Async, NUM_IDS> read {};
         std::array<SOS::Protocol::Async, NUM_IDS> write {};
+        bus_type _sBus {};
 
     //private:
-        std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
     private:
-        SOS::MemoryView::SerialAsyncBus<Objects...> sBus {};
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };
