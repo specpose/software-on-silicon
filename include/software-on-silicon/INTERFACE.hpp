@@ -10,7 +10,7 @@ namespace MemoryView {
         Notify() { notify.test_and_set(); }
         std::atomic_flag& getNotifyRef() { return notify; }
 
-    protected:
+    private:
         std::atomic_flag notify = ATOMIC_FLAG_INIT;
     };
     class Pair : private Notify, public std::array<std::atomic_flag, 1> {
@@ -20,7 +20,7 @@ namespace MemoryView {
             , std::array<std::atomic_flag, 1>()
         {
         }
-        std::atomic_flag& getFirstRef() { return notify; }
+        std::atomic_flag& getFirstRef() { return getNotifyRef(); }
         std::atomic_flag& getSecondRef() { return std::get<0>(*this); }
     };
     // 1+1=0
@@ -34,7 +34,7 @@ namespace MemoryView {
         std::atomic_flag& getUpdatedRef() { return updated; }
         std::atomic_flag& getAcknowledgeRef() { return acknowledge; }
 
-    protected:
+    private:
         std::atomic_flag updated = ATOMIC_FLAG_INIT;
         std::atomic_flag acknowledge = ATOMIC_FLAG_INIT;
     };

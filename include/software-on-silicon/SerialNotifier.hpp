@@ -60,8 +60,8 @@ namespace MemoryView {
         std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<9>(*this); }
         std::atomic_flag& getSyncStopUpdatedRef() { return std::get<10>(*this);; }
         std::atomic_flag& getSyncStopAcknowledgeRef() { return std::get<11>(*this); }
-        std::atomic_flag& getSyncStartUpdatedRef() { return updated; }
-        std::atomic_flag& getSyncStartAcknowledgeRef() { return acknowledge; }
+        std::atomic_flag& getSyncStartUpdatedRef() { return getUpdatedRef(); }
+        std::atomic_flag& getSyncStartAcknowledgeRef() { return getAcknowledgeRef(); }
     };
     template<std::size_t N>
     struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, N> {
@@ -104,21 +104,31 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT; // Processing and Async
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT; // Processing and Async
     };
-    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
+    class SwitchBoard : public SOS::MemoryView::Notify, private SOS::MemoryView::DoubleHandShake, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : Notify(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
+        SwitchBoard() : Notify(), DoubleHandShake(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
+        std::atomic_flag& readUpdated() { return getUpdatedRef(); }
+        std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
+        std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
+        std::atomic_flag& writeAcknowledge() { return getAuxAcknowledgeRef(); }
     };
     struct serial_async_tag { };
+    struct Current : public SOS::MemoryView::TaskCable<std::size_t, 2> {
+        using value_type = typename SOS::MemoryView::TaskCable<std::size_t, 2>::value_type;
+        typename Current::value_type& currentRead() { return std::get<0>(*this); }
+        typename Current::value_type& currentWrite() { return std::get<1>(*this); }
+    };
     template <typename... Objects>
     struct SerialAsyncBus : bus<
         serial_async_tag,
         SOS::MemoryView::SwitchBoard,
-        bus_traits<SOS::MemoryView::Bus>::cables_type,
+        std::tuple<Current>,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
         //SerialAsyncBus() : signal() {}
         signal_type signal;
+        cables_type cables {};
     };
 }
 namespace Protocol {
@@ -227,7 +237,7 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!this->_sBus.signal[id].read_ack.test_and_set()) {
                 if (this->_sBus.signal[id].read_fault.test_and_set()) {
-                    //unsigned long i = 0;
+                    unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
                     //        i++;
