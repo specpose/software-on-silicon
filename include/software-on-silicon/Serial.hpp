@@ -16,7 +16,7 @@ namespace Protocol {
     class SyncProcessor {
     public:
         using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        SyncProcessor(bus_type& bus) : _sBus(bus) {}
+        SyncProcessor(SOS::MemoryView::ComBus<COM_BUFFER>& bus, bus_type& bus2) : _com(bus), _sBus(bus2) {}
     protected:
         bool check_sync(std::size_t obj_id) {
             if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
@@ -61,8 +61,37 @@ namespace Protocol {
             }
             _sBus.signal[obj_id].write_ack.clear();
         }
+        unsigned char read_byte()
+        {
+            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getInBufferStartRef(), std::get<0>(_com.const_cables).getInBufferStartRef());
+            if (std::get<0>(_com.cables).getReadOffsetRef().load() > bufferLength)
+                SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
+            auto next = std::get<0>(_com.cables).getReadOffsetRef().load();
+            auto byte = *(std::get<0>(_com.const_cables).getInBufferStartRef() + next);
+            next++;
+            if (next >= bufferLength)
+                std::get<0>(_com.cables).getReadOffsetRef().store(0);
+            else
+                std::get<0>(_com.cables).getReadOffsetRef().store(next);
+            return byte;
+        }
+        void write_byte(unsigned char byte)
+        {
+            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getOutBufferStartRef(), std::get<0>(_com.const_cables).getOutBufferEndRef());
+            if (std::get<0>(_com.cables).getWriteOffsetRef().load() > bufferLength)
+                SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
+            auto next = std::get<0>(_com.cables).getWriteOffsetRef().load();
+            *(std::get<0>(_com.const_cables).getOutBufferStartRef() + next) = byte;
+            next++;
+            if (next >= bufferLength)
+                std::get<0>(_com.cables).getWriteOffsetRef().store(0);
+            else
+                std::get<0>(_com.cables).getWriteOffsetRef().store(next);
+        }
+        void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
     private:
         bus_type& _sBus;
+        SOS::MemoryView::ComBus<COM_BUFFER>& _com;
         std::bitset<NUM_IDS> read_started_id {};
     };
 }
@@ -93,9 +122,9 @@ namespace Protocol {
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy, private SyncProcessor<Objects...>  {
     public:
         Serial(bus_type& bus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
-            : SOS::Protocol::BlockWiseTransfer<Objects...>(bus)
+            : SOS::Protocol::BlockWiseTransfer<Objects...>()
             , SOS::Behavior::SerialEventDummy(bus.signal)
-            , SyncProcessor<Objects...>(other)
+            , SyncProcessor<Objects...>(bus, other)
         {
         }
         virtual ~Serial() {}; // request_shutdown_action
@@ -156,6 +185,7 @@ namespace Protocol {
         }
         virtual void handshake_ack() final
         {
+            SyncProcessor<Objects...>::trigger_resolve();
             SOS::Behavior::SerialEventDummy::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
@@ -238,7 +268,7 @@ namespace Protocol {
             } else if (state_code == std::bitset<8> { state::idle }) {
                 if (_vars.received_sighup) {
                     _vars.received_idle = true;
-                    std::cout << typeid(*this).name() << "." << "!" << std::endl;
+                    // std::cout << typeid(*this).name() << "." << "!" << std::endl;
                 }
             } else if (state_code == std::bitset<8> { state::shutdown }) {
                 if (_vars.received_sighup)
@@ -287,7 +317,7 @@ namespace Protocol {
             send_request();
             auto id_bits = std::bitset<8> { state::idle };
             this->write_bits(id_bits);
-            std::cout<<typeid(*this).name()<<":"<<"!"<<std::endl;
+            // std::cout<<typeid(*this).name() << ":" << "!" << std::endl;
             this->write_byte(static_cast<unsigned char>(id_bits.to_ulong()));
             if (_vars.sent_sighup)
                 _vars.sent_idle = true;
@@ -299,7 +329,7 @@ namespace Protocol {
                 send_request();
                 auto id_bits = std::bitset<8> { 0x00 };
                 this->write_bits(id_bits);
-                std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item) << std::endl; // why not ID?!
+                // std::cout << typeid(*this).name() << ":" << "T" << std::to_string(item) << std::endl; // why not ID?!
                 const unsigned char mod = item + LOWER_STATES;
                 auto obj_id = std::bitset<8> { mod };
                 id_bits = id_bits ^ obj_id;
@@ -327,7 +357,7 @@ namespace Protocol {
                 if (!this->descriptors[waitingConfirmation].readLock) { // requires last read_object byte
                     this->descriptors[waitingConfirmation].transfer = true;
                     //this->descriptors[waitingConfirmation].unsynced = false;
-                    std::cout << typeid(*this).name() << "." << "A" << std::to_string(waitingConfirmation) << std::endl;
+                    // std::cout << typeid(*this).name() << "." << "A" << std::to_string(waitingConfirmation) << std::endl;
                     SyncProcessor<Objects...>::emit_transfer(waitingConfirmation);
                 } else {
                     SFA::util::logic_error(SFA::util::error_code::ReadlockPredatesAcknowledge, __FILE__, __func__, typeid(*this).name());
@@ -343,7 +373,7 @@ namespace Protocol {
                     if (!this->descriptors[incomingRequest].transfer) {
                         SyncProcessor<Objects...>::emit_readlocked(incomingRequest);
                         this->descriptors[incomingRequest].readLock = true;
-                        std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
+                        // std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
                         send_acknowledge();
                     } else {
                         SFA::util::logic_error(SFA::util::error_code::SyncedObjectsAreNotSupposedToHaveaTransfer, __FILE__, __func__, typeid(*this).name());
@@ -354,6 +384,8 @@ namespace Protocol {
         }
         virtual void emit_received(std::size_t obj_id) final { SyncProcessor<Objects...>::emit_received(obj_id); }
         virtual void emit_sent(std::size_t obj_id) final { SyncProcessor<Objects...>::emit_sent(obj_id); }
+        virtual unsigned char read_byte() final { return SyncProcessor<Objects...>::read_byte(); };
+        virtual void write_byte(unsigned char byte) final { SyncProcessor<Objects...>::write_byte(byte); };
         bool getFirstTransfer()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {

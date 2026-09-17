@@ -2,15 +2,13 @@ namespace SOS {
 namespace Protocol {
     /*
     template <typename... Objects>
-    BlockWiseTransfer<Objects...>::BlockWiseTransfer(bus_type& bus)
-    : _com(bus)
+    BlockWiseTransfer<Objects...>::BlockWiseTransfer()
     {
         this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
         // apply(this->descriptors, objects); // fold expression: cpp17
     }
     */
-    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer(bus_type& bus)
-    : _com(bus)
+    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer()
     {
         const std::size_t s = 3;
         ////array of signals

@@ -243,7 +243,7 @@ namespace Behavior {
                     read[id].ready.clear();
                 } else
                 {
-                    //SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                    SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
                     read[id].result = false;
                     read[id].ready.clear();
