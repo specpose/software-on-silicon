@@ -7,10 +7,10 @@
 using namespace SOS::MemoryView;
 using namespace std::chrono;
 
-class BlinkLoop : public SOS::Behavior::SimpleDummy<> {
+class BlinkLoop : public SOS::Behavior::SimpleDummy {
 public:
     BlinkLoop(SOS::MemoryView::Notify& bussignal)
-        : SOS::Behavior::SimpleDummy<>(bussignal)
+        : SOS::Behavior::SimpleDummy(bussignal)
     {
         _thread = start(this);
     }

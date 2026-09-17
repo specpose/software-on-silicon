@@ -3,6 +3,8 @@
 
 enum SFA::util::error_code : unsigned char {
     noerror = 0,
+    // 8bit
+    NaN,
     // rtos_helpers.hpp
     ChildHasToBeDeletedBeforeDestroyThread,
     ChildHasAlreadyBeenDeleted,
@@ -17,18 +19,16 @@ enum SFA::util::error_code : unsigned char {
     DuplicateSighup,
     DuplicateReadlockRequest,
     SyncedObjectsAreNotSupposedToHaveaTransfer,
-    IncomingReadlockIsCancelingLocalWriteOperation,
-    IncomingReadlockIsRejectedOrOmitted,
     AcknowledgeReceivedWithoutAnyRequest,
     ReceivedATransferAcknowledgeOnSyncedObject,
     ReceivedATransferAcknowledgeOnReadlockedObject,
     ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer,
     ReadlockPredatesAcknowledge,
-    AcknowledgeIdDoesNotReferenceAValidObject, // 2x
+    AcknowledgeIdDoesNotReferenceAValidObject,
     PreviousTransferHasNotBeenAcknowledged,
     InvalidAcknowledgeId,
     SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired,
-    DMAObjectHasEnteredAnIllegalSyncState,
+    DMAObjectHasEnteredAnInaccessibleSyncState,
     FoundATransferObjectWhichIsUnsynced,
     FoundATransferObjectWhichIsReadlocked,
     PreviousObjectWriteHasNotBeenCompleted,
@@ -45,9 +45,12 @@ enum SFA::util::error_code : unsigned char {
     NotIdleAfterSighup,
     ReadsPendingAfterComthreadDestruction,
     InvalidDMAObjectId,
-    // MCUFPGA.cpp
     WriteRequestHasBeenCanceledByOtherSide,
+    ObjectSyncWasNeverRequested,
+    // SerialProcessing
     TypeOfFutureHasBeenModifiedDuringEdit,
+    ServiceInterruptedByComShutdown,
+    ObjectWriteCanceledByIncomingRead,
     // SymbolRateCounter.cpp
     CounterMaxedOut,
     // RingBuffer.hpp
@@ -76,6 +79,8 @@ const std::string SFA::util::error_message(error_code what)
     switch (what) {
     case error_code::noerror:
         return std::string("No error was supplied after initialization of static error variable");
+    case error_code::NaN:
+        return std::string("Not A Number");
     case error_code::ChildHasToBeDeletedBeforeDestroyThread:
         return std::string("Child has to be deleted before destroy thread");
     case error_code::ChildHasAlreadyBeenDeleted:
@@ -100,10 +105,6 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Duplicate readLock request");
     case error_code::SyncedObjectsAreNotSupposedToHaveaTransfer:
         return std::string("Synced objects are not supposed to have a transfer");
-    case error_code::IncomingReadlockIsCancelingLocalWriteOperation:
-        std::string("Incoming readLock is canceling local write operation");
-    case error_code::IncomingReadlockIsRejectedOrOmitted:
-        std::string("Incoming readLock is rejected or omitted");
     case error_code::AcknowledgeReceivedWithoutAnyRequest:
         return std::string("Acknowledge received without any request");
     case error_code::ReceivedATransferAcknowledgeOnSyncedObject:
@@ -122,8 +123,8 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Invalid acknowledgeId");
     case error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired:
         return std::string("Synced status has not been overriden when readLock was acquired");
-    case error_code::DMAObjectHasEnteredAnIllegalSyncState:
-        return std::string("DMAObject has entered an illegal sync state");
+    case error_code::DMAObjectHasEnteredAnInaccessibleSyncState:
+        return std::string("DMAObject has entered an inaccessible sync state");
     case error_code::FoundATransferObjectWhichIsUnsynced:
         return std::string("Found a transfer object which is unsynced");
     case error_code::FoundATransferObjectWhichIsReadlocked:
@@ -170,8 +171,14 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Invalid DMA Object Id");
     case error_code::WriteRequestHasBeenCanceledByOtherSide:
         return std::string("Writerequest has been canceled by other side");
+    case error_code::ObjectSyncWasNeverRequested:
+        return std::string("Object sync was never requested");
     case error_code::TypeOfFutureHasBeenModifiedDuringEdit:
         return std::string("The type of the Future has been modified during Edit");
+    case error_code::ServiceInterruptedByComShutdown:
+        return std::string("Service interrupted by com_shutdown");
+    case error_code::ObjectWriteCanceledByIncomingRead:
+        return std::string("Object write canceled by an incoming read of the same object");
     case error_code::CounterMaxedOut:
         return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:
@@ -193,11 +200,10 @@ const std::string SFA::util::error_message(error_code what)
     }
     return std::string("No error was supplied after initialization of static SFA::util::error");
 }
-static SFA::util::error_code error = SFA::util::error_code::noerror;
 void SFA::util::logic_error(error_code what, std::string file_name, std::string function_name, const char* modname)
 {
-    if (error == error_code::noerror)
-        error = what;
+    SFA::util::error_code error = SFA::util::error_code::noerror;
+    error = what;
     if (!modname)
         modname = "";
     std::cerr << std::endl
@@ -206,8 +212,8 @@ void SFA::util::logic_error(error_code what, std::string file_name, std::string 
 };
 void SFA::util::runtime_error(error_code what, std::string file_name, std::string function_name, const char* modname)
 {
-    if (error == error_code::noerror)
-        error = what;
+    SFA::util::error_code error = SFA::util::error_code::noerror;
+    error = what;
     if (!modname)
         modname = "";
     std::cerr << std::endl

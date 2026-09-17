@@ -1,9 +1,39 @@
 namespace SOS {
+namespace Protocol {
+    // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
+    enum SequentialLogicRequest : unsigned char {
+        serviceinterrupted = 0xF9, // Out
+        writeend = 0xFA, // Out
+        readend = 0xFB, // Out
+        writestart = 0xFC, // Out
+        readstart = 0xFD, // Out
+        checksync = 0xFE, // Out
+        init = 0xFF // Out
+    };
+    enum SequentialLogicResponse : unsigned char {
+        descriptorssend = 0xFB, // In, out of order. After init
+        syncresponse = 0xFE, // In
+        nocommand = 0xFF // In
+    };
+}
 namespace MemoryView {
-    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 6> {
+    struct SequentialCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
+        using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWordRef() { return std::get<1>(*this); }
+    };
+    struct SequentialBus : public SOS::MemoryView::BusShaker {
+        using cables_type = std::tuple<SequentialCable>;
+        SequentialBus() {
+            std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::nocommand);
+            std::get<0>(cables).getWordRef().store(NUM_IDS);
+        }
+        cables_type cables {};
+    };
+    class DMAObjectShake : private SOS::MemoryView::HandShake, private std::array<std::atomic_flag, 12> {
     public:
         DMAObjectShake()
-            : std::array<std::atomic_flag, 6> {}
+            : std::array<std::atomic_flag, 12> {}
         {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
@@ -11,20 +41,33 @@ namespace MemoryView {
             std::get<3>(*this).test_and_set();
             std::get<4>(*this).test_and_set();
             std::get<5>(*this).test_and_set();
+            std::get<6>(*this).test_and_set();
+            std::get<7>(*this).test_and_set();
+            std::get<8>(*this).test_and_set();
+            std::get<9>(*this).test_and_set();
+            std::get<10>(*this).test_and_set();
+            std::get<11>(*this).test_and_set();
         }
-        std::atomic_flag& getReadUpdatedRef() { return std::get<0>(*this); }
-        std::atomic_flag& getReadAcknowledgeRef() { return std::get<1>(*this); }
-        std::atomic_flag& getWriteUpdatedRef() { return std::get<2>(*this); }
-        std::atomic_flag& getWriteAcknowledgeRef() { return std::get<3>(*this); }
-        std::atomic_flag& getSyncStartUpdatedRef() { return std::get<4>(*this); }
-        std::atomic_flag& getSyncStartAcknowledgeRef() { return std::get<5>(*this); }
-        std::atomic_flag& getSyncStopUpdatedRef() { return updated; }
-        std::atomic_flag& getSyncStopAcknowledgeRef() { return acknowledge; }
+        std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
+        std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
+        std::atomic_flag& getReadEndUpdatedRef() { return std::get<2>(*this); }
+        std::atomic_flag& getReadEndAcknowledgeRef() { return std::get<3>(*this); }
+        std::atomic_flag& getServiceInterruptedUpdatedRef() { return std::get<4>(*this); }
+        std::atomic_flag& getServiceInterruptedAcknowledgeRef() { return std::get<5>(*this); }
+        std::atomic_flag& getWriteStartUpdatedRef() { return std::get<6>(*this); }
+        std::atomic_flag& getWriteStartAcknowledgeRef() { return std::get<7>(*this); }
+        std::atomic_flag& getWriteEndUpdatedRef() { return std::get<8>(*this); }
+        std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<9>(*this); }
+        std::atomic_flag& getSyncStopUpdatedRef() { return std::get<10>(*this);; }
+        std::atomic_flag& getSyncStopAcknowledgeRef() { return std::get<11>(*this); }
+        std::atomic_flag& getSyncStartUpdatedRef() { return updated; }
+        std::atomic_flag& getSyncStartAcknowledgeRef() { return acknowledge; }
     };
-    struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, 4> {
-        using value_type = SOS::MemoryView::TaskCable<std::size_t, 4>::value_type;
+    template<std::size_t N>
+    struct DestinationAndOrigin : public SOS::MemoryView::TaskCable<std::size_t, N> {
+        using value_type = typename SOS::MemoryView::TaskCable<std::size_t, N>::value_type;
         DestinationAndOrigin()
-            : SOS::MemoryView::TaskCable<std::size_t, 4> {}
+            : SOS::MemoryView::TaskCable<std::size_t, N> {}
         {
             std::fill(std::begin(*this), std::end(*this), 0);
         }
@@ -33,14 +76,49 @@ namespace MemoryView {
     struct BusDMAShaker : bus<
                               bus_dma_shaker_tag,
                               SOS::MemoryView::DMAObjectShake,
-                              std::tuple<DestinationAndOrigin>,
+                              std::tuple<DestinationAndOrigin<6>>,
                               bus_traits<Bus>::const_cables_type> {
         signal_type signal;
         cables_type cables {};
-        typename DestinationAndOrigin::value_type& receiveNotificationId() { return std::get<0>(std::get<0>(cables)); }
-        typename DestinationAndOrigin::value_type& sendNotificationId() { return std::get<1>(std::get<0>(cables)); }
-        typename DestinationAndOrigin::value_type& syncStopId() { return std::get<2>(std::get<0>(cables)); }
-        typename DestinationAndOrigin::value_type& syncStartId() { return std::get<3>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& readlockNotificationId() { return std::get<0>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& receivedNotificationId() { return std::get<1>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& transferNotificationId() { return std::get<2>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& sentNotificationId() { return std::get<3>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& syncStopId() { return std::get<4>(std::get<0>(cables)); }
+        typename DestinationAndOrigin<6>::value_type& syncStartId() { return std::get<5>(std::get<0>(cables)); }
+    };
+    struct DMAObjectAsyncSwitch
+    {
+        DMAObjectAsyncSwitch() {
+            read_ack.test_and_set();
+            read_fault.test_and_set();
+            write_ack.test_and_set();
+            write_fault.test_and_set();
+            sync_me.test_and_set();
+        }
+        //SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
+        std::atomic_flag read_ack = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag read_fault = ATOMIC_FLAG_INIT; // Processing and Async
+        //SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
+        std::atomic_flag write_ack = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag write_fault = ATOMIC_FLAG_INIT; // Processing and Async
+        std::atomic_flag sync_me = ATOMIC_FLAG_INIT; // Processing and Async
+    };
+    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
+    {
+    public:
+        SwitchBoard() : Notify(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
+    };
+    struct serial_async_tag { };
+    template <typename... Objects>
+    struct SerialAsyncBus : bus<
+        serial_async_tag,
+        SOS::MemoryView::SwitchBoard,
+        bus_traits<SOS::MemoryView::Bus>::cables_type,
+        bus_traits<SOS::MemoryView::Bus>::const_cables_type>
+    {
+        //SerialAsyncBus() : signal() {}
+        signal_type signal;
     };
 }
 namespace Protocol {
@@ -52,19 +130,22 @@ namespace Protocol {
         shutdown = 0x3C,
         reserved = 0x3F // 8bit LEQ instruction?
     };
-}
-#define LOWER_STATES 1
-#define UPPER_STATES 5
-#define NUM_IDS 64 - UPPER_STATES - LOWER_STATES
-#define NUM_SIGNALBITS 2
-namespace MemoryView {
-    template <unsigned char N>
-    struct Futures : public std::array<std::future<bool>, N> {
-        Futures()
-            : std::array<std::future<bool>, N> {}
+    template <typename ArithmeticType>
+    struct Size : public SOS::MemoryView::ConstCable<ArithmeticType, 2> {
+        Size(const ArithmeticType First, const ArithmeticType Second)
+        : SOS::MemoryView::ConstCable<ArithmeticType, 2>({ First, Second })
         {
         }
     };
+}
+namespace MemoryView {
+    //template <unsigned char N>
+    //struct Futures : public std::array<std::future<bool>, N> {
+    //    Futures()
+    //        : std::array<std::future<bool>, N> {}
+    //    {
+    //    }
+    //};
     // template<unsigned char N>
     // struct Promises : public std::array<std::promise<bool>,N> {
     //     //Promises(Objects&&... obj_refs) : std::tuple<std::promise<Objects&>...>{std::forward(obj_refs...)} {}
@@ -75,157 +156,27 @@ namespace MemoryView {
     //     }
     // };
 }
-namespace Behavior {
-    class SerialSubController : public SubController {
-    public:
-        using bus_type = SOS::MemoryView::BusDMAShaker;
-        constexpr SerialSubController(typename bus_type::signal_type& signal)
-            : SubController()
-            , _intrinsic(signal)
-        {
-        }
-
-    protected:
-        bus_type::signal_type& _intrinsic;
-    };
-    template <typename... Others>
-    class SerialDummy : public Loop, protected SerialSubController {
-    public:
-        SerialDummy(typename bus_type::signal_type& signal, Others&... args)
-            : Loop()
-            , SerialSubController(signal)
-        {
-        }
-    };
-    class SerialProcessing : public SOS::Behavior::SerialDummy<> {
-    public:
-        using bus_type = SOS::MemoryView::BusDMAShaker;
-        SerialProcessing(bus_type& bus)
-            : _datasignals(bus)
-            , SOS::Behavior::SerialDummy<>(bus.signal)
-        {
-            for (std::size_t i = 0; i < NUM_IDS; ++i) {
-                read_ack[i].test_and_set();
-                write_fault[i].test_and_set();
-                write_ack[i].test_and_set();
-                write_status[i] = std::async(std::launch::deferred, []() -> bool { return true; });
-            }
-            _intrinsic.getSyncStartUpdatedRef().clear();
-            readOrWrite = true; // one sync is enough to trigger a read or write hook
-            _intrinsic.getSyncStopUpdatedRef().clear();
-            _intrinsic.getWriteUpdatedRef().clear();
-            _intrinsic.getReadUpdatedRef().clear();
-        }
-        void event_loop()
-        {
-            if (!_intrinsic.getSyncStopAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.syncStopId().load();
-                if (sync[id])
-                    if (id == 1 || id == 2) {
-                        std::cout << typeid(*this).name() << ": write of object id " << id << " canceled" << std::endl;
-                        write_fault[id].clear();
-                    }
-                sync[id] = false;
-                sync_backup[id] = false;
-                _intrinsic.getSyncStopUpdatedRef().clear();
-            }
-            if (!_intrinsic.getReadAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.receiveNotificationId().load();
-                read[id] = false;
-                read_ack[id].clear();
-                _intrinsic.getReadUpdatedRef().clear();
-                readOrWrite = true;
-            }
-            process_hook();
-            if (!_intrinsic.getWriteAcknowledgeRef().test_and_set()) {
-                const auto id = _datasignals.sendNotificationId().load();
-                write[id] = false;
-                if (id == 1 || id == 2) {
-                    std::cout << typeid(*this).name() << ": write of object id " << id << " succeeded" << std::endl;
-                    write_ack[id].clear();
-                }
-                _intrinsic.getWriteUpdatedRef().clear();
-                readOrWrite = true;
-            }
-            if (readOrWrite) {
-                for (std::size_t i = 0; i < NUM_IDS; i++) {
-                    if (sync[i] && !sync_backup[i]) {
-                        if (!_intrinsic.getSyncStartUpdatedRef().test_and_set()) {
-                            sync_backup[i] = true;
-                            _datasignals.syncStartId().store(i);
-                            _intrinsic.getSyncStartAcknowledgeRef().clear();
-                        }
-                        break;
-                    }
-                }
-                readOrWrite = false;
-            }
-            std::this_thread::yield();
-        }
-
-    protected:
-        bool readOrWrite = false;
-        virtual void process_hook() = 0;
-        std::bitset<NUM_IDS> read {};
-        std::array<std::atomic_flag, NUM_IDS> read_ack {};
-        std::bitset<NUM_IDS> write {};
-        std::array<std::atomic_flag, NUM_IDS> write_fault {};
-        std::array<std::atomic_flag, NUM_IDS> write_ack {};
-        SOS::MemoryView::Futures<NUM_IDS> write_status {};
-        std::bitset<NUM_IDS> sync {};
-        std::bitset<NUM_IDS> sync_backup {};
-
-    private:
-        bus_type& _datasignals;
-    };
-}
 namespace Protocol {
-    extern "C" {
-    struct DMADescriptor {
-        unsigned char id;// = NUM_IDS;
-        void* obj;// = nullptr;
-        unsigned long obj_size;// = 0;
-        volatile bool readLock;// = false; // SerialProcessing thread
-        volatile bool unsynced;// = false; // SerialProcessing thread
-        bool transfer;// = false;
-    };
-    }
-    // template <typename... Objects>
-    // struct ObjectHelper : public std::tuple<Objects&...> {
-    //     ObjectHelper(Objects&&... obj_refs) : std::tuple<Objects&...>{std::forward(obj_refs...)} {}
-    // };
-    // template<typename ArithmeticType, std::size_t N> struct Array : public SOS::MemoryView::TaskCable<ArithmeticType, N> {
-    //     using SOS::MemoryView::TaskCable<ArithmeticType, N>::TaskCable;
-    // };
-    template <typename ArithmeticType>
-    struct Size : public SOS::MemoryView::ConstCable<ArithmeticType, 2> {
-        Size(const ArithmeticType First, const ArithmeticType Second)
-            : SOS::MemoryView::ConstCable<ArithmeticType, 2>({ First, Second })
-        {
+    //template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof % 3 == 0 && Sizeof % 12 != 0 && Sizeof % 24 != 0 && Sizeof % 12288 != 0, unsigned char>::type>
+    //class CharBusGenerator : public SOS::MemoryView::BusShaker {
+    //public:
+    //    CharBusGenerator() = delete;
+    //    CharBusGenerator(Object& obj)
+    //    : SOS::MemoryView::BusShaker {}
+    //    , const_cables { Size<ArithmeticType*>(reinterpret_cast<ArithmeticType*>(&obj), reinterpret_cast<ArithmeticType*>(&obj) + Sizeof) }
+    //    {
+    //    }
+    //    using const_cables_type = std::tuple<Size<ArithmeticType*>>;
+    //    const_cables_type const_cables;
+    //};
+    struct Async {
+        Async() {
+            ready.test_and_set();
         }
+        std::atomic_flag ready = ATOMIC_FLAG_INIT;
+        bool result = true;
     };
-    template <typename Object, std::size_t Sizeof = sizeof(Object), typename ArithmeticType = typename std::enable_if<Sizeof % 3 == 0 && Sizeof % 12 != 0 && Sizeof % 24 != 0 && Sizeof % 12288 != 0, unsigned char>::type>
-    class CharBusGenerator : public SOS::MemoryView::BusShaker {
-    public:
-        CharBusGenerator() = delete;
-        CharBusGenerator(Object& obj)
-            : SOS::MemoryView::BusShaker {}
-            , const_cables { Size<ArithmeticType*>(reinterpret_cast<ArithmeticType*>(&obj), reinterpret_cast<ArithmeticType*>(&obj) + Sizeof) }
-        {
-        }
-        using const_cables_type = std::tuple<Size<ArithmeticType*>>;
-        const_cables_type const_cables;
-    };
-}
-namespace MemoryView {
-
-    template <typename... Objects>
-    struct SerialProcessNotifier : public BusDMAShaker {
-        std::tuple<Objects...> objects {};
-    };
-}
-namespace Protocol {
-    bool write_status(std::atomic_flag& fault, std::atomic_flag& ack)
+    bool async_status(std::atomic_flag& fault, std::atomic_flag& ack)
     {
         bool exit = false;
         bool result = false;
@@ -242,5 +193,98 @@ namespace Protocol {
         }
         return result;
     }
+}
+namespace Behavior {
+    template <typename S, typename OtherBus>
+    class SerialDoublePassthruAsyncController : public Controller<S>, public Loop {
+    public:
+        SerialDoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
+        : Controller<S>()
+        , Loop()
+        , _foreign(passThru)
+        , _child(_foreign, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename... Objects>
+    class SequentialResolver : public SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>> {
+    public:
+        using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
+        SequentialResolver(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
+            : SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>>(passThru, _sBus)
+        {
+        }
+        ~SequentialResolver() {
+            std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
+            std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
+        }
+        void resolve(std::size_t id) {
+            if (!this->_sBus.signal[id].read_ack.test_and_set()) {
+                if (this->_sBus.signal[id].read_fault.test_and_set()) {
+                    //unsigned long i = 0;
+                    //while (i < this->_foreign.descriptors[id].obj_size) {
+                    //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
+                    //        i++;
+                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
+                    //    } else {
+                    //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
+                    //            std::this_thread::yield();
+                    //        i = 0;
+                    //    }
+                    //    std::this_thread::yield();
+                    //}
+                    read[id].result = true;
+                    read[id].ready.clear();
+                } else
+                {
+                    SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
+                    objectReadsCanceled++;
+                    read[id].result = false;
+                    read[id].ready.clear();
+                }
+            }
+            if (!this->_sBus.signal[id].write_ack.test_and_set()) {
+                if (this->_sBus.signal[id].write_fault.test_and_set()){
+                    //unsigned long i = 0;
+                    //while (i < this->_foreign.descriptors[id].obj_size) {
+                    //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
+                    //        i++;
+                    //        auto tmp = reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
+                    //        *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
+                    //    } else {
+                    //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
+                    //            std::this_thread::yield();
+                    //        i = 0;
+                    //    }
+                    //}
+                    write[id].result = true;
+                    write[id].ready.clear();
+                } else
+                {
+                    SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
+                    objectWritesCanceled++;
+                    write[id].result = false;
+                    write[id].ready.clear();
+                }
+            }
+        }
+
+    protected:
+        std::array<SOS::Protocol::Async, NUM_IDS> read {};
+        std::array<SOS::Protocol::Async, NUM_IDS> write {};
+        bus_type _sBus {};
+
+    //private:
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
+    private:
+        std::size_t objectReadsCanceled = 0;
+        std::size_t objectWritesCanceled = 0;
+    };
 }
 }

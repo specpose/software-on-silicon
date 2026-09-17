@@ -3,7 +3,7 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        BlockWiseTransfer(std::tuple<Objects...>& objects);
+        BlockWiseTransfer();
 
     protected:
         bool write_object()
@@ -11,15 +11,19 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
+                    //bus2.signal[writeOrigin].write_op.getSecondRef().clear();
+                    //bus2.signal[writeOrigin].write_op.getFirstRef().clear();
                     data = reinterpret_cast<char*>(descriptors[writeOrigin].obj)[writeOriginPos++];
+                    //bus2.signal[writeOrigin].write_op.getFirstRef().test_and_set();
+                    //bus2.signal[writeOrigin].write_op.getSecondRef().test_and_set();
                     write3plus1++;
                     write(data);
                     return true;
                 } else { // write3plus1==3
                     if (writeOriginPos == descriptors[writeOrigin].obj_size) {
+                        emit_sent(writeOrigin);
                         descriptors[writeOrigin].transfer = false;
                         send_lock = false;
-                        emit_sent(writeOrigin);
                         ++tx_counter[writeOrigin]; // DEBUG
                         // std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
                         writeOriginPos = 0;
@@ -53,9 +57,13 @@ namespace Protocol {
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
                     if (readDestinationPos < descriptors[readDestination].obj_size) {
+                        //bus2.signal[readDestination].read_op.getSecondRef().clear();
+                        //bus2.signal[readDestination].read_op.getFirstRef().clear();
                         for (std::size_t i = 0; i < 3; i++) {
                             reinterpret_cast<char*>(descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
+                        //bus2.signal[readDestination].read_op.getFirstRef().test_and_set();
+                        //bus2.signal[readDestination].read_op.getSecondRef().test_and_set();
                     }
                     if (readDestinationPos == descriptors[readDestination].obj_size) {
                         descriptors[readDestination].readLock = false;
@@ -72,8 +80,8 @@ namespace Protocol {
             }
         }
         virtual unsigned char read_byte() = 0;
+        virtual void write_byte(unsigned char byte) = 0;
         virtual void read_bits(std::bitset<8> temp) = 0;
-        virtual void write_byte(unsigned char) = 0;
         virtual void write_bits(std::bitset<8>& out) = 0;
         bool receive_lock = false;
         std::size_t readDestinationPos = 0;
@@ -85,7 +93,10 @@ namespace Protocol {
         unsigned char writeOrigin = NUM_IDS;
         virtual void emit_received(std::size_t obj_id) = 0;
         virtual void emit_sent(std::size_t obj_id) = 0;
+        std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors {};
+        //SOS::MemoryView::SerialAsyncBus<Objects...> bus2;
+        //SOS::MemoryView::SequentialBus bus3 {};
         std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 

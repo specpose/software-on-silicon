@@ -54,13 +54,13 @@ private:
 };
 
 // multiple inheritance: destruction order
-class WritePriorityImpl : public SOS::Behavior::PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
+class WritePriorityImpl : public SOS::Behavior::DoublePassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>, private SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER> {
 public:
     // multiple inheritance: construction order
     WritePriorityImpl(
         SOS::MemoryView::ReaderBus<BLOCK>& passThruHostMem)
         : SOS::Behavior::NonBlockingWriteTask<MEMORY_CONTROLLER>(memorycontroller)
-        , PassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(passThruHostMem, _blocker)
+        , DoublePassthruAsyncController<ReaderImpl, SOS::MemoryView::BlockerBus<MEMORY_CONTROLLER>>(passThruHostMem, _blocker)
     {
         _blocker.signal.getWritingRef().clear();
         std::fill(std::begin(memorycontroller), std::end(memorycontroller), MEMORY_CONTROLLER::value_type { { 0, 0, 0, 0, 0 } });

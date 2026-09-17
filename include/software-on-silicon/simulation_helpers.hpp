@@ -4,10 +4,10 @@ using namespace std::chrono;
 
 template <typename DurationType,
     unsigned int Period>
-class Timer : public SOS::Behavior::EventDummy<> {
+class Timer : public SOS::Behavior::EventDummy {
 public:
     Timer(SOS::MemoryView::BusShaker::signal_type& bussignal)
-        : SOS::Behavior::EventDummy<>(bussignal)
+        : SOS::Behavior::EventDummy(bussignal)
     {
         _thread = start(this);
     }

@@ -82,14 +82,56 @@ namespace MemoryView {
     };
 }
 namespace Behavior {
-    template <typename S, typename... Others>
+    template <typename OtherBus>
+    class PassthruAsyncDummy : public Loop, protected SubController { // Useless: Refactoring only
+    public:
+        PassthruAsyncDummy(OtherBus& other)
+        : Loop()
+        , SubController()
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
+    template <typename OtherBus>
+    class PassthruSimpleDummy : public Loop, protected SimpleSubController { // Useless: Refactoring only
+    public:
+        PassthruSimpleDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , SimpleSubController(signal)
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
+    template <typename OtherBus>
+    class PassthruEventDummy : public Loop, protected EventSubController { // Useless: Refactoring only
+    public:
+        PassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , EventSubController(signal)
+        , _foreign(other)
+        {
+        }
+
+    protected:
+        OtherBus& _foreign;
+
+    };
+    template <typename S>
     class PassthruAsyncController : public Controller<S>, public Loop {
     public:
-        PassthruAsyncController(typename S::bus_type& passThru, Others&... args)
-            : Controller<S>()
-            , Loop()
-            , _foreign(passThru)
-            , _child(_foreign, args...)
+        PassthruAsyncController(typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , _foreign(passThru)
+        , _child(_foreign)
         {
         }
 
@@ -99,15 +141,50 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename... Others>
+    template <typename S, typename OtherBus>
+    class DoublePassthruAsyncController : public Controller<S>, public Loop {
+    public:
+        DoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
+            : Controller<S>()
+            , Loop()
+            , _foreign(passThru)
+            , _child(_foreign, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S>
     class PassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , SimpleSubController(signal)
+        , _foreign(passThru)
+        , _child(_foreign)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename OtherBus>
+    class DoublePassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
+    public:
+        DoublePassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
             , _foreign(passThru)
-            , _child(_foreign, args...)
+            , _child(_foreign, other)
         {
         }
 
@@ -117,16 +194,33 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename... Others>
+    template <typename S>
     class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        using bus_type = SOS::MemoryView::BusShaker;
-        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, Others&... args)
+        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , EventSubController(signal)
+        , _foreign(passThru)
+        , _child(_foreign)
+        {
+        }
+
+    protected:
+        typename S::bus_type& _foreign;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename OtherBus>
+    class DoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
+    public:
+        DoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , EventSubController(signal)
             , _foreign(passThru)
-            , _child(_foreign, args...)
+            , _child(_foreign, other)
         {
         }
 
@@ -194,13 +288,13 @@ namespace Behavior {
         blocker_length_ct& _memorycontroller_block;
     };
     template <typename OutputBuffer, typename MemoryControllerType>
-    class Reader : public SOS::Behavior::EventDummy<>,
+    class Reader : public SOS::Behavior::EventDummy,
                    public virtual SOS::Behavior::ReadTask<OutputBuffer, MemoryControllerType> {
     public:
         using bus_type = typename SOS::MemoryView::ReaderBus<OutputBuffer>;
         Reader(typename bus_type::signal_type& rB_signal, typename SOS::MemoryView::BlockerBus<MemoryControllerType>::signal_type& bB_signal)
             : _blocked_signal(bB_signal)
-            , SOS::Behavior::EventDummy<>(rB_signal)
+            , SOS::Behavior::EventDummy(rB_signal)
         {
         }
 

@@ -173,7 +173,6 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
-    template <typename... Others>
     class AsyncDummy : public Loop, protected SubController {
     public:
         AsyncDummy()
@@ -182,19 +181,17 @@ namespace Behavior {
         {
         }
     };
-    template <typename... Others>
     class SimpleDummy : public Loop, protected SimpleSubController {
     public:
-        SimpleDummy(typename bus_type::signal_type& signal, Others&... args)
+        SimpleDummy(typename bus_type::signal_type& signal)
             : Loop()
             , SimpleSubController(signal)
         {
         }
     };
-    template <typename... Others>
     class EventDummy : public Loop, protected EventSubController {
     public:
-        EventDummy(typename bus_type::signal_type& signal, Others&... args)
+        EventDummy(typename bus_type::signal_type& signal)
             : Loop()
             , EventSubController(signal)
         {
@@ -215,12 +212,12 @@ namespace Behavior {
         AsyncController()
             : Controller<S>()
             , Loop()
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;
@@ -232,12 +229,12 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;
@@ -249,12 +246,12 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , EventSubController(signal)
-            , _child(S { _foreign })
+            , _child(_foreign)
         {
         }
 
     protected:
-        typename S::bus_type _foreign = typename S::bus_type {};
+        typename S::bus_type _foreign {};
 
     private:
         S _child;
