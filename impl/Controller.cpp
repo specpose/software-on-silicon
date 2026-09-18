@@ -1,7 +1,6 @@
 #include <iostream>
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
-#include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/simulation_helpers.hpp"
 
 using namespace SOS::MemoryView;
@@ -14,13 +13,11 @@ public:
     SubControllerImpl(bus_type& bus)
         : SOS::Behavior::SimpleDummy(bus.signal)
     {
-        std::cout << "SubController running for 10s..." << std::endl;
         _thread = start(this);
     }
     ~SubControllerImpl() final
     {
         destroy(_thread);
-        std::cout << "SubController has ended normally." << std::endl;
     }
     void event_loop()
     {
@@ -51,26 +48,23 @@ public:
     ~ControllerImpl()
     {
         destroy(_thread);
-        std::cout << std::endl
-                  << "Controller loop has terminated." << std::endl;
+        std::cout << "Controller loop has terminated." << std::endl;
         delete waiter;
     }
     void event_loop()
     {
-        waiterBus.signal.getUpdatedRef().clear();
-        if (!waiterBus.signal.getAcknowledgeRef().test_and_set()) {
-            if (!_intrinsic.getUpdatedRef().test_and_set())
-                stop = true;
-            if (!_foreign.signal.getNotifyRef().test_and_set()) {
-                _foreign.signal.getNotifyRef().clear();
-                std::cout << "*";
-            } else {
-                std::cout << "_";
+        if (!_intrinsic.getUpdatedRef().test_and_set()) {
+            waiterBus.signal.getUpdatedRef().clear();
+            if (!waiterBus.signal.getAcknowledgeRef().test_and_set()) {
+                if (!_foreign.signal.getNotifyRef().test_and_set()) {
+                    _foreign.signal.getNotifyRef().clear();
+                    std::cout << "*";
+                } else {
+                    std::cout << "_";
+                }
             }
-        }
-        if (stop)
             _intrinsic.getAcknowledgeRef().clear();
-        std::this_thread::yield();
+        }
     }
 
 private:
