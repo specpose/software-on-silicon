@@ -96,39 +96,37 @@ namespace MemoryView {
             write_fault.test_and_set();
             sync_me.test_and_set();
         }
-        //SOS::MemoryView::Pair read_op{}; // Serial and doubleBuffer
-        std::atomic_flag read_ack = ATOMIC_FLAG_INIT; // Processing and Async
-        std::atomic_flag read_fault = ATOMIC_FLAG_INIT; // Processing and Async
-        //SOS::MemoryView::Pair write_op{}; // Serial and doubleBuffer
-        std::atomic_flag write_ack = ATOMIC_FLAG_INIT; // Processing and Async
-        std::atomic_flag write_fault = ATOMIC_FLAG_INIT; // Processing and Async
-        std::atomic_flag sync_me = ATOMIC_FLAG_INIT; // Processing and Async
+        SOS::MemoryView::Pair read_op{};
+        std::atomic_flag read_ack = ATOMIC_FLAG_INIT;
+        std::atomic_flag read_fault = ATOMIC_FLAG_INIT;
+        SOS::MemoryView::Pair write_op{};
+        std::atomic_flag write_ack = ATOMIC_FLAG_INIT;
+        std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
+        std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : public SOS::MemoryView::Notify, private SOS::MemoryView::DoubleHandShake, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
+    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : Notify(), DoubleHandShake(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
-        std::atomic_flag& readUpdated() { return getUpdatedRef(); }
+        SwitchBoard() : Notify(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
+        /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
-        std::atomic_flag& writeAcknowledge() { return getAuxAcknowledgeRef(); }
+        std::atomic_flag& writeAcknowledge() { return getAuxAcknowledgeRef(); }*/
     };
-    struct serial_async_tag { };
-    struct Current : public SOS::MemoryView::TaskCable<std::size_t, 2> {
+    /*struct Current : public SOS::MemoryView::TaskCable<std::size_t, 2> {
         using value_type = typename SOS::MemoryView::TaskCable<std::size_t, 2>::value_type;
         typename Current::value_type& currentRead() { return std::get<0>(*this); }
         typename Current::value_type& currentWrite() { return std::get<1>(*this); }
-    };
+    };*/
+    struct serial_async_tag { };
     template <typename... Objects>
     struct SerialAsyncBus : bus<
         serial_async_tag,
         SOS::MemoryView::SwitchBoard,
-        std::tuple<Current>,
+        bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
-        //SerialAsyncBus() : signal() {}
         signal_type signal;
-        cables_type cables {};
     };
 }
 namespace Protocol {
@@ -263,12 +261,12 @@ namespace Behavior {
                 if (this->_sBus.signal[id].write_fault.test_and_set()){
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
-                    //    if (_intrinsic[id].read_op.getFirstRef().test_and_set()) {
+                    //    if (_intrinsic[id].write_op.getFirstRef().test_and_set()) {
                     //        i++;
                     //        auto tmp = reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
                     //        *reinterpret_cast<unsigned char*>(tmp) = doubleBuffer[id][i];
                     //    } else {
-                    //        while (_intrinsic[id].read_op.getSecondRef().test_and_set())
+                    //        while (_intrinsic[id].write_op.getSecondRef().test_and_set())
                     //            std::this_thread::yield();
                     //        i = 0;
                     //    }

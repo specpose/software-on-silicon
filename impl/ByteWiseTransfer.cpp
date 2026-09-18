@@ -2,22 +2,17 @@ namespace SOS {
 namespace Protocol {
     /*
     template <typename... Objects>
-    BlockWiseTransfer<Objects...>::BlockWiseTransfer()
+    SyncProcessor<Objects...>::SyncProcessor(SOS::MemoryView::SerialAsyncBus<Objects...>& bus2)
+     : _sBus(bus2)
     {
         this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
         // apply(this->descriptors, objects); // fold expression: cpp17
     }
     */
-    template <> BlockWiseTransfer<TrueColorClass, DMA, DMA>::BlockWiseTransfer()
+    template <> SyncProcessor<TrueColorClass, DMA, DMA>::SyncProcessor(SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& bus2)
+     : _sBus(bus2)
     {
         const std::size_t s = 3;
-        ////array of signals
-        //std::vector<std::future<bool>> r;
-        //std::vector<std::future<bool>> w;
-        //for (std::size_t i; i < s; i++){
-        //    r.push_back(std::future<bool>{});
-        //    w.push_back(std::future<bool>{});
-        //}
         this->descriptors = { { { reinterpret_cast<void*>(&std::get<0>(objects)), sizeof(std::get<0>(objects)), false, false },
         { reinterpret_cast<void*>(&std::get<1>(objects)), sizeof(std::get<1>(objects)), false, false },
         { reinterpret_cast<void*>(&std::get<2>(objects)), sizeof(std::get<2>(objects)), false, false } },

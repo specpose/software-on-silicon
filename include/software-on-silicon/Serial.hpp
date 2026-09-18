@@ -12,88 +12,6 @@ namespace Protocol {
         bool received_acknowledge = false;
         bool descendants_notified = false;
     };
-    template<typename... Objects>
-    class SyncProcessor {
-    public:
-        using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        SyncProcessor(SOS::MemoryView::ComBus<COM_BUFFER>& bus, bus_type& bus2) : _com(bus), _sBus(bus2) {}
-    protected:
-        bool check_sync(std::size_t obj_id) {
-            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
-                _sBus.signal[obj_id].sync_me.clear();
-                return true;
-            }
-            return false;
-        }
-        void emit_init() {}
-        void emit_interrupted()
-        {
-            for (std::size_t i = 0; i < _sBus.signal.size(); ++i) {
-                if (read_started_id[i]) {
-                    std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
-                    _sBus.signal[i].read_fault.clear();
-                    read_started_id[i] = false;
-                }
-            }
-        }
-        void emit_readlocked(std::size_t obj_id)
-        {
-            //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
-                _sBus.signal[obj_id].write_fault.clear();
-                _sBus.signal[obj_id].write_ack.clear();
-            }
-            read_started_id[obj_id] = true;
-        }
-        void emit_transfer(std::size_t obj_id)
-        {
-            _sBus.signal[obj_id].sync_me.test_and_set();
-        }
-        void emit_received(std::size_t obj_id)
-        {
-            read_started_id[obj_id] = false;
-            _sBus.signal[obj_id].read_ack.clear();
-        }
-        void emit_sent(std::size_t obj_id)
-        {
-            if (obj_id == 1 || obj_id == 2) {
-                std::cout << typeid(*this).name() << ": write of object id " << obj_id << " succeeded" << std::endl;
-            }
-            _sBus.signal[obj_id].write_ack.clear();
-        }
-        unsigned char read_byte()
-        {
-            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getInBufferStartRef(), std::get<0>(_com.const_cables).getInBufferStartRef());
-            if (std::get<0>(_com.cables).getReadOffsetRef().load() > bufferLength)
-                SFA::util::runtime_error(SFA::util::error_code::AttemptedReadAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
-            auto next = std::get<0>(_com.cables).getReadOffsetRef().load();
-            auto byte = *(std::get<0>(_com.const_cables).getInBufferStartRef() + next);
-            next++;
-            if (next >= bufferLength)
-                std::get<0>(_com.cables).getReadOffsetRef().store(0);
-            else
-                std::get<0>(_com.cables).getReadOffsetRef().store(next);
-            return byte;
-        }
-        void write_byte(unsigned char byte)
-        {
-            const auto bufferLength = std::distance(std::get<0>(_com.const_cables).getOutBufferStartRef(), std::get<0>(_com.const_cables).getOutBufferEndRef());
-            if (std::get<0>(_com.cables).getWriteOffsetRef().load() > bufferLength)
-                SFA::util::runtime_error(SFA::util::error_code::AttemptedWriteAfterEndOfBuffer, __FILE__, __func__, typeid(*this).name());
-            auto next = std::get<0>(_com.cables).getWriteOffsetRef().load();
-            *(std::get<0>(_com.const_cables).getOutBufferStartRef() + next) = byte;
-            next++;
-            if (next >= bufferLength)
-                std::get<0>(_com.cables).getWriteOffsetRef().store(0);
-            else
-                std::get<0>(_com.cables).getWriteOffsetRef().store(next);
-        }
-        void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
-    private:
-        bus_type& _sBus;
-        SOS::MemoryView::ComBus<COM_BUFFER>& _com;
-        std::bitset<NUM_IDS> read_started_id {};
-    };
 }
 namespace Behavior {
     class SerialEventSubController : public SubController {
@@ -110,6 +28,7 @@ namespace Behavior {
     };
     class SerialEventDummy : public SOS::Behavior::Loop, protected SOS::Behavior::SerialEventSubController {
     public:
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
         SerialEventDummy(typename bus_type::signal_type& signal)
         : Loop()
         , SerialEventSubController(signal)
@@ -119,12 +38,12 @@ namespace Behavior {
 }
 namespace Protocol {
     template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy, private SyncProcessor<Objects...>  {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy {
     public:
+        using bus_type = typename SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
         Serial(bus_type& bus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
-            : SOS::Protocol::BlockWiseTransfer<Objects...>()
+            : SOS::Protocol::BlockWiseTransfer<Objects...>(bus, other)
             , SOS::Behavior::SerialEventDummy(bus.signal)
-            , SyncProcessor<Objects...>(bus, other)
         {
         }
         virtual ~Serial() {}; // request_shutdown_action
@@ -384,8 +303,6 @@ namespace Protocol {
         }
         virtual void emit_received(std::size_t obj_id) final { SyncProcessor<Objects...>::emit_received(obj_id); }
         virtual void emit_sent(std::size_t obj_id) final { SyncProcessor<Objects...>::emit_sent(obj_id); }
-        virtual unsigned char read_byte() final { return SyncProcessor<Objects...>::read_byte(); };
-        virtual void write_byte(unsigned char byte) final { SyncProcessor<Objects...>::write_byte(byte); };
         bool getFirstTransfer()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
@@ -444,105 +361,5 @@ namespace Protocol {
     };
 }
 namespace Behavior {
-    template <typename... Objects>
-    class SimulationFPGA : public SOS::Protocol::Serial<Objects...> {
-    public:
-        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationFPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
-        : SOS::Protocol::Serial<Objects...>(myBus, other)
-        {
-        }
-        ~SimulationFPGA() {
-        };
-
-    private:
-        // SerialFPGA
-        virtual void read_bits(std::bitset<8> temp) final
-        {
-            SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
-            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = temp[6];
-            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = false;
-        }
-        virtual void write_bits(std::bitset<8>& out) final
-        {
-            if (SOS::Protocol::Serial<Objects...>::fpga_updated)
-                out.set(7, 1);
-            else
-                out.set(7, 0);
-            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge)
-                out.set(6, 1);
-            else
-                out.set(6, 0);
-        }
-        virtual void send_acknowledge() final
-        {
-            if (SOS::Protocol::Serial<Objects...>::mcu_updated) {
-                SOS::Protocol::Serial<Objects...>::mcu_acknowledge = true;
-            }
-        }
-        virtual void send_request() final
-        {
-            SOS::Protocol::Serial<Objects...>::fpga_updated = true;
-        }
-        virtual std::tuple<bool, bool> receive_signals() final
-        {
-            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::mcu_updated, false };
-            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge) {
-                SOS::Protocol::Serial<Objects...>::fpga_updated = false;
-                std::get<1>(result) = true;
-            }
-            return result;
-        }
-    };
-    template <typename... Objects>
-    class SimulationMCU : public SOS::Protocol::Serial<Objects...> {
-    public:
-        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationMCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
-        : SOS::Protocol::Serial<Objects...>(myBus, other)
-        {
-        }
-        ~SimulationMCU() {
-        }
-
-    private:
-        // SerialMCU
-        virtual void read_bits(std::bitset<8> temp) final
-        {
-            SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];
-            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = temp[6];
-            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = false;
-        }
-        virtual void write_bits(std::bitset<8>& out) final
-        {
-            if (SOS::Protocol::Serial<Objects...>::mcu_updated)
-                out.set(7, 1);
-            else
-                out.set(7, 0);
-            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge)
-                out.set(6, 1);
-            else
-                out.set(6, 0);
-        }
-        virtual void send_acknowledge() final
-        {
-            if (SOS::Protocol::Serial<Objects...>::fpga_updated) {
-                SOS::Protocol::Serial<Objects...>::fpga_acknowledge = true;
-            }
-        }
-        virtual void send_request() final
-        {
-            SOS::Protocol::Serial<Objects...>::mcu_updated = true;
-        }
-        virtual std::tuple<bool, bool> receive_signals() final
-        {
-            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::fpga_updated, false };
-            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge) {
-                SOS::Protocol::Serial<Objects...>::mcu_updated = false;
-                std::get<1>(result) = true;
-            }
-            return result;
-        }
-    };
 }
 }

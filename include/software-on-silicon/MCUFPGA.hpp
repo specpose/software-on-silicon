@@ -1,42 +1,104 @@
 namespace SOS {
-namespace MemoryView {
-    template <typename ComIterator>
-    struct ComSize : public SOS::MemoryView::ConstCable<ComIterator, 4> {
-        using SOS::MemoryView::ConstCable<ComIterator, 4>::ConstCable;
-        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getInBufferStartRef() { return std::get<0>(*this); }
-        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getInBufferEndRef() { return std::get<1>(*this); }
-        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getOutBufferStartRef() { return std::get<2>(*this); }
-        typename SOS::MemoryView::ConstCable<ComIterator, 4>::value_type& getOutBufferEndRef() { return std::get<3>(*this); }
-    };
-    template <typename ComIterator>
-    struct ComOffset : public SOS::MemoryView::TaskCable<ComIterator, 2> {
-        using SOS::MemoryView::TaskCable<ComIterator, 2>::TaskCable;
-        typename SOS::MemoryView::TaskCable<ComIterator, 2>::value_type& getReadOffsetRef() { return std::get<0>(*this); }
-        typename SOS::MemoryView::TaskCable<ComIterator, 2>::value_type& getWriteOffsetRef() { return std::get<1>(*this); }
-    };
-    template <typename ComBufferType>
-    struct ComBus : public bus<
-                        bus_double_shaker_tag,
-                        SOS::MemoryView::DoubleHandShake,
-                        bus_traits<Bus>::cables_type,
-                        bus_traits<Bus>::const_cables_type> {
-        signal_type signal;
-        using const_cables_type = std::tuple<ComSize<typename ComBufferType::iterator>>;
-        using cables_type = std::tuple<ComOffset<typename ComBufferType::difference_type>>;
-        ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd)
-            : const_cables { ComSize<typename ComBufferType::iterator>({ inStart, inEnd, outStart, outEnd }) }
+namespace Behavior {
+    template <typename... Objects>
+    class SimulationFPGA : public SOS::Protocol::Serial<Objects...> {
+    public:
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        SimulationFPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        : SOS::Protocol::Serial<Objects...>(myBus, other)
         {
-            std::get<0>(cables).getReadOffsetRef() = 0;
-            std::get<0>(cables).getWriteOffsetRef() = 0;
-            if (std::distance(inStart, inEnd) < 1)
-                SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
-            if (std::distance(outStart, outEnd) < 1)
-                SFA::util::logic_error(SFA::util::error_code::CombufferSizeIsMinimumWORDSIZE, __FILE__, __func__, typeid(*this).name());
-            if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
-                SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
         }
-        cables_type cables {};
-        const_cables_type const_cables;
+        ~SimulationFPGA() {
+        };
+
+    private:
+        // SerialFPGA
+        virtual void read_bits(std::bitset<8> temp) final
+        {
+            SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
+            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = temp[6];
+            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = false;
+        }
+        virtual void write_bits(std::bitset<8>& out) final
+        {
+            if (SOS::Protocol::Serial<Objects...>::fpga_updated)
+                out.set(7, 1);
+            else
+                out.set(7, 0);
+            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge)
+                out.set(6, 1);
+            else
+                out.set(6, 0);
+        }
+        virtual void send_acknowledge() final
+        {
+            if (SOS::Protocol::Serial<Objects...>::mcu_updated) {
+                SOS::Protocol::Serial<Objects...>::mcu_acknowledge = true;
+            }
+        }
+        virtual void send_request() final
+        {
+            SOS::Protocol::Serial<Objects...>::fpga_updated = true;
+        }
+        virtual std::tuple<bool, bool> receive_signals() final
+        {
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::mcu_updated, false };
+            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge) {
+                SOS::Protocol::Serial<Objects...>::fpga_updated = false;
+                std::get<1>(result) = true;
+            }
+            return result;
+        }
+    };
+    template <typename... Objects>
+    class SimulationMCU : public SOS::Protocol::Serial<Objects...> {
+    public:
+        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        SimulationMCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        : SOS::Protocol::Serial<Objects...>(myBus, other)
+        {
+        }
+        ~SimulationMCU() {
+        }
+
+    private:
+        // SerialMCU
+        virtual void read_bits(std::bitset<8> temp) final
+        {
+            SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];
+            SOS::Protocol::Serial<Objects...>::mcu_acknowledge = temp[6];
+            SOS::Protocol::Serial<Objects...>::fpga_acknowledge = false;
+        }
+        virtual void write_bits(std::bitset<8>& out) final
+        {
+            if (SOS::Protocol::Serial<Objects...>::mcu_updated)
+                out.set(7, 1);
+            else
+                out.set(7, 0);
+            if (SOS::Protocol::Serial<Objects...>::fpga_acknowledge)
+                out.set(6, 1);
+            else
+                out.set(6, 0);
+        }
+        virtual void send_acknowledge() final
+        {
+            if (SOS::Protocol::Serial<Objects...>::fpga_updated) {
+                SOS::Protocol::Serial<Objects...>::fpga_acknowledge = true;
+            }
+        }
+        virtual void send_request() final
+        {
+            SOS::Protocol::Serial<Objects...>::mcu_updated = true;
+        }
+        virtual std::tuple<bool, bool> receive_signals() final
+        {
+            std::tuple<bool, bool> result { SOS::Protocol::Serial<Objects...>::fpga_updated, false };
+            if (SOS::Protocol::Serial<Objects...>::mcu_acknowledge) {
+                SOS::Protocol::Serial<Objects...>::mcu_updated = false;
+                std::get<1>(result) = true;
+            }
+            return result;
+        }
     };
 }
 }

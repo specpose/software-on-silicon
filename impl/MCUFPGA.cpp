@@ -7,20 +7,19 @@
 #include "error.cpp"
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
-#include <future>
 #include "software-on-silicon/DMADescriptor.hpp"
-#include "software-on-silicon/cpp11.hpp"
-#define COM_BUFFER std::array<unsigned char, 1>
-#include "software-on-silicon/rtos_helpers.hpp"
-#include "software-on-silicon/MCUFPGA.hpp"
-#include "software-on-silicon/SerialNotifier.hpp"
-#include <string>
-#include "software-on-silicon/ByteWiseTransfer.hpp"
+#include <future>
 #include "MCUFPGA/DMA.cpp"
 #include "MCUFPGA/TrueColor.cpp"
+#include "software-on-silicon/cpp11.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
+#define COM_BUFFER std::array<unsigned char, 1>
+#include "software-on-silicon/rtos_helpers.hpp"
+#include "software-on-silicon/SerialNotifier.hpp"
+#include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
+#include "software-on-silicon/MCUFPGA.hpp"
 
 class FPGA : public SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA> {
 public:
