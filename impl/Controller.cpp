@@ -40,10 +40,10 @@ private:
 };
 
 // A RunLoop is not a Loop, because it does not have a signal
-class ControllerImpl : public SOS::Behavior::BootstrapAsyncController<SubControllerImpl> {
+class ControllerImpl : public SOS::Behavior::EventController<SubControllerImpl> {
 public:
     ControllerImpl(bus_type& bus)
-        : BootstrapAsyncController<SubControllerImpl>(bus.signal)
+        : EventController<SubControllerImpl>(bus.signal)
         , waiter(new SystemTimer<milliseconds, MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal))
     {
         _thread = start(this);
@@ -59,8 +59,8 @@ public:
     {
         waiterBus.signal.getUpdatedRef().clear();
         if (!waiterBus.signal.getAcknowledgeRef().test_and_set()) {
-            if (!_intrinsic.getAuxUpdatedRef().test_and_set())
-                stop_descendants();
+            if (!_intrinsic.getUpdatedRef().test_and_set())
+                stop = true;
             if (!_foreign.signal.getNotifyRef().test_and_set()) {
                 _foreign.signal.getNotifyRef().clear();
                 std::cout << "*";
@@ -68,12 +68,13 @@ public:
                 std::cout << "_";
             }
         }
-        if (descendants_stopped())
-            _intrinsic.getAuxAcknowledgeRef().clear();
+        if (stop)
+            _intrinsic.getAcknowledgeRef().clear();
         std::this_thread::yield();
     }
 
 private:
+    bool stop = false;
     SOS::MemoryView::BusShaker waiterBus {};
     SystemTimer<milliseconds, MEASUREMENT_UNIT_IN_MILLIS>* waiter;
     std::thread _thread;
