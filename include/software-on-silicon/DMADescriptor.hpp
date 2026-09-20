@@ -7,11 +7,11 @@ namespace SOS {
 namespace Protocol {
     extern "C" {
     struct DMADescriptor {
-        void method(){};
+        //void method(){};
         void* obj;// = nullptr;
         unsigned long obj_size;// = 0;
-        bool readLock;// = false;
-        bool transfer;// = false;
+        //bool readLock;// = false;
+        //bool transfer;// = false;
     };
     }
     // template <typename... Objects>

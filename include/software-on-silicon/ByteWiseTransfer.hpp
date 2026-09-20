@@ -3,7 +3,14 @@ namespace Protocol {
     template<typename... Objects>
     class SyncProcessor {
     public:
-        SyncProcessor(SOS::MemoryView::SerialResolverBus<Objects...>& bus2);
+        SyncProcessor(SOS::MemoryView::SerialResolverBus<Objects...>& bus2)
+        : _sBus(bus2)
+        {
+            descriptors = cpp11_static_descriptors(objects);
+            // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(this->descriptors, objects); // fold expression: cpp17
+            print_descriptors(descriptors);
+        };
     protected:
         bool check_sync(std::size_t obj_id) {
             if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
@@ -87,7 +94,7 @@ namespace Protocol {
                 } else { // write3plus1==3
                     if (writeOriginPos == this->descriptors[writeOrigin].obj_size) {
                         this->emit_sent(writeOrigin);
-                        this->descriptors[writeOrigin].transfer = false;
+                        transfer[writeOrigin] = false;
                         send_lock = false;
                         ++tx_counter[writeOrigin]; // DEBUG
                         // std::cout << typeid(*this).name() << ":" << "W" << std::to_string(writeOrigin) << std::endl;
@@ -105,7 +112,7 @@ namespace Protocol {
             if (!receive_lock) {
                 bool gotOne = false;
                 for (unsigned char j = 0; j < this->descriptors.size() && !gotOne; j++) {
-                    if (this->descriptors[j].readLock) {
+                    if (readLock[j]) {
                         if (readDestinationPos != 0) {
                             SFA::util::logic_error(SFA::util::error_code::PreviousReadobjectHasNotFinished, __FILE__, __func__, typeid(*this).name());
                         }
@@ -131,7 +138,7 @@ namespace Protocol {
                         //bus2.signal[readDestination].read_op.getSecondRef().test_and_set();
                     }
                     if (readDestinationPos == this->descriptors[readDestination].obj_size) {
-                        this->descriptors[readDestination].readLock = false;
+                        readLock[readDestination] = false;
                         receive_lock = false;
                         this->emit_received(readDestination);
                         ++rx_counter[readDestination]; // DEBUG
@@ -186,6 +193,8 @@ namespace Protocol {
         //SOS::MemoryView::SerialResolverBus<Objects...> bus2;
         //SOS::MemoryView::SequentialBus bus3 {};
         SOS::MemoryView::ComBus<UART1_BUFFER>& _com;
+        std::array<bool, NUM_IDS> readLock {false};
+        std::array<bool, NUM_IDS> transfer {false};
         std::array<unsigned long, NUM_IDS> rx_counter { 0 }; // DEBUG
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 

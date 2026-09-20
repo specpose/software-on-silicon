@@ -8,9 +8,6 @@ namespace Protocol {
         {
             count = 0;
             (assign(objects), ...); // fold expression: cpp17
-            for (std::size_t i = 0; i < count; i++) {
-                std::cout << "DMAObject " << i << " ptr: " << (*this)[i].obj << " size: " << (*this)[i].obj_size << std::endl;
-            }
         }
         std::size_t size() { return count; }
 
@@ -18,13 +15,13 @@ namespace Protocol {
         template <typename First>
         void assign(First& obj_ref)
         {
-            (*this)[count] = DMADescriptor{ reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false };
+            (*this)[count] = DMADescriptor{ reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref)};
             count++;
         }
         template <typename First, typename... Others>
         void assign(First& obj_ref, Others&... objects)
         {
-            (*this)[count] = DMADescriptor{ reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref), false, false };
+            (*this)[count] = DMADescriptor{ reinterpret_cast<void*>(&obj_ref), sizeof(obj_ref)};
             count++;
             assign(objects...);
         }

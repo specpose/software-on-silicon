@@ -8,19 +8,19 @@
 #include "software-on-silicon/INTERFACE.hpp"
 #include "software-on-silicon/serial_helpers.hpp"
 #include "software-on-silicon/DMADescriptor.hpp"
-#include <future>
-#include "MCUFPGA/DMA.cpp"
-#include "MCUFPGA/TrueColor.cpp"
-#include "software-on-silicon/cpp11.hpp"
-#include "software-on-silicon/mcufpga_helpers.hpp"
 #define UART1_BUFFER std::array<unsigned char, 1>
 #define UART2_BUFFER std::array<unsigned char, MAX_OBJ_SIZE+2>
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
+#include "software-on-silicon/cpp11.hpp"
+#include "FPGAInitialisers.cpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
-#include "ByteWiseTransfer.cpp"
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
+#include "MCUFPGA/DMA.cpp"
+#include "MCUFPGA/TrueColor.cpp"
+#include <future>
+#include "software-on-silicon/mcufpga_helpers.hpp"
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
@@ -180,8 +180,8 @@ public:
         // SIGNALING
         resolve(0);
         if (!_sBus.signal.getNotifyRef().test_and_set()) {
-        if (!read[0].ready.test_and_set()) {
-            if (read[0].result) {
+        if (!read_status[0].ready.test_and_set()) {
+            if (read_status[0].result) {
             //check ownership
             //std::get<0>(bus.objs).red++; // Hack
             //std::get<0>(bus.objs).blue++; // Hack
@@ -192,8 +192,8 @@ public:
             _sBus.signal[0].sync_me.clear();
             }
         }
-        if (!write[0].ready.test_and_set()) {
-            if (!write[0].result) {
+        if (!write_status[0].ready.test_and_set()) {
+            if (!write_status[0].result) {
                 //if (obj_id == 1 || obj_id == 2) {
                 std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
                 //}
@@ -252,8 +252,8 @@ public:
         // SIGNALING
         resolve(0);
         if (!_sBus.signal.getNotifyRef().test_and_set()) {
-        if (!read[0].ready.test_and_set()) {
-            if (read[0].result) {
+        if (!read_status[0].ready.test_and_set()) {
+            if (read_status[0].result) {
             //check ownership
             //std::get<0>(bus.objs).red--;
             //std::get<0>(bus.objs).green++;
@@ -264,8 +264,8 @@ public:
             _sBus.signal[0].sync_me.clear();
             }
         }
-        if (!write[0].ready.test_and_set()) {
-            if (!write[0].result) {
+        if (!write_status[0].ready.test_and_set()) {
+            if (!write_status[0].result) {
                 //if (obj_id == 1 || obj_id == 2) {
                 std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
                 //}

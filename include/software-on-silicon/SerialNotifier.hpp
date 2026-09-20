@@ -43,37 +43,36 @@ namespace MemoryView {
     bus_shaker_tag,
     SOS::MemoryView::HandShake,
     std::tuple<ComId>,
-    bus_traits<Bus>::const_cables_type> {
+    bus_traits<Bus>::const_cables_type>
+    , private std::array<std::atomic_flag, 10> {
     public:
-        BusSequentialShaker()
+        BusSequentialShaker() : std::array<std::atomic_flag, 10> {}
         {
-            std::get<0>(_this).test_and_set();
-            std::get<1>(_this).test_and_set();
-            std::get<2>(_this).test_and_set();
-            std::get<3>(_this).test_and_set();
-            std::get<4>(_this).test_and_set();
-            std::get<5>(_this).test_and_set();
-            std::get<6>(_this).test_and_set();
-            std::get<7>(_this).test_and_set();
-            std::get<8>(_this).test_and_set();
-            std::get<9>(_this).test_and_set();
+            std::get<0>(*this).test_and_set();
+            std::get<1>(*this).test_and_set();
+            std::get<2>(*this).test_and_set();
+            std::get<3>(*this).test_and_set();
+            std::get<4>(*this).test_and_set();
+            std::get<5>(*this).test_and_set();
+            std::get<6>(*this).test_and_set();
+            std::get<7>(*this).test_and_set();
+            std::get<8>(*this).test_and_set();
+            std::get<9>(*this).test_and_set();
             std::get<0>(cables).getReadId().store(NUM_IDS);
             std::get<0>(cables).getWriteId().store(NUM_IDS);
         }
-        std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(_this); }
-        std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(_this); }
-        std::atomic_flag& getReadEndUpdatedRef() { return std::get<2>(_this); }
-        std::atomic_flag& getReadEndAcknowledgeRef() { return std::get<3>(_this); }
-        std::atomic_flag& getReadFailedNotifyRef() { return std::get<4>(_this); }
-        std::atomic_flag& getWriteStartUpdatedRef() { return std::get<5>(_this); }
-        std::atomic_flag& getWriteStartAcknowledgeRef() { return std::get<6>(_this); }
-        std::atomic_flag& getWriteEndUpdatedRef() { return std::get<7>(_this); }
-        std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(_this); }
-        std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(_this); }
+        std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
+        std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
+        std::atomic_flag& getReadEndUpdatedRef() { return std::get<2>(*this); }
+        std::atomic_flag& getReadEndAcknowledgeRef() { return std::get<3>(*this); }
+        std::atomic_flag& getReadFailedNotifyRef() { return std::get<4>(*this); }
+        std::atomic_flag& getWriteStartUpdatedRef() { return std::get<5>(*this); }
+        std::atomic_flag& getWriteStartAcknowledgeRef() { return std::get<6>(*this); }
+        std::atomic_flag& getWriteEndUpdatedRef() { return std::get<7>(*this); }
+        std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(*this); }
+        std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(*this); }
         signal_type signal;
         cables_type cables {};
-    private:
-        std::array<std::atomic_flag, 10> _this{};
     };
     /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
@@ -235,14 +234,14 @@ namespace Protocol {
     //    using const_cables_type = std::tuple<Size<ArithmeticType*>>;
     //    const_cables_type const_cables;
     //};
-    struct Async {
-        Async() {
+    struct ResolverStatus {
+        ResolverStatus() {
             ready.test_and_set();
         }
         std::atomic_flag ready = ATOMIC_FLAG_INIT;
         bool result = true;
     };
-    bool async_status(std::atomic_flag& fault, std::atomic_flag& ack)
+    /*bool async_status(std::atomic_flag& fault, std::atomic_flag& ack)
     {
         bool exit = false;
         bool result = false;
@@ -258,7 +257,7 @@ namespace Protocol {
             std::this_thread::yield();
         }
         return result;
-    }
+    }*/
 }
 namespace Behavior {
     template <typename S, typename OtherBus>
@@ -305,14 +304,14 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    read[id].result = true;
-                    read[id].ready.clear();
+                    read_status[id].result = true;
+                    read_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
-                    read[id].result = false;
-                    read[id].ready.clear();
+                    read_status[id].result = false;
+                    read_status[id].ready.clear();
                 }
             }
             if (!this->_sBus.signal[id].write_ack.test_and_set()) {
@@ -328,21 +327,21 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    write[id].result = true;
-                    write[id].ready.clear();
+                    write_status[id].result = true;
+                    write_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                     objectWritesCanceled++;
-                    write[id].result = false;
-                    write[id].ready.clear();
+                    write_status[id].result = false;
+                    write_status[id].ready.clear();
                 }
             }
         }
 
     protected:
-        std::array<SOS::Protocol::Async, NUM_IDS> read {};
-        std::array<SOS::Protocol::Async, NUM_IDS> write {};
+        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
+        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         OtherBus _sBus {};
 
     //private:

@@ -126,7 +126,7 @@ namespace Protocol {
             if (this->receive_lock || this->readCount != 0) {
                 SFA::util::runtime_error(SFA::util::error_code::HotplugAfterUnexpectedShutdown, __FILE__, __func__, typeid(*this).name());
                 for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                    if (this->descriptors[j].readLock) {
+                    if (this->readLock[j]) {
                         SFA::util::runtime_error(SFA::util::error_code::ObjectCouldBeOutdated, __FILE__, __func__, typeid(*this).name());
                     }
                 }
@@ -138,7 +138,7 @@ namespace Protocol {
         bool transfers_pending()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (SyncProcessor<Objects...>::check_sync(j) && !this->descriptors[j].transfer)
+                if (SyncProcessor<Objects...>::check_sync(j) && !this->transfer[j])
                     return true;
             }
             return false;
@@ -146,7 +146,7 @@ namespace Protocol {
         bool writes_pending()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (this->descriptors[j].transfer)
+                if (this->transfer[j])
                     return true;
             }
             return false;
@@ -154,7 +154,7 @@ namespace Protocol {
         bool reads_pending()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (this->descriptors[j].readLock)
+                if (this->readLock[j])
                     return true;
             }
             return false;
@@ -269,12 +269,12 @@ namespace Protocol {
         void acknowledge_hook()
         {
             if (waitingConfirmation < NUM_IDS) {
-                if (this->descriptors[waitingConfirmation].readLock)
+                if (this->readLock[waitingConfirmation])
                     SFA::util::logic_error(SFA::util::error_code::ReceivedATransferAcknowledgeOnReadlockedObject, __FILE__, __func__, typeid(*this).name());
-                if (this->descriptors[waitingConfirmation].transfer)
+                if (this->transfer[waitingConfirmation])
                     SFA::util::logic_error(SFA::util::error_code::ReceivedADuplicateTransferAcknowledgeOnObjectInTransfer, __FILE__, __func__, typeid(*this).name());
-                if (!this->descriptors[waitingConfirmation].readLock) { // requires last read_object byte
-                    this->descriptors[waitingConfirmation].transfer = true;
+                if (!this->readLock[waitingConfirmation]) { // requires last read_object byte
+                    this->transfer[waitingConfirmation] = true;
                     //this->descriptors[waitingConfirmation].unsynced = false;
                     // std::cout << typeid(*this).name() << "." << "A" << std::to_string(waitingConfirmation) << std::endl;
                     SyncProcessor<Objects...>::emit_transfer(waitingConfirmation);
@@ -287,11 +287,11 @@ namespace Protocol {
         {
             if (incomingRequest < NUM_IDS) {
                 if (incomingRequest != waitingConfirmation) {// start_transfer has priority over send_acknowledge
-                    if (this->descriptors[incomingRequest].readLock)
+                    if (this->readLock[incomingRequest])
                         SFA::util::runtime_error(SFA::util::error_code::DuplicateReadlockRequest, std::to_string(incomingRequest), __func__, typeid(*this).name());
-                    if (!this->descriptors[incomingRequest].transfer) {
+                    if (!this->transfer[incomingRequest]) {
                         SyncProcessor<Objects...>::emit_readlocked(incomingRequest);
-                        this->descriptors[incomingRequest].readLock = true;
+                        this->readLock[incomingRequest] = true;
                         // std::cout << typeid(*this).name() << "." << "L" << std::to_string(incomingRequest) << std::endl;
                         send_acknowledge();
                     } else {
@@ -306,8 +306,8 @@ namespace Protocol {
         bool getFirstTransfer()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (SyncProcessor<Objects...>::check_sync(j) && !this->descriptors[j].transfer) {
-                    if (this->descriptors[j].readLock)
+                if (SyncProcessor<Objects...>::check_sync(j) && !this->transfer[j]) {
+                    if (this->readLock[j])
                         SFA::util::logic_error(SFA::util::error_code::SyncedStatusHasNotBeenOverridenWhenReadlockWasAcquired, __FILE__, __func__, typeid(*this).name());
                     waitingConfirmation = j;
                     _vars.acknowledgeRequested = true;
@@ -320,8 +320,8 @@ namespace Protocol {
         bool getFirstSyncObject()
         {
             for (unsigned char j = 0; j < this->descriptors.size(); j++) {
-                if (this->descriptors[j].transfer) {
-                    if (this->descriptors[j].readLock)
+                if (this->transfer[j]) {
+                    if (this->readLock[j])
                         SFA::util::logic_error(SFA::util::error_code::FoundATransferObjectWhichIsReadlocked, __FILE__, __func__, typeid(*this).name());
                     if (this->writeOriginPos != 0) {
                         SFA::util::logic_error(SFA::util::error_code::PreviousObjectWriteHasNotBeenCompleted, __FILE__, __func__, typeid(*this).name());

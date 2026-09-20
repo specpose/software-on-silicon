@@ -22,7 +22,7 @@ void dump_descriptors_binary(
     std::chrono::time_point<std::chrono::high_resolution_clock> boot_time,
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time)
 {
-    for (int i = 0; i < descriptors.count; i++) {
+    for (int i = 0; i < descriptors.size(); i++) {
         double t = std::chrono::duration_cast<std::chrono::nanoseconds>(kill_time - boot_time).count();
         std::cout
         << "; RX: " << rx_counter[i] << " => " << rx_counter[i] / (t / std::nano::den) << " Symbols/s"
