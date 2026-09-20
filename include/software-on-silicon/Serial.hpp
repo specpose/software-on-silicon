@@ -16,7 +16,7 @@ namespace Protocol {
 namespace Behavior {
     class SerialEventSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         constexpr SerialEventSubController(typename bus_type::signal_type& signal)
         : SubController()
         , _intrinsic(signal)
@@ -28,7 +28,7 @@ namespace Behavior {
     };
     class SerialEventDummy : public SOS::Behavior::Loop, protected SOS::Behavior::SerialEventSubController {
     public:
-        using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         SerialEventDummy(typename bus_type::signal_type& signal)
         : Loop()
         , SerialEventSubController(signal)

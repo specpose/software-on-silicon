@@ -13,7 +13,8 @@
 #include "MCUFPGA/TrueColor.cpp"
 #include "software-on-silicon/cpp11.hpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
-#define COM_BUFFER std::array<unsigned char, 1>
+#define UART1_BUFFER std::array<unsigned char, 1>
+#define UART2_BUFFER std::array<unsigned char, MAX_OBJ_SIZE+2>
 #include "software-on-silicon/rtos_helpers.hpp"
 #include "software-on-silicon/SerialNotifier.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
@@ -23,7 +24,7 @@
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+    using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
     FPGA(bus_type& myBus, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>& other)
         : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
@@ -92,7 +93,7 @@ private:
 };
 class MCU : public SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
+    using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
     MCU(bus_type& myBus, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>& other)
         : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
@@ -164,7 +165,7 @@ private:
 
 class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
-    FPGASimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+    FPGASimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(bus, passThru)
 
     {
@@ -238,7 +239,7 @@ private:
 
 class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
-    MCUSimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+    MCUSimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(bus, passThru)
     {
         _thread = SOS::Behavior::Loop::start(this);

@@ -1,16 +1,16 @@
 #include "MCUFPGA.cpp"
-COM_BUFFER fpga_in_buffer;
-COM_BUFFER fpga_out_buffer;
+UART1_BUFFER fpga_in_buffer;
+UART1_BUFFER fpga_out_buffer;
 bool firstrun = true;
 static std::atomic_flag delete_fpga = ATOMIC_FLAG_INIT;
-COM_BUFFER mcu_in_buffer;
-COM_BUFFER mcu_out_buffer;
+UART1_BUFFER mcu_in_buffer;
+UART1_BUFFER mcu_out_buffer;
 static std::atomic_flag delete_mcu = ATOMIC_FLAG_INIT;
 
 #include <unistd.h>
 #include <signal.h>
-void client_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFER& fpga_out_buffer, COM_BUFFER& mcu_out_buffer,
-    SOS::MemoryView::ComBus<COM_BUFFER>& mcubus, SOS::MemoryView::ComBus<COM_BUFFER>& fpgabus)
+void client_funct(UART1_BUFFER& fpga_in_buffer, UART1_BUFFER& mcu_in_buffer, UART1_BUFFER& fpga_out_buffer, UART1_BUFFER& mcu_out_buffer,
+    SOS::MemoryView::ComBus<UART1_BUFFER>& mcubus, SOS::MemoryView::ComBus<UART1_BUFFER>& fpgabus)
 {
     if (firstrun) { // ALWAYS: expect first byte not to be read and poweronstate is being written
         fpgabus.signal.getUpdatedRef().clear(); // ALWAYS: flip the first handshake
@@ -25,8 +25,8 @@ void client_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUF
     }
     std::this_thread::yield();
 };
-void host_funct(COM_BUFFER& fpga_in_buffer, COM_BUFFER& mcu_in_buffer, COM_BUFFER& fpga_out_buffer, COM_BUFFER& mcu_out_buffer,
-    SOS::MemoryView::ComBus<COM_BUFFER>& mcubus, SOS::MemoryView::ComBus<COM_BUFFER>& fpgabus)
+void host_funct(UART1_BUFFER& fpga_in_buffer, UART1_BUFFER& mcu_in_buffer, UART1_BUFFER& fpga_out_buffer, UART1_BUFFER& mcu_out_buffer,
+    SOS::MemoryView::ComBus<UART1_BUFFER>& mcubus, SOS::MemoryView::ComBus<UART1_BUFFER>& fpgabus)
 {
     if (!mcubus.signal.getAcknowledgeRef().test_and_set()) {
         // transfer mcu_out_buffer to fpga_in_buffer
@@ -56,7 +56,7 @@ int main()
     fprintf(pidFile, "%ld", (long)getpid());
     fclose(pidFile);
     SOS::MemoryView::BusSequentialShaker uart2_mcu {};
-    SOS::MemoryView::ComBus<COM_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
+    SOS::MemoryView::ComBus<UART1_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
     auto host = new MCUSimpleDummy(uart2_mcu, mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
     struct sigaction usr2 = { 0 };
     usr2.sa_sigaction = &usr2_handler;
@@ -66,7 +66,7 @@ int main()
     bool host_delete = false;
     delete_mcu.test_and_set();
     SOS::MemoryView::BusSequentialShaker uart2_fpga {};
-    SOS::MemoryView::ComBus<COM_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
+    SOS::MemoryView::ComBus<UART1_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
     auto client = new FPGASimpleDummy(uart2_fpga, fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
     struct sigaction usr1 = { 0 };
     usr1.sa_sigaction = &usr1_handler;

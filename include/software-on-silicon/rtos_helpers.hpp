@@ -71,11 +71,8 @@ namespace MemoryView {
     struct ComBus : public bus<
     bus_double_shaker_tag,
     SOS::MemoryView::DoubleHandShake,
-    bus_traits<Bus>::cables_type,
-    bus_traits<Bus>::const_cables_type> {
-        signal_type signal;
-        using const_cables_type = std::tuple<ComSize<typename ComBufferType::iterator>>;
-        using cables_type = std::tuple<ComOffset<typename ComBufferType::difference_type>>;
+    std::tuple<ComOffset<typename ComBufferType::difference_type>>,
+    std::tuple<ComSize<typename ComBufferType::iterator>>> {
         ComBus(const typename ComBufferType::iterator& inStart, const typename ComBufferType::iterator& inEnd, const typename ComBufferType::iterator& outStart, const typename ComBufferType::iterator& outEnd)
         : const_cables { ComSize<typename ComBufferType::iterator>({ inStart, inEnd, outStart, outEnd }) }
         {
@@ -88,8 +85,9 @@ namespace MemoryView {
             if (std::distance(inStart, inEnd) != std::distance(outStart, outEnd))
                 SFA::util::logic_error(SFA::util::error_code::CombufferInAndOutSizeNotEqual, __FILE__, __func__, typeid(*this).name());
         }
-        cables_type cables {};
-        const_cables_type const_cables;
+        typename bus_traits<ComBus>::signal_type signal;
+        typename bus_traits<ComBus>::cables_type cables {};
+        typename bus_traits<ComBus>::const_cables_type const_cables;
     };
 }
 namespace Behavior {

@@ -1,7 +1,17 @@
 namespace SOS {
 namespace Protocol {
+    enum SequentialRequestInstruction : unsigned char {
+        readstart = 0xFE,
+        writestart = 0xFF
+    };
+    enum SequentialInstructionResponse : unsigned char {
+        readend = 0xFD, // After readstart
+        writeend = 0xFE, // After writestart
+        readfailed = 0xFE,
+        writefailed = 0xFF
+    };
     // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
-    enum DMARequestInstruction : unsigned char {
+    /*enum DMARequestInstruction : unsigned char {
         serviceinterrupted = 0xF9, // Out
         writeend = 0xFA, // Out
         readend = 0xFB, // Out
@@ -14,12 +24,58 @@ namespace Protocol {
         descriptorssend = 0xFB, // In, out of order. After init
         syncresponse = 0xFE, // In
         nocommand = 0xFF // In
-    };
+    };*/
 }
 namespace MemoryView {
-    struct BusSequentialShaker : public SOS::MemoryView::BusShaker {
+    class BusSequentialInstructions : public SOS::MemoryView::ComBus<UART2_BUFFER> { // byte1 instruction, byte2 DescriptorId, MAX_OBJ_SIZE objectData or byte3 error_code
+    public:
+        BusSequentialInstructions(const typename UART2_BUFFER::iterator& inStart, const typename UART2_BUFFER::iterator& inEnd, const typename UART2_BUFFER::iterator& outStart, const typename UART2_BUFFER::iterator& outEnd)
+            : SOS::MemoryView::ComBus<UART2_BUFFER> { inStart, inEnd, outStart, outEnd }
+        {
+        }
     };
-    struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
+    struct ComId : public SOS::MemoryView::TaskCable<unsigned char, 2> {
+        using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getReadId() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWriteId() { return std::get<1>(*this); }
+    };
+    class BusSequentialShaker : bus<
+    bus_shaker_tag,
+    SOS::MemoryView::HandShake,
+    std::tuple<ComId>,
+    bus_traits<Bus>::const_cables_type> {
+    public:
+        BusSequentialShaker()
+        {
+            std::get<0>(_this).test_and_set();
+            std::get<1>(_this).test_and_set();
+            std::get<2>(_this).test_and_set();
+            std::get<3>(_this).test_and_set();
+            std::get<4>(_this).test_and_set();
+            std::get<5>(_this).test_and_set();
+            std::get<6>(_this).test_and_set();
+            std::get<7>(_this).test_and_set();
+            std::get<8>(_this).test_and_set();
+            std::get<9>(_this).test_and_set();
+            std::get<0>(cables).getReadId().store(NUM_IDS);
+            std::get<0>(cables).getWriteId().store(NUM_IDS);
+        }
+        std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(_this); }
+        std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(_this); }
+        std::atomic_flag& getReadEndUpdatedRef() { return std::get<2>(_this); }
+        std::atomic_flag& getReadEndAcknowledgeRef() { return std::get<3>(_this); }
+        std::atomic_flag& getReadFailedNotifyRef() { return std::get<4>(_this); }
+        std::atomic_flag& getWriteStartUpdatedRef() { return std::get<5>(_this); }
+        std::atomic_flag& getWriteStartAcknowledgeRef() { return std::get<6>(_this); }
+        std::atomic_flag& getWriteEndUpdatedRef() { return std::get<7>(_this); }
+        std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(_this); }
+        std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(_this); }
+        signal_type signal;
+        cables_type cables {};
+    private:
+        std::array<std::atomic_flag, 10> _this{};
+    };
+    /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWordRef() { return std::get<1>(*this); }
@@ -88,7 +144,7 @@ namespace MemoryView {
         typename DestinationAndOrigin<6>::value_type& sentNotificationId() { return std::get<3>(std::get<0>(cables)); }
         typename DestinationAndOrigin<6>::value_type& syncStopId() { return std::get<4>(std::get<0>(cables)); }
         typename DestinationAndOrigin<6>::value_type& syncStartId() { return std::get<5>(std::get<0>(cables)); }
-    };
+    };*/
     struct ResolverSwitch
     {
         ResolverSwitch() {
@@ -227,7 +283,7 @@ namespace Behavior {
     class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus> {
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker;
-        SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
+        SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sBus)
         {
         }
