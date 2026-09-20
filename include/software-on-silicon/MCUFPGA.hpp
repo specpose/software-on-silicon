@@ -1,18 +1,17 @@
 namespace SOS {
 namespace Behavior {
     template <typename... Objects>
-    class SimulationFPGA : public SOS::Protocol::Serial<Objects...> {
+    class FPGACrossover : public SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationFPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        FPGACrossover(bus_type& myBus, SOS::MemoryView::SerialResolverBus<Objects...>& other)
         : SOS::Protocol::Serial<Objects...>(myBus, other)
         {
         }
-        ~SimulationFPGA() {
+        ~FPGACrossover() {
         };
 
     private:
-        // SerialFPGA
         virtual void read_bits(std::bitset<8> temp) final
         {
             SOS::Protocol::Serial<Objects...>::mcu_updated = temp[7];
@@ -51,18 +50,17 @@ namespace Behavior {
         }
     };
     template <typename... Objects>
-    class SimulationMCU : public SOS::Protocol::Serial<Objects...> {
+    class MCUCrossover : public SOS::Protocol::Serial<Objects...> {
     public:
         using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-        SimulationMCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        MCUCrossover(bus_type& myBus, SOS::MemoryView::SerialResolverBus<Objects...>& other)
         : SOS::Protocol::Serial<Objects...>(myBus, other)
         {
         }
-        ~SimulationMCU() {
+        ~MCUCrossover() {
         }
 
     private:
-        // SerialMCU
         virtual void read_bits(std::bitset<8> temp) final
         {
             SOS::Protocol::Serial<Objects...>::fpga_updated = temp[7];

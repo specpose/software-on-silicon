@@ -2,14 +2,14 @@ namespace SOS {
 namespace Protocol {
     /*
     template <typename... Objects>
-    SyncProcessor<Objects...>::SyncProcessor(SOS::MemoryView::SerialAsyncBus<Objects...>& bus2)
+    SyncProcessor<Objects...>::SyncProcessor(SOS::MemoryView::SerialResolverBus<Objects...>& bus2)
      : _sBus(bus2)
     {
         this->descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
         // apply(this->descriptors, objects); // fold expression: cpp17
     }
     */
-    template <> SyncProcessor<TrueColorClass, DMA, DMA>::SyncProcessor(SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& bus2)
+    template <> SyncProcessor<TrueColorClass, DMA, DMA>::SyncProcessor(SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>& bus2)
      : _sBus(bus2)
     {
         const std::size_t s = 3;

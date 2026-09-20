@@ -1,7 +1,7 @@
 namespace SOS {
 namespace Protocol {
     // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
-    enum SequentialLogicRequest : unsigned char {
+    enum DMARequestInstruction : unsigned char {
         serviceinterrupted = 0xF9, // Out
         writeend = 0xFA, // Out
         readend = 0xFB, // Out
@@ -10,21 +10,21 @@ namespace Protocol {
         checksync = 0xFE, // Out
         init = 0xFF // Out
     };
-    enum SequentialLogicResponse : unsigned char {
+    enum DMAInstructionResponse : unsigned char {
         descriptorssend = 0xFB, // In, out of order. After init
         syncresponse = 0xFE, // In
         nocommand = 0xFF // In
     };
 }
 namespace MemoryView {
-    struct SequentialCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
+    struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWordRef() { return std::get<1>(*this); }
     };
-    struct SequentialBus : public SOS::MemoryView::BusShaker {
-        using cables_type = std::tuple<SequentialCable>;
-        SequentialBus() {
+    struct BusDMAInstructions : public SOS::MemoryView::BusShaker {
+        using cables_type = std::tuple<DMAInstructionCable>;
+        BusDMAInstructions() {
             std::get<0>(cables).getOpcodeRef().store(SOS::Protocol::nocommand);
             std::get<0>(cables).getWordRef().store(NUM_IDS);
         }
@@ -87,9 +87,9 @@ namespace MemoryView {
         typename DestinationAndOrigin<6>::value_type& syncStopId() { return std::get<4>(std::get<0>(cables)); }
         typename DestinationAndOrigin<6>::value_type& syncStartId() { return std::get<5>(std::get<0>(cables)); }
     };
-    struct DMAObjectAsyncSwitch
+    struct ResolverSwitch
     {
-        DMAObjectAsyncSwitch() {
+        ResolverSwitch() {
             read_ack.test_and_set();
             read_fault.test_and_set();
             write_ack.test_and_set();
@@ -104,10 +104,10 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<DMAObjectAsyncSwitch, NUM_IDS>
+    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<ResolverSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : Notify(), std::array<DMAObjectAsyncSwitch, NUM_IDS> {} {}
+        SwitchBoard() : Notify(), std::array<ResolverSwitch, NUM_IDS> {} {}
         /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
@@ -118,10 +118,10 @@ namespace MemoryView {
         typename Current::value_type& currentRead() { return std::get<0>(*this); }
         typename Current::value_type& currentWrite() { return std::get<1>(*this); }
     };*/
-    struct serial_async_tag { };
+    struct switchboard_tag { };
     template <typename... Objects>
-    struct SerialAsyncBus : bus<
-        serial_async_tag,
+    struct SerialResolverBus : bus<
+        switchboard_tag,
         SOS::MemoryView::SwitchBoard,
         bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
@@ -221,14 +221,14 @@ namespace Behavior {
         S _child;
     };
     template <typename S, typename... Objects>
-    class SequentialResolver : public SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>> {
+    class SequentialResolverDSP : public SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialResolverBus<Objects...>> {
     public:
-        using bus_type = SOS::MemoryView::SerialAsyncBus<Objects...>;
-        SequentialResolver(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
-            : SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialAsyncBus<Objects...>>(passThru, _sBus)
+        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;
+        SequentialResolverDSP(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
+            : SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialResolverBus<Objects...>>(passThru, _sBus)
         {
         }
-        ~SequentialResolver() {
+        ~SequentialResolverDSP() {
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }

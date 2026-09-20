@@ -41,7 +41,7 @@ namespace Protocol {
     class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy {
     public:
         using bus_type = typename SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
-        Serial(bus_type& bus, SOS::MemoryView::SerialAsyncBus<Objects...>& other)
+        Serial(bus_type& bus, SOS::MemoryView::SerialResolverBus<Objects...>& other)
             : SOS::Protocol::BlockWiseTransfer<Objects...>(bus, other)
             , SOS::Behavior::SerialEventDummy(bus.signal)
         {

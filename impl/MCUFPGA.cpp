@@ -21,11 +21,11 @@
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
 
-class FPGA : public SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA> {
+class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    FPGA(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& other)
-        : SOS::Behavior::SimulationFPGA<TrueColorClass, DMA, DMA>(myBus, other)
+    FPGA(bus_type& myBus, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>& other)
+        : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -90,11 +90,11 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread;
 };
-class MCU : public SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA> {
+class MCU : public SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA> {
 public:
     using bus_type = SOS::MemoryView::ComBus<COM_BUFFER>;
-    MCU(bus_type& myBus, SOS::MemoryView::SerialAsyncBus<TrueColorClass, DMA, DMA>& other)
-        : SOS::Behavior::SimulationMCU<TrueColorClass, DMA, DMA>(myBus, other)
+    MCU(bus_type& myBus, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>& other)
+        : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
         boot_time = std::chrono::high_resolution_clock::now();
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
@@ -162,10 +162,10 @@ private:
     std::thread _thread;
 };
 
-class FPGASimpleDummy : public SOS::Behavior::SequentialResolver<FPGA, TrueColorClass, DMA, DMA> {
+class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, TrueColorClass, DMA, DMA> {
 public:
     FPGASimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolver<FPGA, TrueColorClass, DMA, DMA>(passThru)
+        : SOS::Behavior::SequentialResolverDSP<FPGA, TrueColorClass, DMA, DMA>(passThru)
 
     {
         _sBus.signal[0].sync_me.clear();
@@ -236,10 +236,10 @@ private:
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
 
-class MCUSimpleDummy : public SOS::Behavior::SequentialResolver<MCU, TrueColorClass, DMA, DMA> {
+class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, TrueColorClass, DMA, DMA> {
 public:
     MCUSimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolver<MCU, TrueColorClass, DMA, DMA>(passThru)
+        : SOS::Behavior::SequentialResolverDSP<MCU, TrueColorClass, DMA, DMA>(passThru)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
