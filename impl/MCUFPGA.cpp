@@ -162,10 +162,10 @@ private:
     std::thread _thread;
 };
 
-class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, TrueColorClass, DMA, DMA> {
+class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
     FPGASimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<FPGA, TrueColorClass, DMA, DMA>(passThru)
+        : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(passThru)
 
     {
         _sBus.signal[0].sync_me.clear();
@@ -236,10 +236,10 @@ private:
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
 
-class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, TrueColorClass, DMA, DMA> {
+class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
     MCUSimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<MCU, TrueColorClass, DMA, DMA>(passThru)
+        : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(passThru)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }

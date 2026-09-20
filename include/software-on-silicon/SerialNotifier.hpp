@@ -220,12 +220,11 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename... Objects>
-    class SequentialResolverDSP : public SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialResolverBus<Objects...>> {
+    template <typename S, typename OtherBus>
+    class SequentialResolverDSP : public SerialDoublePassthruAsyncController<S, OtherBus> {
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;
         SequentialResolverDSP(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
-            : SerialDoublePassthruAsyncController<S, SOS::MemoryView::SerialResolverBus<Objects...>>(passThru, _sBus)
+            : SerialDoublePassthruAsyncController<S, OtherBus>(passThru, _sBus)
         {
         }
         ~SequentialResolverDSP() {
@@ -284,7 +283,7 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::Async, NUM_IDS> read {};
         std::array<SOS::Protocol::Async, NUM_IDS> write {};
-        bus_type _sBus {};
+        OtherBus _sBus {};
 
     //private:
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
