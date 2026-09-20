@@ -17,8 +17,7 @@ namespace Protocol {
         {
             for (std::size_t i = 0; i < _sBus.signal.size(); ++i) {
                 if (read_started_id[i]) {
-                    _sBus.signal[i].read_op.getFirstRef().test_and_set();
-                    _sBus.signal[i].read_op.getSecondRef().test_and_set();
+                    _sBus.signal[i].read_op.getNotifyRef().test_and_set();
                     std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
                     _sBus.signal[i].read_fault.clear();
                     read_started_id[i] = false;
@@ -28,11 +27,9 @@ namespace Protocol {
         void emit_readlocked(std::size_t obj_id)
         {
             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-            _sBus.signal[obj_id].read_op.getSecondRef().clear();
-            _sBus.signal[obj_id].read_op.getFirstRef().clear();
+            _sBus.signal[obj_id].read_op.getNotifyRef().clear();
             if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
-                _sBus.signal[obj_id].write_op.getFirstRef().test_and_set();
-                _sBus.signal[obj_id].write_op.getSecondRef().test_and_set();
+                _sBus.signal[obj_id].write_op.getNotifyRef().test_and_set();
                 _sBus.signal[obj_id].write_fault.clear();
                 _sBus.signal[obj_id].write_ack.clear();
             }
@@ -40,14 +37,12 @@ namespace Protocol {
         }
         void emit_transfer(std::size_t obj_id)
         {
-            _sBus.signal[obj_id].write_op.getSecondRef().clear();
-            _sBus.signal[obj_id].write_op.getFirstRef().clear();
+            _sBus.signal[obj_id].write_op.getNotifyRef().clear();
             _sBus.signal[obj_id].sync_me.test_and_set();
         }
         void emit_received(std::size_t obj_id)
         {
-            _sBus.signal[obj_id].read_op.getFirstRef().test_and_set();
-            _sBus.signal[obj_id].read_op.getSecondRef().test_and_set();
+            _sBus.signal[obj_id].read_op.getNotifyRef().test_and_set();
             read_started_id[obj_id] = false;
             _sBus.signal[obj_id].read_ack.clear();
         }
@@ -56,8 +51,7 @@ namespace Protocol {
             if (obj_id == 1 || obj_id == 2) {
                 std::cout << typeid(*this).name() << ": write of object id " << obj_id << " succeeded" << std::endl;
             }
-            _sBus.signal[obj_id].write_op.getFirstRef().test_and_set();
-            _sBus.signal[obj_id].write_op.getSecondRef().test_and_set();
+            _sBus.signal[obj_id].write_op.getNotifyRef().test_and_set();
             _sBus.signal[obj_id].write_ack.clear();
         }
         void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
