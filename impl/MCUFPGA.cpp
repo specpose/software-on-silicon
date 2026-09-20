@@ -164,8 +164,8 @@ private:
 
 class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
-    FPGASimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(passThru)
+    FPGASimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+        : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(bus, passThru)
 
     {
         _sBus.signal[0].sync_me.clear();
@@ -238,8 +238,8 @@ private:
 
 class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>> {
 public:
-    MCUSimpleDummy(SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(passThru)
+    MCUSimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru)
+        : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus<TrueColorClass, DMA, DMA>>(bus, passThru)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }

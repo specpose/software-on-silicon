@@ -17,6 +17,8 @@ namespace Protocol {
     };
 }
 namespace MemoryView {
+    struct BusSequentialShaker : public SOS::MemoryView::BusShaker {
+    };
     struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getOpcodeRef() { return std::get<0>(*this); }
@@ -204,11 +206,12 @@ namespace Protocol {
 }
 namespace Behavior {
     template <typename S, typename OtherBus>
-    class SerialDoublePassthruAsyncController : public Controller<S>, public Loop {
+    class SerialDoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        SerialDoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
+        SerialDoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
         : Controller<S>()
         , Loop()
+        , EventSubController(signal)
         , _foreign(passThru)
         , _child(_foreign, other)
         {
@@ -221,10 +224,11 @@ namespace Behavior {
         S _child;
     };
     template <typename S, typename OtherBus>
-    class SequentialResolverDSP : public SerialDoublePassthruAsyncController<S, OtherBus> {
+    class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus> {
     public:
-        SequentialResolverDSP(SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
-            : SerialDoublePassthruAsyncController<S, OtherBus>(passThru, _sBus)
+        using bus_type = SOS::MemoryView::BusSequentialShaker;
+        SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<COM_BUFFER>& passThru) // constexpr
+            : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sBus)
         {
         }
         ~SequentialResolverDSP() {
