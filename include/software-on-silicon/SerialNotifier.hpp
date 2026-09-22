@@ -188,7 +188,6 @@ namespace MemoryView {
         }
     };*/
     struct switchboard_tag { };
-    template <typename... Objects>
     class SerialResolverBus : bus<
         switchboard_tag,
         SOS::MemoryView::SwitchBoard,
@@ -196,12 +195,12 @@ namespace MemoryView {
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
     public:
+        SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {}
         signal_type signal;
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
         //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
     //private:
-        std::tuple<Objects...> objects {}; // FIX: in class body
-        SOS::Protocol::DescriptorHelper descriptors; // FIX: a reference
+        SOS::Protocol::DescriptorHelper& descriptors;
     };
 }
 namespace Protocol {
@@ -296,16 +295,16 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S, typename OtherBus>
+    template <typename S, typename OtherBus, typename... Objects>
     class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus> {
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sBus)
         {
-            _sBus.descriptors = cpp11_static_descriptors(_sBus.objects);
-            // _sBus.descriptors(_sBus.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(_sBus.descriptors, _sBus.objects); // fold expression: cpp17
+            descriptors = cpp11_static_descriptors(objects);
+            // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(descriptors, objects); // fold expression: cpp17
         }
         ~SequentialResolverDSP() {
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
@@ -369,7 +368,9 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
-        OtherBus _sBus {};
+        std::tuple<Objects...> objects {};
+        SOS::Protocol::DescriptorHelper descriptors;
+        OtherBus _sBus {descriptors};
 
     //private:
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};

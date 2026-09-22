@@ -3,7 +3,7 @@ namespace Protocol {
     template<typename... Objects>
     class SyncProcessor {
     public:
-        SyncProcessor(SOS::MemoryView::SerialResolverBus<Objects...>& bus2)
+        SyncProcessor(SOS::MemoryView::SerialResolverBus& bus2)
         : _sBus(bus2)
         {
             _sBus.signal.getFirstRef().clear();
@@ -72,7 +72,7 @@ namespace Protocol {
     protected:
         SOS::Protocol::DescriptorHelper descriptors;
 
-        SOS::MemoryView::SerialResolverBus<Objects...>& _sBus;
+        SOS::MemoryView::SerialResolverBus& _sBus;
     private:
         std::bitset<NUM_IDS> read_started_id {};
     };
@@ -80,7 +80,7 @@ namespace Protocol {
     class BlockWiseTransfer : protected SyncProcessor<Objects...> { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-        BlockWiseTransfer(bus_type& bus, SOS::MemoryView::SerialResolverBus<Objects...>& bus2)
+        BlockWiseTransfer(bus_type& bus, SOS::MemoryView::SerialResolverBus& bus2)
         : SyncProcessor<Objects...>(bus2)
         , _com(bus) {}
 
@@ -195,7 +195,7 @@ namespace Protocol {
         unsigned char writeOrigin = NUM_IDS;
         //virtual void emit_received(std::size_t obj_id) = 0;
         //virtual void emit_sent(std::size_t obj_id) = 0;
-        //SOS::MemoryView::SerialResolverBus<Objects...> bus2;
+        //SOS::MemoryView::SerialResolverBus bus2;
         //SOS::MemoryView::SequentialBus bus3 {};
         SOS::MemoryView::ComBus<UART1_BUFFER>& _com;
         std::array<bool, NUM_IDS> readLock {false};
