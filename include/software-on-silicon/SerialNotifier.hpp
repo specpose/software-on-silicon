@@ -163,10 +163,12 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : public SOS::MemoryView::NotifyAndInvertedPair, public std::array<ResolverSwitch, NUM_IDS>
+    class SwitchBoard : private SOS::MemoryView::Pair, public std::array<ResolverSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : NotifyAndInvertedPair(), std::array<ResolverSwitch, NUM_IDS> {} {}
+        SwitchBoard() : Pair(), std::array<ResolverSwitch, NUM_IDS> {} {}
+        std::atomic_flag& triggerResolve() { return getFirstRef(); }
+        std::atomic_flag& descriptorsUpdated() { return getSecondRef(); }
         /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
@@ -195,7 +197,10 @@ namespace MemoryView {
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
     public:
-        SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {}
+        SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {
+            signal.triggerResolve().test_and_set();
+            signal.descriptorsUpdated().clear();
+        }
         signal_type signal;
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
         //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
@@ -313,8 +318,8 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!this->_sBus.signal[id].read_ack.test_and_set()) {
                 if (this->_sBus.signal[id].read_fault.test_and_set()) {
-                    //while (_sBus.signal.getFirstRef().test_and_set())
-                    //    std::this_thread::yield();
+                    while (_sBus.signal.descriptorsUpdated().test_and_set())
+                        std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
@@ -326,7 +331,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    //_sBus.signal.getFirstRef().clear();
+                    _sBus.signal.descriptorsUpdated().clear();
                     read_status[id].result = true;
                     read_status[id].ready.clear();
                 } else
@@ -339,8 +344,8 @@ namespace Behavior {
             }
             if (!this->_sBus.signal[id].write_ack.test_and_set()) {
                 if (this->_sBus.signal[id].write_fault.test_and_set()){
-                    //while (_sBus.signal.getFirstRef().test_and_set())
-                    //    std::this_thread::yield();
+                    while (_sBus.signal.descriptorsUpdated().test_and_set())
+                        std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].write_op.getNotifyRef().test_and_set()) {
@@ -352,7 +357,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    //_sBus.signal.getFirstRef().clear();
+                    _sBus.signal.descriptorsUpdated().clear();
                     write_status[id].result = true;
                     write_status[id].ready.clear();
                 } else

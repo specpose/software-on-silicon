@@ -13,15 +13,18 @@ namespace MemoryView {
     private:
         std::atomic_flag notify = ATOMIC_FLAG_INIT;
     };
-    class Pair : private Notify, public std::array<std::atomic_flag, 1> {
+    class Pair {
     public:
         Pair()
-            : Notify()
-            , std::array<std::atomic_flag, 1>()
         {
+            first.test_and_set();
+            second.test_and_set();
         }
-        std::atomic_flag& getFirstRef() { return getNotifyRef(); }
-        std::atomic_flag& getSecondRef() { return std::get<0>(*this); }
+        std::atomic_flag& getFirstRef() { return first; }
+        std::atomic_flag& getSecondRef() { return second; }
+    private:
+        std::atomic_flag first = ATOMIC_FLAG_INIT;
+        std::atomic_flag second = ATOMIC_FLAG_INIT;
     };
     // 1+1=0
     class HandShake {

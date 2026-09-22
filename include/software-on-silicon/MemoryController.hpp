@@ -51,8 +51,8 @@ namespace MemoryView {
     class RWNotify : private Pair {
     public:
         using Pair::Pair;
-        typename Pair::value_type& getWritingRef() { return getFirstRef(); }
-        typename Pair::value_type& getReadingRef() { return getSecondRef(); }
+        std::atomic_flag& getWritingRef() { return getFirstRef(); }
+        std::atomic_flag& getReadingRef() { return getSecondRef(); }
     };
     template <typename MemoryControllerType>
     struct BlockerBus : public bus<

@@ -1,5 +1,16 @@
 namespace SOS {
 namespace MemoryView {
+    class AsyncAndNotify {
+    public:
+        AsyncAndNotify()
+        {
+            second.test_and_set();
+        }
+        std::atomic_flag& getSecondRef() { return second; }
+
+    private:
+        std::atomic_flag second {};
+    };
     class AsyncAndHandShake {
     public:
         AsyncAndHandShake()
@@ -14,12 +25,12 @@ namespace MemoryView {
         std::atomic_flag aux_updated {};
         std::atomic_flag aux_acknowledge {};
     };
-    class AsyncAndInvertedPair {
+    class AsyncAndPair {
     public:
-        AsyncAndInvertedPair()
+        AsyncAndPair()
         {
-            aux_updated.clear();
-            aux_acknowledge.clear();
+            aux_updated.test_and_set();
+            aux_acknowledge.test_and_set();
         }
         std::atomic_flag& getFirstRef() { return aux_updated; }
         std::atomic_flag& getSecondRef() { return aux_acknowledge; }
@@ -27,6 +38,14 @@ namespace MemoryView {
     private:
         std::atomic_flag aux_updated {};
         std::atomic_flag aux_acknowledge {};
+    };
+    class NotifyAndNotify : public SOS::MemoryView::Notify, public AsyncAndNotify {
+    public:
+        NotifyAndNotify()
+        : SOS::MemoryView::Notify()
+        , AsyncAndNotify()
+        {
+        }
     };
     class NotifyAndHandShake : public SOS::MemoryView::Notify, public AsyncAndHandShake {
     public:
@@ -36,11 +55,11 @@ namespace MemoryView {
         {
         }
     };
-    class NotifyAndInvertedPair : public SOS::MemoryView::Notify, public AsyncAndInvertedPair {
+    class NotifyAndPair : public SOS::MemoryView::Notify, public AsyncAndPair {
     public:
-        NotifyAndInvertedPair()
+        NotifyAndPair()
         : SOS::MemoryView::Notify()
-        , AsyncAndInvertedPair()
+        , AsyncAndPair()
         {
         }
     };

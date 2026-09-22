@@ -6,7 +6,6 @@ namespace Protocol {
         SyncProcessor(SOS::MemoryView::SerialResolverBus& bus2)
         : _sBus(bus2)
         {
-            _sBus.signal.getFirstRef().clear();
         };
     protected:
         bool check_sync(std::size_t obj_id) {
@@ -17,14 +16,14 @@ namespace Protocol {
             return false;
         }
         void emit_init() {
-            while (_sBus.signal.getFirstRef().test_and_set()) // run once with a wait then block
+            while (_sBus.signal.descriptorsUpdated().test_and_set()) // run once with a wait then block
                 std::this_thread::yield();
             for (std::size_t i = 0; i < _sBus.descriptors.size(); ++i) {
                 descriptors.arr[i].obj = _sBus.descriptors[i].obj;
                 descriptors.arr[i].obj_size = _sBus.descriptors[i].obj_size;
             }
             descriptors.count = _sBus.descriptors.count;
-            _sBus.signal.getFirstRef().clear();
+            _sBus.signal.descriptorsUpdated().clear();
             //print_descriptors(descriptors);
         }
         void emit_interrupted()
@@ -68,7 +67,7 @@ namespace Protocol {
             _sBus.signal[obj_id].write_op.getNotifyRef().test_and_set();
             _sBus.signal[obj_id].write_ack.clear();
         }
-        void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
+        void trigger_resolve() { _sBus.signal.triggerResolve().clear(); }
     protected:
         SOS::Protocol::DescriptorHelper descriptors;
 
@@ -90,10 +89,10 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
-                    while (this->_sBus.signal.getFirstRef().test_and_set())
+                    while (this->_sBus.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     data = reinterpret_cast<char*>(this->descriptors[writeOrigin].obj)[writeOriginPos++];
-                    this->_sBus.signal.getFirstRef().clear();
+                    this->_sBus.signal.descriptorsUpdated().clear();
                     write3plus1++;
                     write(data);
                     return true;
@@ -135,12 +134,12 @@ namespace Protocol {
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
                     if (readDestinationPos < this->descriptors[readDestination].obj_size) {
-                        while (this->_sBus.signal.getFirstRef().test_and_set())
+                        while (this->_sBus.signal.descriptorsUpdated().test_and_set())
                             std::this_thread::yield();
                         for (std::size_t i = 0; i < 3; i++) {
                             reinterpret_cast<char*>(this->descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
-                        this->_sBus.signal.getFirstRef().clear();
+                        this->_sBus.signal.descriptorsUpdated().clear();
                     }
                     if (readDestinationPos == this->descriptors[readDestination].obj_size) {
                         readLock[readDestination] = false;
