@@ -1,14 +1,16 @@
 namespace SOS {
 namespace Protocol {
     enum SequentialRequestInstruction : unsigned char {
-        readstart = 0xFE,
-        writestart = 0xFF
+        readstart = 0xFD,
+        writestart = 0xFE, // body is transfer
+        descriptorssend = 0xFF
     };
     enum SequentialInstructionResponse : unsigned char {
-        readend = 0xFD, // After readstart
-        writeend = 0xFE, // After writestart
-        readfailed = 0xFE,
-        writefailed = 0xFF
+        readend = 0xFC,
+        writeend = 0xFD, // body is transfer
+        readfailed = 0xFF,
+        writefailed = 0xFE,
+        init = 0xFF
     };
     // more than 4 per In or Out: requires 2 UART, 2 baud, 10pin TTL or two Opcodes per baud. 4 per in or Out: id would fit, transfersend and desriptorsint byte not fit
     /*enum DMARequestInstruction : unsigned char {
@@ -27,7 +29,7 @@ namespace Protocol {
     };*/
 }
 namespace MemoryView {
-    class BusSequentialInstructions : public SOS::MemoryView::ComBus<UART2_BUFFER> { // byte1 instruction, byte2 DescriptorId, MAX_OBJ_SIZE objectData or byte3 error_code
+    class BusSequentialInstructions : public SOS::MemoryView::ComBus<UART2_BUFFER> { // byte1 instruction, byte2 DescriptorId, byte3 obj_size or error_code, MAX_OBJ_SIZE objectData
     public:
         BusSequentialInstructions(const typename UART2_BUFFER::iterator& inStart, const typename UART2_BUFFER::iterator& inEnd, const typename UART2_BUFFER::iterator& outStart, const typename UART2_BUFFER::iterator& outEnd)
             : SOS::MemoryView::ComBus<UART2_BUFFER> { inStart, inEnd, outStart, outEnd }
@@ -161,10 +163,10 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : public SOS::MemoryView::Notify, public std::array<ResolverSwitch, NUM_IDS>
+    class SwitchBoard : public SOS::MemoryView::NotifyAndInvertedPair, public std::array<ResolverSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : Notify(), std::array<ResolverSwitch, NUM_IDS> {} {}
+        SwitchBoard() : NotifyAndInvertedPair(), std::array<ResolverSwitch, NUM_IDS> {} {}
         /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
@@ -175,15 +177,31 @@ namespace MemoryView {
         typename Current::value_type& currentRead() { return std::get<0>(*this); }
         typename Current::value_type& currentWrite() { return std::get<1>(*this); }
     };*/
+    /*struct DescriptorInitObj : public TaskCable<void*, 1> {
+        DescriptorInitObj() {
+            std::get<0>(*this).store((void*)nullptr);
+        }
+    };
+    struct DescriptorInitObj_Size : public TaskCable<unsigned long, 1> {
+        DescriptorInitObj_Size() {
+            std::get<0>(*this).store(MAX_OBJ_SIZE+1);
+        }
+    };*/
     struct switchboard_tag { };
     template <typename... Objects>
-    struct SerialResolverBus : bus<
+    class SerialResolverBus : bus<
         switchboard_tag,
         SOS::MemoryView::SwitchBoard,
         bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
+    public:
         signal_type signal;
+        //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
+        //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
+    //private:
+        std::tuple<Objects...> objects {}; // FIX: in class body
+        SOS::Protocol::DescriptorHelper descriptors; // FIX: a reference
     };
 }
 namespace Protocol {
@@ -285,6 +303,9 @@ namespace Behavior {
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sBus)
         {
+            _sBus.descriptors = cpp11_static_descriptors(_sBus.objects);
+            // _sBus.descriptors(_sBus.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(_sBus.descriptors, _sBus.objects); // fold expression: cpp17
         }
         ~SequentialResolverDSP() {
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
@@ -293,6 +314,9 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!this->_sBus.signal[id].read_ack.test_and_set()) {
                 if (this->_sBus.signal[id].read_fault.test_and_set()) {
+                    while (_sBus.signal.getFirstRef().test_and_set())
+                        std::this_thread::yield();
+                    //_sBus.signal.getSecondRef().test_and_set();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
@@ -304,6 +328,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
+                    _sBus.signal.getFirstRef().clear();
                     read_status[id].result = true;
                     read_status[id].ready.clear();
                 } else
@@ -316,6 +341,8 @@ namespace Behavior {
             }
             if (!this->_sBus.signal[id].write_ack.test_and_set()) {
                 if (this->_sBus.signal[id].write_fault.test_and_set()){
+                    while (_sBus.signal.getFirstRef().test_and_set())
+                        std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].write_op.getNotifyRef().test_and_set()) {
@@ -327,6 +354,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
+                    _sBus.signal.getFirstRef().clear();
                     write_status[id].result = true;
                     write_status[id].ready.clear();
                 } else

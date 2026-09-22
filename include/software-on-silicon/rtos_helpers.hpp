@@ -14,11 +14,33 @@ namespace MemoryView {
         std::atomic_flag aux_updated {};
         std::atomic_flag aux_acknowledge {};
     };
+    class AsyncAndInvertedPair {
+    public:
+        AsyncAndInvertedPair()
+        {
+            aux_updated.clear();
+            aux_acknowledge.clear();
+        }
+        std::atomic_flag& getFirstRef() { return aux_updated; }
+        std::atomic_flag& getSecondRef() { return aux_acknowledge; }
+
+    private:
+        std::atomic_flag aux_updated {};
+        std::atomic_flag aux_acknowledge {};
+    };
     class NotifyAndHandShake : public SOS::MemoryView::Notify, public AsyncAndHandShake {
     public:
         NotifyAndHandShake()
             : SOS::MemoryView::Notify()
             , AsyncAndHandShake()
+        {
+        }
+    };
+    class NotifyAndInvertedPair : public SOS::MemoryView::Notify, public AsyncAndInvertedPair {
+    public:
+        NotifyAndInvertedPair()
+        : SOS::MemoryView::Notify()
+        , AsyncAndInvertedPair()
         {
         }
     };

@@ -6,10 +6,7 @@ namespace Protocol {
         SyncProcessor(SOS::MemoryView::SerialResolverBus<Objects...>& bus2)
         : _sBus(bus2)
         {
-            descriptors = cpp11_static_descriptors(objects);
-            // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(this->descriptors, objects); // fold expression: cpp17
-            print_descriptors(descriptors);
+            _sBus.signal.getFirstRef().clear();
         };
     protected:
         bool check_sync(std::size_t obj_id) {
@@ -19,7 +16,17 @@ namespace Protocol {
             }
             return false;
         }
-        void emit_init() {}
+        void emit_init() {
+            while (_sBus.signal.getFirstRef().test_and_set()) // run once with a wait then block
+                std::this_thread::yield();
+            for (std::size_t i = 0; i < _sBus.descriptors.size(); ++i) {
+                descriptors.arr[i].obj = _sBus.descriptors[i].obj;
+                descriptors.arr[i].obj_size = _sBus.descriptors[i].obj_size;
+            }
+            descriptors.count = _sBus.descriptors.count;
+            _sBus.signal.getFirstRef().clear();
+            //print_descriptors(descriptors);
+        }
         void emit_interrupted()
         {
             for (std::size_t i = 0; i < _sBus.signal.size(); ++i) {
@@ -63,7 +70,6 @@ namespace Protocol {
         }
         void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
     protected:
-        std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors;
     private:
         SOS::MemoryView::SerialResolverBus<Objects...>& _sBus;

@@ -36,7 +36,7 @@ namespace Protocol {
             count = 0;
             assign(std::get<I>(objects)...);
         }
-        std::size_t size() { return count; }
+        unsigned char& size() { return count; }
 
     private:
         template <typename First>
@@ -52,7 +52,7 @@ namespace Protocol {
             count++;
             assign(objects...);
         }
-        std::size_t count = 0;
+        unsigned char count = 0;
     };
 }
 }
