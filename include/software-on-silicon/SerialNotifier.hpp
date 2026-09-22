@@ -313,8 +313,8 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!this->_sBus.signal[id].read_ack.test_and_set()) {
                 if (this->_sBus.signal[id].read_fault.test_and_set()) {
-                    while (_sBus.signal.getFirstRef().test_and_set())
-                        std::this_thread::yield();
+                    //while (_sBus.signal.getFirstRef().test_and_set())
+                    //    std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
@@ -326,7 +326,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    _sBus.signal.getFirstRef().clear();
+                    //_sBus.signal.getFirstRef().clear();
                     read_status[id].result = true;
                     read_status[id].ready.clear();
                 } else
@@ -339,8 +339,8 @@ namespace Behavior {
             }
             if (!this->_sBus.signal[id].write_ack.test_and_set()) {
                 if (this->_sBus.signal[id].write_fault.test_and_set()){
-                    while (_sBus.signal.getFirstRef().test_and_set())
-                        std::this_thread::yield();
+                    //while (_sBus.signal.getFirstRef().test_and_set())
+                    //    std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].write_op.getNotifyRef().test_and_set()) {
@@ -352,7 +352,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    _sBus.signal.getFirstRef().clear();
+                    //_sBus.signal.getFirstRef().clear();
                     write_status[id].result = true;
                     write_status[id].ready.clear();
                 } else
