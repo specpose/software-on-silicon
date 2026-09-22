@@ -178,8 +178,8 @@ public:
     void event_loop()
     {
         // SIGNALING
-        resolve(0);
         if (!_sBus.signal.getNotifyRef().test_and_set()) {
+        resolve(0);
         if (!read_status[0].ready.test_and_set()) {
             if (read_status[0].result) {
             //check ownership
@@ -250,8 +250,8 @@ public:
     void event_loop()
     {
         // SIGNALING
-        resolve(0);
         if (!_sBus.signal.getNotifyRef().test_and_set()) {
+        resolve(0);
         if (!read_status[0].ready.test_and_set()) {
             if (read_status[0].result) {
             //check ownership

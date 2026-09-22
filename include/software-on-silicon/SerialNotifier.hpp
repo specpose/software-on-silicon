@@ -316,7 +316,6 @@ namespace Behavior {
                 if (this->_sBus.signal[id].read_fault.test_and_set()) {
                     while (_sBus.signal.getFirstRef().test_and_set())
                         std::this_thread::yield();
-                    //_sBus.signal.getSecondRef().test_and_set();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
