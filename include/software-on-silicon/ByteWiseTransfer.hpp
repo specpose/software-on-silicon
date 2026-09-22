@@ -71,8 +71,9 @@ namespace Protocol {
         void trigger_resolve() { _sBus.signal.getNotifyRef().clear(); }
     protected:
         SOS::Protocol::DescriptorHelper descriptors;
-    private:
+
         SOS::MemoryView::SerialResolverBus<Objects...>& _sBus;
+    private:
         std::bitset<NUM_IDS> read_started_id {};
     };
     template <typename... Objects>
@@ -89,11 +90,10 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
-                    //bus2.signal[writeOrigin].write_op.getSecondRef().clear();
-                    //bus2.signal[writeOrigin].write_op.getFirstRef().clear();
+                    while (this->_sBus.signal.getFirstRef().test_and_set())
+                        std::this_thread::yield();
                     data = reinterpret_cast<char*>(this->descriptors[writeOrigin].obj)[writeOriginPos++];
-                    //bus2.signal[writeOrigin].write_op.getFirstRef().test_and_set();
-                    //bus2.signal[writeOrigin].write_op.getSecondRef().test_and_set();
+                    this->_sBus.signal.getFirstRef().clear();
                     write3plus1++;
                     write(data);
                     return true;
@@ -135,13 +135,12 @@ namespace Protocol {
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
                     if (readDestinationPos < this->descriptors[readDestination].obj_size) {
-                        //bus2.signal[readDestination].read_op.getSecondRef().clear();
-                        //bus2.signal[readDestination].read_op.getFirstRef().clear();
+                        while (this->_sBus.signal.getFirstRef().test_and_set())
+                            std::this_thread::yield();
                         for (std::size_t i = 0; i < 3; i++) {
                             reinterpret_cast<char*>(this->descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
-                        //bus2.signal[readDestination].read_op.getFirstRef().test_and_set();
-                        //bus2.signal[readDestination].read_op.getSecondRef().test_and_set();
+                        this->_sBus.signal.getFirstRef().clear();
                     }
                     if (readDestinationPos == this->descriptors[readDestination].obj_size) {
                         readLock[readDestination] = false;
