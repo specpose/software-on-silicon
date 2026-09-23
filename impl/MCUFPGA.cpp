@@ -14,13 +14,13 @@
 #include "software-on-silicon/cpp11.hpp"
 #include "FPGAInitialisers.cpp"
 #include "software-on-silicon/SerialNotifier.hpp"
+#include <future>
+#include "MCUFPGA/DMA.cpp"
+#include "software-on-silicon/mcufpga_helpers.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
-#include "MCUFPGA/DMA.cpp"
 #include "MCUFPGA/TrueColor.cpp"
-#include <future>
-#include "software-on-silicon/mcufpga_helpers.hpp"
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
@@ -28,8 +28,6 @@ public:
     FPGA(bus_type& myBus, SOS::MemoryView::SerialResolverBus& other)
         : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
-        boot_time = std::chrono::high_resolution_clock::now();
-        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Loop::start(this);
     }
     virtual ~FPGA() final
@@ -40,13 +38,6 @@ public:
             std::this_thread::yield();
         std::cout << typeid(*this).name() << " shutdown" << std::endl;
         SOS::Behavior::Loop::destroy(_thread);
-        //Debug
-        kill_time = std::chrono::high_resolution_clock::now();
-        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
-        std::cout << "Dumping FPGA DMA Objects" << std::endl;
-        dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
-            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void com_hotplug_action() final
     {
@@ -87,8 +78,6 @@ private:
     bool stateOfObjectOne = false;
     bool syncStateObjectOne = true;
 
-    std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
-    std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread;
 };
 class MCU : public SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA> {
@@ -97,8 +86,6 @@ public:
     MCU(bus_type& myBus, SOS::MemoryView::SerialResolverBus& other)
         : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(myBus, other)
     {
-        boot_time = std::chrono::high_resolution_clock::now();
-        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Loop::start(this);
     }
     virtual ~MCU() final
@@ -108,13 +95,6 @@ public:
             std::this_thread::yield();
         std::cout << typeid(*this).name() << " shutdown" << std::endl;
         SOS::Behavior::Loop::destroy(_thread);
-        //Debug
-        kill_time = std::chrono::high_resolution_clock::now();
-        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
-        std::cout << "Dumping MCU DMA Objects" << std::endl;
-        dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
-        if (SOS::Protocol::Serial<TrueColorClass, DMA, DMA>::reads_pending())
-            SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
     }
     virtual void com_hotplug_action() final
     {
@@ -158,8 +138,6 @@ private:
     bool stateOfObjectZero = false;
     bool syncStateObjectZero = true;
 
-    std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
-    std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
     std::thread _thread;
 };
 
@@ -169,11 +147,14 @@ public:
         : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
 
     {
+        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         _sBus.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGASimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
+        //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
+        std::cout << "Dumping FPGA DMA Objects" << std::endl;
     }
 private:
     std::thread _thread;
@@ -224,10 +205,13 @@ public:
     MCUSimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
     {
+        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~MCUSimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
+        //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
+        std::cout << "Dumping MCU DMA Objects" << std::endl;
     }
 private:
     std::thread _thread;

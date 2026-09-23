@@ -81,7 +81,15 @@ namespace Protocol {
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         BlockWiseTransfer(bus_type& bus, SOS::MemoryView::SerialResolverBus& bus2)
         : SyncProcessor<Objects...>(bus2)
-        , _com(bus) {}
+        , _com(bus)
+        {
+            boot_time = std::chrono::high_resolution_clock::now();
+        }
+        ~BlockWiseTransfer() {
+            //Debug
+            kill_time = std::chrono::high_resolution_clock::now();
+            dump_descriptors_binary(this->descriptors, rx_counter, tx_counter, boot_time, kill_time);
+        }
 
     protected:
         bool write_object()
@@ -203,6 +211,8 @@ namespace Protocol {
         std::array<unsigned long, NUM_IDS> tx_counter { 0 }; // DEBUG
 
     private:
+        std::chrono::time_point<std::chrono::high_resolution_clock> boot_time;
+        std::chrono::time_point<std::chrono::high_resolution_clock> kill_time;
         std::array<std::bitset<8>, 3> writeAssembly;
         std::bitset<24> readAssembly;
         void write(unsigned char w)

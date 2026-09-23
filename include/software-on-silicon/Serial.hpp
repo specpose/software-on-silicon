@@ -46,7 +46,10 @@ namespace Protocol {
             , SOS::Behavior::SerialEventDummy(bus.signal)
         {
         }
-        virtual ~Serial() {}; // request_shutdown_action
+        virtual ~Serial() { // request_shutdown_action
+            if (SOS::Protocol::Serial<Objects...>::reads_pending())
+                SFA::util::runtime_error(SFA::util::error_code::ReadsPendingAfterComthreadDestruction, __FILE__, __func__, typeid(*this).name());
+        };
         virtual void event_loop() final
         {
             std::this_thread::yield();
