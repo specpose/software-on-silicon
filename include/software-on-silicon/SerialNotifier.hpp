@@ -293,6 +293,9 @@ namespace Behavior {
         , _child(_foreign, other)
         {
         }
+        ~SerialDoublePassthruEventController() {
+            std::cout << "~SerialDoublePassthruEventController()" << std::endl;
+        }
 
     protected:
         typename S::bus_type& _foreign;
@@ -305,7 +308,7 @@ namespace Behavior {
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
-            : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sBus)
+            : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
         {
             descriptors = cpp11_static_descriptors(objects);
             // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
@@ -324,10 +327,10 @@ namespace Behavior {
         {
             // SIGNALING
             resolve(0);
-            if (!_sBus.signal.triggerResolve().test_and_set()) {
+            if (!this->_sync.signal.triggerResolve().test_and_set()) {
                 if (!read_status[0].ready.test_and_set()) {
                     if (read_status[0].result) {
-                        _sBus.signal[0].sync_me.clear();
+                        this->_sync.signal[0].sync_me.clear();
                     }
                 }
                 if (!write_status[0].ready.test_and_set()) {
@@ -341,9 +344,9 @@ namespace Behavior {
             std::this_thread::yield();
         }
         void resolve(std::size_t id) {
-            if (!this->_sBus.signal[id].read_ack.test_and_set()) {
-                if (this->_sBus.signal[id].read_fault.test_and_set()) {
-                    while (_sBus.signal.descriptorsUpdated().test_and_set())
+            if (!this->_sync.signal[id].read_ack.test_and_set()) {
+                if (this->_sync.signal[id].read_fault.test_and_set()) {
+                    while (this->_sync.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
@@ -356,7 +359,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    _sBus.signal.descriptorsUpdated().clear();
+                    this->_sync.signal.descriptorsUpdated().clear();
                     read_status[id].result = true;
                     read_status[id].ready.clear();
                 } else
@@ -367,9 +370,9 @@ namespace Behavior {
                     read_status[id].ready.clear();
                 }
             }
-            if (!this->_sBus.signal[id].write_ack.test_and_set()) {
-                if (this->_sBus.signal[id].write_fault.test_and_set()){
-                    while (_sBus.signal.descriptorsUpdated().test_and_set())
+            if (!this->_sync.signal[id].write_ack.test_and_set()) {
+                if (this->_sync.signal[id].write_fault.test_and_set()){
+                    while (this->_sync.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
@@ -382,7 +385,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    _sBus.signal.descriptorsUpdated().clear();
+                    this->_sync.signal.descriptorsUpdated().clear();
                     write_status[id].result = true;
                     write_status[id].ready.clear();
                 } else
@@ -400,11 +403,10 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> objects {};
         SOS::Protocol::DescriptorHelper descriptors;
-        OtherBus _sBus {descriptors};
+        OtherBus _sync {descriptors};
 
-    //private:
-        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
     private:
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };

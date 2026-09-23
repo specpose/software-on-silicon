@@ -145,10 +145,9 @@ class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::M
 public:
     FPGASimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
-
     {
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
-        _sBus.signal[0].sync_me.clear();
+        this->_sync.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGASimpleDummy(){
@@ -175,8 +174,8 @@ private:
             // EDIT
             int writeBlinkCounter = 0;
             bool writeBlink = true;
-            for (std::size_t i = 0; i < sizeof(std::get<1>(_sBus.objects)); i++) {
-                std::get<1>(_sBus.objects)[i] = writeBlink? '*' : '_';
+            for (std::size_t i = 0; i < sizeof(std::get<1>(this->_sync.objects)); i++) {
+                std::get<1>(this->_sync.objects)[i] = writeBlink? '*' : '_';
                 writeBlinkCounter++;
                 if (writeBlink && writeBlinkCounter == 84) {
                     writeBlink = false;
@@ -191,7 +190,7 @@ private:
                 bus.sync_id[1] = true;
                 write_status[1] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[1]), std::ref(write_ack[1]));
                 // CALLBACK
-                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(_sBus.objects)));
+                auto t = std::thread(&dump<DMA>, std::move(write_status[1].share()), std::ref(std::get<1>(this->_sync.objects)));
                 t.detach();
             } else {
                 SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());
@@ -230,13 +229,13 @@ private:
         /*auto fut = write_status[2].get();
         // EDIT
         // if (fut){
-        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(_sBus.objects))+sizeof(std::get<2>(_sBus.objects)),'-');
+        std::fill(reinterpret_cast<unsigned char*>(&std::get<2>(this->_sync.objects)),reinterpret_cast<unsigned char*>(&std::get<2>(this->_sync.objects))+sizeof(std::get<2>(this->_sync.objects)),'-');
         // SEND
         if (!write_status[2].valid()) {
             bus.sync_id[2] = true;
             write_status[2] = std::async(std::launch::async, &SOS::Protocol::async_status, std::ref(write_fault[2]), std::ref(write_ack[2]));
             // CALLBACK
-            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(_sBus.objects)));
+            auto t = std::thread(&dump<DMA>, std::move(write_status[2].share()), std::ref(std::get<2>(this->_sync.objects)));
             t.detach();
         } else {
             SFA::util::logic_error(SFA::util::error_code::TypeOfFutureHasBeenModifiedDuringEdit, __FILE__, __func__, typeid(*this).name());

@@ -13,7 +13,7 @@ public:
     {
         _thread = start(this);
     }
-    ~BlinkLoop() final
+    ~BlinkLoop()
     {
         destroy(_thread);
         std::cout << "Thread has ended normally." << std::endl;

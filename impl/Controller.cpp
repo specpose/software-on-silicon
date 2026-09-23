@@ -14,7 +14,7 @@ public:
     {
         _thread = start(this);
     }
-    ~NotifyImpl() final
+    ~NotifyImpl()
     {
         destroy(_thread);
     }
@@ -44,7 +44,7 @@ public:
         _intrinsic.getNotifyRef().clear();
         _thread = start(this);
     }
-    ~ProcessorScheme() final
+    ~ProcessorScheme()
     {
         destroy(_thread);
     }
