@@ -312,8 +312,33 @@ namespace Behavior {
             // apply(descriptors, objects); // fold expression: cpp17
         }
         ~SequentialResolverDSP() {
+            descriptors.count = 0;
+            for (std::size_t i = 0; i < NUM_IDS; ++i){
+                descriptors.arr[i].obj = (void*)nullptr;
+                descriptors.arr[i].obj_size = 0;
+            }
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
+        }
+        void event_loop()
+        {
+            // SIGNALING
+            resolve(0);
+            if (!_sBus.signal.triggerResolve().test_and_set()) {
+                if (!read_status[0].ready.test_and_set()) {
+                    if (read_status[0].result) {
+                        _sBus.signal[0].sync_me.clear();
+                    }
+                }
+                if (!write_status[0].ready.test_and_set()) {
+                    if (!write_status[0].result) {
+                        //if (obj_id == 1 || obj_id == 2) {
+                        std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+                        //}
+                    }
+                }
+            }
+            std::this_thread::yield();
         }
         void resolve(std::size_t id) {
             if (!this->_sBus.signal[id].read_ack.test_and_set()) {

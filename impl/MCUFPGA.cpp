@@ -175,36 +175,18 @@ public:
     ~FPGASimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
     }
-    void event_loop()
-    {
-        // SIGNALING
-        resolve(0);
-        if (!_sBus.signal.triggerResolve().test_and_set()) {
-        if (!read_status[0].ready.test_and_set()) {
-            if (read_status[0].result) {
-            //check ownership
-            //std::get<0>(bus.objs).red++; // Hack
-            //std::get<0>(bus.objs).blue++; // Hack
-            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            //(*red)--;
-            //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
-            //(*blue)++;
-            _sBus.signal[0].sync_me.clear();
-            }
-        }
-        if (!write_status[0].ready.test_and_set()) {
-            if (!write_status[0].result) {
-                //if (obj_id == 1 || obj_id == 2) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-                //}
-            }
-        }
-        }
-        std::this_thread::yield();
-    }
 private:
     std::thread _thread;
 };
+
+        //check ownership
+        //std::get<0>(bus.objs).red++; // Hack
+        //std::get<0>(bus.objs).blue++; // Hack
+        //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+        //(*red)--;
+        //auto blue = reinterpret_cast<unsigned char*>(&doubleBuffer[0][2]);
+        //(*blue)++;
+
         //counterBus.signal.getAcknowledgeRef().clear();
         // LOCK
         /*auto fut = write_status[1].get();
@@ -247,36 +229,17 @@ public:
     ~MCUSimpleDummy(){
         SOS::Behavior::Loop::destroy(_thread);
     }
-    void event_loop()
-    {
-        // SIGNALING
-        resolve(0);
-        if (!_sBus.signal.triggerResolve().test_and_set()) {
-        if (!read_status[0].ready.test_and_set()) {
-            if (read_status[0].result) {
-            //check ownership
-            //std::get<0>(bus.objs).red--;
-            //std::get<0>(bus.objs).green++;
-            //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
-            //(*red)++;
-            //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
-            //(*green)++;
-            _sBus.signal[0].sync_me.clear();
-            }
-        }
-        if (!write_status[0].ready.test_and_set()) {
-            if (!write_status[0].result) {
-                //if (obj_id == 1 || obj_id == 2) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-                //}
-            }
-        }
-        }
-        std::this_thread::yield();
-    }
 private:
     std::thread _thread;
 };
+
+        //check ownership
+        //std::get<0>(bus.objs).red--;
+        //std::get<0>(bus.objs).green++;
+        //auto red = reinterpret_cast<unsigned char*>(&doubleBuffer[0][0]);
+        //(*red)++;
+        //auto green = reinterpret_cast<unsigned char*>(&doubleBuffer[0][1]);
+        //(*green)++;
 
         //counterBus.signal.getUpdatedRef().clear();
         // LOCK
