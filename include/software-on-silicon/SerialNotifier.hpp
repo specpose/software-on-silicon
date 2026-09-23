@@ -310,16 +310,22 @@ namespace Behavior {
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
         {
+            while (this->_sync.signal.descriptorsUpdated().test_and_set())
+                std::this_thread::yield();
             descriptors = cpp11_static_descriptors(objects);
             // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
             // apply(descriptors, objects); // fold expression: cpp17
+            this->_sync.signal.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() {
+            while (this->_sync.signal.descriptorsUpdated().test_and_set())
+                std::this_thread::yield();
             descriptors.count = 0;
             for (std::size_t i = 0; i < NUM_IDS; ++i){
                 descriptors.arr[i].obj = (void*)nullptr;
                 descriptors.arr[i].obj_size = 0;
             }
+            this->_sync.signal.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
