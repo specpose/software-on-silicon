@@ -197,7 +197,7 @@ namespace MemoryView {
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
     public:
-        SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {
+        SerialResolverBus(SOS::Protocol::DescriptorHelper helpers) : descriptors(helpers) {
             signal.triggerResolve().test_and_set();
             signal.descriptorsUpdated().clear();
         }
@@ -205,7 +205,7 @@ namespace MemoryView {
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
         //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
     //private:
-        SOS::Protocol::DescriptorHelper& descriptors;
+        SOS::Protocol::DescriptorHelper descriptors; // Reference causes Segfault
     };
 }
 namespace Protocol {
