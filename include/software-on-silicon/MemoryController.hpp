@@ -81,12 +81,12 @@ namespace Behavior {
         PassthruAsyncDummy(OtherBus& other)
         : Loop()
         , SubController()
-        , _foreign(other)
+        , _other(other.signal)
         {
         }
 
     protected:
-        OtherBus& _foreign;
+        typename OtherBus::signal_type& _other;
 
     };
     template <typename OtherBus>
@@ -95,12 +95,12 @@ namespace Behavior {
         PassthruSimpleDummy(typename bus_type::signal_type& signal, OtherBus& other)
         : Loop()
         , SimpleSubController(signal)
-        , _foreign(other)
+        , _other(other.signal)
         {
         }
 
     protected:
-        OtherBus& _foreign;
+        typename OtherBus::signal_type& _other;
 
     };
     template <typename OtherBus>
@@ -109,12 +109,12 @@ namespace Behavior {
         PassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
         : Loop()
         , EventSubController(signal)
-        , _foreign(other)
+        , _other(other.signal)
         {
         }
 
     protected:
-        OtherBus& _foreign;
+        typename OtherBus::signal_type& _other;
 
     };
     template <typename S>
@@ -123,13 +123,13 @@ namespace Behavior {
         PassthruAsyncController(typename S::bus_type& passThru)
         : Controller<S>()
         , Loop()
-        , _foreign(passThru)
-        , _child(_foreign)
+        , _passthru(passThru.signal)
+        , _child(passThru)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
 
     private:
         S _child;
@@ -140,13 +140,15 @@ namespace Behavior {
         DoublePassthruAsyncController(typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
-            , _foreign(passThru)
-            , _child(_foreign, other)
+            , _passthru(passThru.signal)
+            , _other(other.signal)
+            , _child(passThru, other)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
 
     private:
         S _child;
@@ -158,13 +160,13 @@ namespace Behavior {
         : Controller<S>()
         , Loop()
         , SimpleSubController(signal)
-        , _foreign(passThru)
-        , _child(_foreign)
+        , _passthru(passThru.signal)
+        , _child(passThru)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
 
     private:
         S _child;
@@ -176,13 +178,15 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
-            , _foreign(passThru)
-            , _child(_foreign, other)
+            , _passthru(passThru.signal)
+            , _other(other.signal)
+            , _child(passThru, other)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
 
     private:
         S _child;
@@ -194,13 +198,13 @@ namespace Behavior {
         : Controller<S>()
         , Loop()
         , EventSubController(signal)
-        , _foreign(passThru)
-        , _child(_foreign)
+        , _passthru(passThru.signal)
+        , _child(passThru)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
 
     private:
         S _child;
@@ -212,13 +216,15 @@ namespace Behavior {
             : Controller<S>()
             , Loop()
             , EventSubController(signal)
-            , _foreign(passThru)
-            , _child(_foreign, other)
+            , _passthru(passThru.signal)
+            , _other(other.signal)
+            , _child(passThru, other)
         {
         }
 
     protected:
-        typename S::bus_type& _foreign;
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
 
     private:
         S _child;

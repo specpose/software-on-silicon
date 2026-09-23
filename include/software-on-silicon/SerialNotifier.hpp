@@ -190,13 +190,13 @@ namespace MemoryView {
         }
     };*/
     struct switchboard_tag { };
-    class SerialResolverBus : bus<
+    struct SerialResolverBus : bus<
         switchboard_tag,
         SOS::MemoryView::SwitchBoard,
         bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
-    public:
+    //public:
         SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {
             signal.triggerResolve().test_and_set();
             signal.descriptorsUpdated().clear();
@@ -282,7 +282,7 @@ namespace Protocol {
     }*/
 }
 namespace Behavior {
-    template <typename... Objects>
+    /*template <typename... Objects>
     class DestructorGuard {
     public:
         DestructorGuard()
@@ -301,18 +301,17 @@ namespace Behavior {
     protected:
         std::tuple<Objects...> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
-    };
-    template <typename S, typename OtherBus, typename... Objects>
-    class SerialDoublePassthruEventController : private DestructorGuard<Objects...>, public Controller<S>, public Loop, protected EventSubController {
+    };*/
+    template <typename S, typename OtherBus>
+    class SerialDoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        SerialDoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        SerialDoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
         : Controller<S>()
         , Loop()
         , EventSubController(signal)
-        , _foreign(passThru)
-        , DestructorGuard<Objects...> {}
-        , _sync(this->descriptors)
-        , _child(_foreign, _sync)
+        , _passthru(passThru.signal)
+        , _other(other.signal)
+        , _child(passThru, other)
         {
         }
         ~SerialDoublePassthruEventController() {
@@ -320,18 +319,21 @@ namespace Behavior {
         }
 
     protected:
-        typename S::bus_type& _foreign;
-        OtherBus _sync;
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
 
     private:
         S _child;
     };
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus, Objects...> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
-            : SerialDoublePassthruEventController<S, OtherBus, Objects...>(bus.signal, passThru)
+            : objects {}
+            , descriptors(cpp11_static_descriptors(this->objects))
+            , _sync(descriptors)
+            , SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
         {
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
@@ -343,6 +345,11 @@ namespace Behavior {
         ~SequentialResolverDSP() { // Superclass, then members, then base class
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
+            this->descriptors.count = 0;
+            for (std::size_t i = 0; i < NUM_IDS; ++i){
+                this->descriptors.arr[i].obj = (void*)nullptr;
+                this->descriptors.arr[i].obj_size = 0;
+            }
             //this->_sync.signal.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
@@ -425,6 +432,9 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
+        std::tuple<Objects...> objects;
+        SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
+        OtherBus _sync;
 
     private:
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
