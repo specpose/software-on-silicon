@@ -154,7 +154,7 @@ namespace Behavior {
     };
     class SimpleSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusNotifier;
+        using bus_type = SOS::MemoryView::BusNotifier; // REMOVE
         constexpr SimpleSubController(typename bus_type::signal_type& signal)
             : SubController()
             , _intrinsic(signal)
@@ -166,7 +166,7 @@ namespace Behavior {
     };
     class EventSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusShaker;
+        using bus_type = SOS::MemoryView::BusShaker;  // REMOVE
         constexpr EventSubController(typename bus_type::signal_type& signal)
             : SubController()
             , _intrinsic(signal)
@@ -176,7 +176,7 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
-    class AsyncDummy : public Loop, protected SubController {
+    class AsyncDummy : public Loop, public SubController { // protected
     public:
         AsyncDummy()
             : Loop()
@@ -184,7 +184,7 @@ namespace Behavior {
         {
         }
     };
-    class SimpleDummy : public Loop, protected SimpleSubController {
+    class SimpleDummy : public Loop, public SimpleSubController { // protected
     public:
         SimpleDummy(typename bus_type::signal_type& signal)
             : Loop()
@@ -192,7 +192,7 @@ namespace Behavior {
         {
         }
     };
-    class EventDummy : public Loop, protected EventSubController {
+    class EventDummy : public Loop, public EventSubController { // protected
     public:
         EventDummy(typename bus_type::signal_type& signal)
             : Loop()
@@ -226,7 +226,7 @@ namespace Behavior {
         S _child;
     };
     template <typename S>
-    class SimpleController : public Controller<S>, public Loop, protected SimpleSubController {
+    class SimpleController : public Controller<S>, public Loop, public SimpleSubController { // protected
     public:
         SimpleController(typename bus_type::signal_type& signal)
             : Controller<S>()
@@ -243,7 +243,7 @@ namespace Behavior {
         S _child;
     };
     template <typename S>
-    class EventController : public Controller<S>, public Loop, protected EventSubController {
+    class EventController : public Controller<S>, public Loop, public EventSubController { // protected
     public:
         EventController(typename bus_type::signal_type& signal)
             : Controller<S>()
