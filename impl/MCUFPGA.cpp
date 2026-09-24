@@ -142,21 +142,56 @@ private:
     std::thread _thread;
 };
 
-class FPGASimpleDummy : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
+class FPGAResolver : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
 public:
-    FPGASimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
+    FPGAResolver(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
     {
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         this->_sync.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
-    ~FPGASimpleDummy(){
+    ~FPGAResolver(){
         SOS::Behavior::Loop::destroy(_thread);
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping FPGA DMA Objects" << std::endl;
     }
 private:
+    std::thread _thread;
+};
+
+class Stub : public SOS::Behavior::EventDummy {
+public:
+    Stub(SOS::MemoryView::BusShaker& bus) : SOS::Behavior::EventDummy(bus.signal) {}
+    virtual void event_loop() final {
+        //resolve
+    }
+};
+
+class FPGAAsync : public SOS::Behavior::Async<Stub, TrueColorClass, DMA, DMA> {
+public:
+    FPGAAsync()
+        : SOS::Behavior::Async<Stub, TrueColorClass, DMA, DMA>(test.signal)
+    {
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~FPGAAsync() {
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    virtual void event_loop() final {
+        if (!read_status[0].ready.test_and_set()) {
+            if (read_status[0].result) {
+                //this->_sync.signal[0].sync_me.clear();
+            }
+        }
+        if (!write_status[0].ready.test_and_set()) {
+            if (!write_status[0].result) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+            }
+        }
+    }
+private:
+    SOS::MemoryView::BusShaker test{};
     std::thread _thread;
 };
 
@@ -200,15 +235,15 @@ private:
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
 
-class MCUSimpleDummy : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
+class MCUResolver : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
 public:
-    MCUSimpleDummy(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
+    MCUResolver(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
         : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
     {
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Loop::start(this);
     }
-    ~MCUSimpleDummy(){
+    ~MCUResolver(){
         SOS::Behavior::Loop::destroy(_thread);
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;

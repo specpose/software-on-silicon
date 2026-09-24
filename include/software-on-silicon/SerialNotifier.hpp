@@ -41,13 +41,12 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getReadId() { return std::get<0>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWriteId() { return std::get<1>(*this); }
     };
-    class BusSequentialShaker : bus<
+    struct BusSequentialShaker : bus<
     bus_shaker_tag,
     SOS::MemoryView::HandShake,
     std::tuple<ComId>,
     bus_traits<Bus>::const_cables_type>
     , private std::array<std::atomic_flag, 10> {
-    public:
         BusSequentialShaker() : std::array<std::atomic_flag, 10> {}
         {
             std::get<0>(*this).test_and_set();
@@ -282,6 +281,28 @@ namespace Protocol {
     }*/
 }
 namespace Behavior {
+    template <typename S, typename... Objects>
+    class Async  : public SOS::Behavior::EventController<S> {
+    public:
+        Async(typename SOS::MemoryView::BusShaker::signal_type& signal)
+            : doubleBuffer{}
+            //, objects {}
+            //, descriptors(cpp11_static_descriptors(this->objects))
+            , SOS::Behavior::EventController<S>(signal)
+        {
+        }
+        ~Async() {
+        }
+        //virtual void event_loop() {}
+    protected:
+        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
+        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
+        std::tuple<Objects...> doubleBuffer;
+
+    private:
+        //std::tuple<Objects...> objects;
+        //SOS::Protocol::DescriptorHelper descriptors;
+    };
     /*template <typename... Objects>
     class DestructorGuard {
     public:
@@ -333,21 +354,8 @@ namespace Behavior {
         }
         void event_loop()
         {
-            // SIGNALING
-            resolve(0);
             if (!this->_sync.signal.triggerResolve().test_and_set()) {
-                if (!read_status[0].ready.test_and_set()) {
-                    if (read_status[0].result) {
-                        this->_sync.signal[0].sync_me.clear();
-                    }
-                }
-                if (!write_status[0].ready.test_and_set()) {
-                    if (!write_status[0].result) {
-                        //if (obj_id == 1 || obj_id == 2) {
-                        std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-                        //}
-                    }
-                }
+                resolve(0);
             }
             std::this_thread::yield();
         }
@@ -368,14 +376,14 @@ namespace Behavior {
                     //    std::this_thread::yield();
                     //}
                     this->_sync.signal.descriptorsUpdated().clear();
-                    read_status[id].result = true;
-                    read_status[id].ready.clear();
+                    //read_status[id].result = true;
+                    //read_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
-                    read_status[id].result = false;
-                    read_status[id].ready.clear();
+                    //read_status[id].result = false;
+                    //read_status[id].ready.clear();
                 }
             }
             if (!this->_sync.signal[id].write_ack.test_and_set()) {
@@ -394,14 +402,14 @@ namespace Behavior {
                     //    std::this_thread::yield();
                     //}
                     this->_sync.signal.descriptorsUpdated().clear();
-                    write_status[id].result = true;
-                    write_status[id].ready.clear();
+                    //write_status[id].result = true;
+                    //write_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                     objectWritesCanceled++;
-                    write_status[id].result = false;
-                    write_status[id].ready.clear();
+                    //write_status[id].result = false;
+                    //write_status[id].ready.clear();
                 }
             }
         }
@@ -410,11 +418,11 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> objects;
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
         OtherBus _sync;
 
     private:
-        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> doubleBuffer{};
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };
