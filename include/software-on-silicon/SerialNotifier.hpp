@@ -291,17 +291,30 @@ namespace Behavior {
             : doubleBuffer{}
             //, objects {}
             //, descriptors(cpp11_static_descriptors(this->objects))
-            , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(test, uart1)
+            , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(result, uart1)
         {
         }
         ~Async() {
         }
-        //virtual void event_loop() {}
+        virtual void event_loop() {
+            if (!result.getReadEndUpdatedRef().test_and_set()) {
+                auto id = std::get<0>(result.cables).getReadId().load();
+                read_status[id].result = true;
+                read_status[id].ready.clear();
+                result.getReadEndAcknowledgeRef().clear();
+            }
+        }
+        void write(std::size_t id) {
+            if (!result.getWriteStartAcknowledgeRef().test_and_set()) {
+                std::get<0>(result.cables).getWriteId().store(id);
+                result.getWriteStartUpdatedRef().clear();
+            }
+        }
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> doubleBuffer;
-        SOS::MemoryView::BusSequentialShaker<Objects...> test{};
+        SOS::MemoryView::BusSequentialShaker<Objects...> result{};
 
     private:
         //std::tuple<Objects...> objects;
@@ -335,6 +348,7 @@ namespace Behavior {
             : descriptors(cpp11_static_descriptors(bus.objects))
             , _sync(descriptors)
             , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, _sync, passThru)
+            , result(bus)
         {
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
@@ -360,6 +374,11 @@ namespace Behavior {
             if (!this->_sync.signal.triggerResolve().test_and_set()) {
                 resolve(0);
             }
+            if (!result.getWriteStartUpdatedRef().test_and_set()) {
+                auto id = std::get<0>(result.cables).getWriteId().load();
+                this->_sync.signal[id].sync_me.clear();
+                result.getWriteStartAcknowledgeRef().clear();
+            }
             std::this_thread::yield();
         }
         void resolve(std::size_t id) {
@@ -367,6 +386,10 @@ namespace Behavior {
                 if (this->_sync.signal[id].read_fault.test_and_set()) {
                     while (this->_sync.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
+                    if (!result.getReadEndAcknowledgeRef().test_and_set()) {
+                        std::get<0>(result.cables).getReadId().store(id);
+                        result.getReadEndUpdatedRef().clear();
+                    }
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
                     //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
@@ -425,6 +448,7 @@ namespace Behavior {
         SOS::MemoryView::SerialResolverBus _sync;
 
     private:
+        bus_type& result;
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
     };

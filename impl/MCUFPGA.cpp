@@ -180,9 +180,10 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
+        SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>::event_loop();
         if (!read_status[0].ready.test_and_set()) {
             if (read_status[0].result) {
-                //this->_sync.signal[0].sync_me.clear();
+                write(0);
             }
         }
         if (!write_status[0].ready.test_and_set()) {
@@ -263,9 +264,10 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
+        SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA>::event_loop();
         if (!read_status[0].ready.test_and_set()) {
             if (read_status[0].result) {
-                //this->_sync.signal[0].sync_me.clear();
+                write(0);
             }
         }
         if (!write_status[0].ready.test_and_set()) {
