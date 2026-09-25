@@ -25,9 +25,9 @@
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-    FPGA(bus_type& myBus, SOS::MemoryView::SerialResolverBus& other)
-        : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(myBus, other)
+    using bus_type = SOS::MemoryView::SerialResolverBus;
+    FPGA(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
+        : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(other, myBus)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -83,9 +83,9 @@ private:
 };
 class MCU : public SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-    MCU(bus_type& myBus, SOS::MemoryView::SerialResolverBus& other)
-        : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(myBus, other)
+    using bus_type = SOS::MemoryView::SerialResolverBus;
+    MCU(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
+        : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(other, myBus)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -142,10 +142,10 @@ private:
     std::thread _thread;
 };
 
-class FPGAResolver : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
+class FPGAResolver : public SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::ComBus<UART1_BUFFER>, TrueColorClass, DMA, DMA> {
 public:
     FPGAResolver(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
+        : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::ComBus<UART1_BUFFER>, TrueColorClass, DMA, DMA>(bus, passThru)
     {
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
         this->_sync.signal[0].sync_me.clear();
@@ -235,10 +235,10 @@ private:
             SFA::util::logic_error(SFA::util::error_code::WriteRequestHasBeenCanceledByOtherSide, __FILE__, __func__, typeid(*this).name());
         }*/
 
-class MCUResolver : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA> {
+class MCUResolver : public SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::ComBus<UART1_BUFFER>, TrueColorClass, DMA, DMA> {
 public:
     MCUResolver(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru)
-        : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::SerialResolverBus, TrueColorClass, DMA, DMA>(bus, passThru)
+        : SOS::Behavior::SequentialResolverDSP<MCU, SOS::MemoryView::ComBus<UART1_BUFFER>, TrueColorClass, DMA, DMA>(bus, passThru)
     {
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         _thread = SOS::Behavior::Loop::start(this);

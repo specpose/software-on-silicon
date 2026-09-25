@@ -78,8 +78,8 @@ namespace Protocol {
     template <typename... Objects>
     class BlockWiseTransfer : protected SyncProcessor<Objects...> { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-        BlockWiseTransfer(bus_type& bus, SOS::MemoryView::SerialResolverBus& bus2)
+        using bus_type = SOS::MemoryView::SerialResolverBus;
+        BlockWiseTransfer(bus_type& bus2, SOS::MemoryView::ComBus<UART1_BUFFER>& bus)
         : SyncProcessor<Objects...>(bus2)
         , _com(bus)
         {

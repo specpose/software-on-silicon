@@ -164,12 +164,12 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : private SOS::MemoryView::Pair, public std::array<ResolverSwitch, NUM_IDS>
+    class SwitchBoard : private SOS::MemoryView::HandShake, public std::array<ResolverSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : Pair(), std::array<ResolverSwitch, NUM_IDS> {} {}
-        std::atomic_flag& triggerResolve() { return getFirstRef(); }
-        std::atomic_flag& descriptorsUpdated() { return getSecondRef(); }
+        SwitchBoard() : HandShake(), std::array<ResolverSwitch, NUM_IDS> {} {}
+        std::atomic_flag& triggerResolve() { return getUpdatedRef(); }
+        std::atomic_flag& descriptorsUpdated() { return getAcknowledgeRef(); }
         /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
@@ -334,7 +334,7 @@ namespace Behavior {
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : descriptors(cpp11_static_descriptors(bus.objects))
             , _sync(descriptors)
-            , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
+            , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, _sync, passThru)
         {
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
@@ -422,7 +422,7 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
-        OtherBus _sync;
+        SOS::MemoryView::SerialResolverBus _sync;
 
     private:
         std::size_t objectReadsCanceled = 0;

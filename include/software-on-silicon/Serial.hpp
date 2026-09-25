@@ -14,7 +14,7 @@ namespace Protocol {
     };
 }
 namespace Behavior {
-    class SerialEventSubController : public SubController {
+    /*class SerialEventSubController : public SubController {
     public:
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         constexpr SerialEventSubController(typename bus_type::signal_type& signal)
@@ -34,16 +34,15 @@ namespace Behavior {
         , SerialEventSubController(signal)
         {
         }
-    };
+    };*/
 }
 namespace Protocol {
     template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::SerialEventDummy {
+    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy {
     public:
-        using bus_type = typename SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
-        Serial(bus_type& bus, SOS::MemoryView::SerialResolverBus& other)
-            : SOS::Protocol::BlockWiseTransfer<Objects...>(bus, other)
-            , SOS::Behavior::SerialEventDummy(bus.signal)
+        Serial(SOS::MemoryView::SerialResolverBus& other, SOS::MemoryView::ComBus<UART1_BUFFER>& bus)
+            : SOS::Protocol::BlockWiseTransfer<Objects...>(other, bus)
+            , SOS::Behavior::EventDummy(bus.signal)
         {
         }
         virtual ~Serial() { // request_shutdown_action
@@ -100,7 +99,7 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::SerialEventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!SOS::Behavior::EventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
@@ -108,7 +107,7 @@ namespace Protocol {
         virtual void handshake_ack() final
         {
             SyncProcessor<Objects...>::trigger_resolve();
-            SOS::Behavior::SerialEventDummy::_intrinsic.getAcknowledgeRef().clear();
+            SOS::Behavior::EventDummy::_intrinsic.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1
