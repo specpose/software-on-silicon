@@ -104,6 +104,20 @@ namespace Behavior {
 
     };
     template <typename OtherBus>
+    class PassthruPreemptiveDummy : public Loop, protected PreemptiveSubController { // Useless: Refactoring only
+    public:
+        PassthruPreemptiveDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , PreemptiveSubController(signal)
+        , _other(other.signal)
+        {
+        }
+
+    protected:
+        typename OtherBus::signal_type& _other;
+
+    };
+    template <typename OtherBus>
     class PassthruEventDummy : public Loop, protected EventSubController { // Useless: Refactoring only
     public:
         PassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
@@ -181,6 +195,44 @@ namespace Behavior {
             , _passthru(passThru.signal)
             , _other(other.signal)
             , _child(passThru, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
+
+    private:
+        S _child;
+    };
+    template <typename S>
+    class PassthruPreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
+    public:
+        PassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        : Controller<S>()
+        , Loop()
+        , PreemptiveSubController(signal)
+        , _passthru(passThru.signal)
+        , _child(passThru)
+        {
+        }
+
+    protected:
+        typename S::bus_type::signal_type& _passthru;
+
+    private:
+        S _child;
+    };
+    template <typename S, typename OtherBus>
+    class DoublePassthruPreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
+    public:
+        DoublePassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        : Controller<S>()
+        , Loop()
+        , PreemptiveSubController(signal)
+        , _passthru(passThru.signal)
+        , _other(other.signal)
+        , _child(passThru, other)
         {
         }
 

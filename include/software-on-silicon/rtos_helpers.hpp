@@ -11,6 +11,17 @@ namespace MemoryView {
     private:
         std::atomic_flag second {};
     };
+    class AsyncAndRing {
+    public:
+        AsyncAndRing()
+        {
+            second.test_and_set();
+        }
+        std::atomic_flag& getSecondRef() { return second; }
+
+    private:
+        std::atomic_flag second {};
+    };
     class AsyncAndHandShake {
     public:
         AsyncAndHandShake()
@@ -55,6 +66,14 @@ namespace MemoryView {
         {
         }
     };
+    class RingAndHandShake : public SOS::MemoryView::Ring, public AsyncAndRing {
+    public:
+        RingAndHandShake()
+        : SOS::MemoryView::Ring()
+        , AsyncAndRing()
+        {
+        }
+    };
     class NotifyAndPair : public SOS::MemoryView::Notify, public AsyncAndPair {
     public:
         NotifyAndPair()
@@ -82,6 +101,14 @@ namespace MemoryView {
     struct BusNotifierAndShaker : bus<
                                       bus_notifier_and_shaker_tag,
                                       SOS::MemoryView::NotifyAndHandShake,
+                                      bus_traits<Bus>::cables_type,
+                                      bus_traits<Bus>::const_cables_type> {
+        signal_type signal;
+    };
+    struct bus_ring_and_shaker_tag { };
+    struct BusRingAndShaker : bus<
+                                      bus_ring_and_shaker_tag,
+                                      SOS::MemoryView::RingAndHandShake,
                                       bus_traits<Bus>::cables_type,
                                       bus_traits<Bus>::const_cables_type> {
         signal_type signal;
@@ -169,6 +196,18 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
+    class StoppablePreemptiveSubController : public SubController {
+    public:
+        using bus_type = SOS::MemoryView::BusRingAndShaker;
+        StoppablePreemptiveSubController(typename bus_type::signal_type& signal)
+        : SubController()
+        , _intrinsic(signal)
+        {
+        }
+
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
     class StoppableEventSubController : public SubController {
     public:
         using bus_type = SOS::MemoryView::BusDoubleShaker;
@@ -195,6 +234,14 @@ namespace Behavior {
         StoppableSimpleDummy(typename bus_type::signal_type& signal)
             : Stoppable()
             , StoppableSimpleSubController(signal)
+        {
+        }
+    };
+    class StoppablePreemptiveDummy : public Stoppable, protected StoppablePreemptiveSubController {
+    public:
+        StoppablePreemptiveDummy(typename bus_type::signal_type& signal)
+        : Stoppable()
+        , StoppablePreemptiveSubController(signal)
         {
         }
     };
@@ -253,6 +300,41 @@ namespace Behavior {
         {
         }
         ~BootstrapSimpleController()
+        {
+            if (_child) {
+                // SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());
+                delete _child;
+                _child = nullptr;
+            }
+        }
+        void stop_descendants()
+        {
+            if (_child) {
+                delete _child;
+                _child = nullptr;
+            } else {
+                SFA::util::runtime_error(SFA::util::error_code::ChildHasAlreadyBeenDeleted, __FILE__, __func__, typeid(*this).name());
+            }
+        }
+        bool descendants_stopped() { return !_child; }
+
+    protected:
+        typename S::bus_type _foreign {};
+
+    private:
+        S* _child = nullptr;
+    };
+    template <typename S>
+    class BootstrapPreemptiveController : public Controller<S>, public Stoppable, protected StoppablePreemptiveSubController {
+    public:
+        BootstrapPreemptiveController(typename bus_type::signal_type& signal)
+        : Controller<S>()
+        , Stoppable()
+        , StoppablePreemptiveSubController(signal)
+        , _child(new S { _foreign })
+        {
+        }
+        ~BootstrapPreemptiveController()
         {
             if (_child) {
                 // SFA::util::runtime_error(SFA::util::error_code::ChildHasToBeDeletedBeforeDestroyThread, __FILE__, __func__, typeid(*this).name());

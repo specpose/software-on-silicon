@@ -13,6 +13,14 @@ namespace MemoryView {
     private:
         std::atomic_flag notify = ATOMIC_FLAG_INIT;
     };
+    class Ring {
+    public:
+        Ring() { ring.clear(); }
+        std::atomic_flag& getRingRef() { return ring; }
+
+    private:
+        std::atomic_flag ring = ATOMIC_FLAG_INIT;
+    };
     class Pair {
     public:
         Pair()
@@ -84,6 +92,14 @@ namespace MemoryView {
                              SOS::MemoryView::Notify,
                              bus_traits<Bus>::cables_type,
                              bus_traits<Bus>::const_cables_type> {
+        signal_type signal;
+    };
+    struct bus_ring_tag { };
+    struct BusRing : bus<
+                            bus_ring_tag,
+                            SOS::MemoryView::Ring,
+                            bus_traits<Bus>::cables_type,
+                            bus_traits<Bus>::const_cables_type> {
         signal_type signal;
     };
     struct bus_shaker_tag { };
@@ -164,6 +180,18 @@ namespace Behavior {
     protected:
         bus_type::signal_type& _intrinsic;
     };
+    class PreemptiveSubController : public SubController {
+    public:
+        using bus_type = SOS::MemoryView::BusRing; // REMOVE
+        constexpr PreemptiveSubController(typename bus_type::signal_type& signal)
+        : SubController()
+        , _intrinsic(signal)
+        {
+        }
+
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
     class EventSubController : public SubController {
     public:
         using bus_type = SOS::MemoryView::BusShaker;  // REMOVE
@@ -189,6 +217,14 @@ namespace Behavior {
         SimpleDummy(typename bus_type::signal_type& signal)
             : Loop()
             , SimpleSubController(signal)
+        {
+        }
+    };
+    class PreemptiveDummy : public Loop, public PreemptiveSubController { // protected
+    public:
+        PreemptiveDummy(typename bus_type::signal_type& signal)
+        : Loop()
+        , PreemptiveSubController(signal)
         {
         }
     };
@@ -233,6 +269,23 @@ namespace Behavior {
             , Loop()
             , SimpleSubController(signal)
             , _child(_foreign)
+        {
+        }
+
+    protected:
+        typename S::bus_type _foreign {};
+
+    private:
+        S _child;
+    };
+    template <typename S>
+    class PreemptiveController : public Controller<S>, public Loop, public PreemptiveSubController { // protected
+    public:
+        PreemptiveController(typename bus_type::signal_type& signal)
+        : Controller<S>()
+        , Loop()
+        , PreemptiveSubController(signal)
+        , _child(_foreign)
         {
         }
 
