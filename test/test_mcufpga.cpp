@@ -55,9 +55,8 @@ int main()
     FILE* pidFile = fopen(pidPath, "w");
     fprintf(pidFile, "%ld", (long)getpid());
     fclose(pidFile);
-    SOS::MemoryView::BusSequentialShaker uart2_mcu {};
     SOS::MemoryView::ComBus<UART1_BUFFER> mcubus { std::begin(mcu_in_buffer), std::end(mcu_in_buffer), std::begin(mcu_out_buffer), std::end(mcu_out_buffer) };
-    auto host = new MCUResolver(uart2_mcu, mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
+    auto host = new MCUAsync(mcubus); // SIMULATION: requires additional thread. => remove thread from MCU
     struct sigaction usr2 = { 0 };
     usr2.sa_sigaction = &usr2_handler;
     sigemptyset(&usr2.sa_mask);
@@ -65,9 +64,8 @@ int main()
     sigaction(SIGUSR2, &usr2, NULL);
     bool host_delete = false;
     delete_mcu.test_and_set();
-    SOS::MemoryView::BusSequentialShaker uart2_fpga {};
     SOS::MemoryView::ComBus<UART1_BUFFER> fpgabus { std::begin(fpga_in_buffer), std::end(fpga_in_buffer), std::begin(fpga_out_buffer), std::end(fpga_out_buffer) };
-    auto client = new FPGAResolver(uart2_fpga, fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
+    auto client = new FPGAAsync(fpgabus); // SIMULATION: requires additional thread. => remove thread from FPGA
     struct sigaction usr1 = { 0 };
     usr1.sa_sigaction = &usr1_handler;
     sigemptyset(&usr1.sa_mask);

@@ -41,6 +41,7 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getReadId() { return std::get<0>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWriteId() { return std::get<1>(*this); }
     };
+    template <typename... Objects>
     struct BusSequentialShaker : bus<
     bus_shaker_tag,
     SOS::MemoryView::HandShake,
@@ -74,6 +75,7 @@ namespace MemoryView {
         std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(*this); }
         signal_type signal;
         cables_type cables {};
+        std::tuple<Objects...> objects;
     };
     /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
@@ -282,13 +284,14 @@ namespace Protocol {
 }
 namespace Behavior {
     template <typename S, typename... Objects>
-    class Async  : public SOS::Behavior::EventController<S> {
+    class Async  : public SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
     public:
-        Async(typename SOS::MemoryView::BusShaker::signal_type& signal)
+        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
+        Async(bus_type& uart1)
             : doubleBuffer{}
             //, objects {}
             //, descriptors(cpp11_static_descriptors(this->objects))
-            , SOS::Behavior::EventController<S>(signal)
+            , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(test, uart1)
         {
         }
         ~Async() {
@@ -298,6 +301,7 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> doubleBuffer;
+        SOS::MemoryView::BusSequentialShaker<Objects...> test{};
 
     private:
         //std::tuple<Objects...> objects;
@@ -326,10 +330,9 @@ namespace Behavior {
     template <typename S, typename OtherBus, typename... Objects>
     class SequentialResolverDSP : public SOS::Behavior::DoublePassthruEventController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
-        using bus_type = SOS::MemoryView::BusSequentialShaker;
+        using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
-            : objects {}
-            , descriptors(cpp11_static_descriptors(this->objects))
+            : descriptors(cpp11_static_descriptors(bus.objects))
             , _sync(descriptors)
             , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
         {
@@ -417,7 +420,6 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
-        std::tuple<Objects...> objects;
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
         OtherBus _sync;

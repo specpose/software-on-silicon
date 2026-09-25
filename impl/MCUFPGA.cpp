@@ -160,18 +160,19 @@ private:
     std::thread _thread;
 };
 
-class Stub : public SOS::Behavior::EventDummy {
+class Stub : public SOS::Behavior::PassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
 public:
-    Stub(SOS::MemoryView::BusShaker& bus) : SOS::Behavior::EventDummy(bus.signal) {}
+    using bus_type = SOS::MemoryView::BusSequentialShaker<TrueColorClass, DMA, DMA>;
+    Stub(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& bus1) : SOS::Behavior::PassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, bus1) {}
     virtual void event_loop() final {
         //resolve
     }
 };
 
-class FPGAAsync : public SOS::Behavior::Async<Stub, TrueColorClass, DMA, DMA> {
+class FPGAAsync : public SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA> {
 public:
-    FPGAAsync()
-        : SOS::Behavior::Async<Stub, TrueColorClass, DMA, DMA>(test.signal)
+    FPGAAsync(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
+        : SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>(bus1)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
@@ -191,7 +192,6 @@ public:
         }
     }
 private:
-    SOS::MemoryView::BusShaker test{};
     std::thread _thread;
 };
 
@@ -247,6 +247,32 @@ public:
         SOS::Behavior::Loop::destroy(_thread);
         //std::cout << "MCU Color " << std::get<0>(_foreign.objects) << std::endl;
         std::cout << "Dumping MCU DMA Objects" << std::endl;
+    }
+private:
+    std::thread _thread;
+};
+
+class MCUAsync : public SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA> {
+public:
+    MCUAsync(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
+    : SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA>(bus1)
+    {
+        _thread = SOS::Behavior::Loop::start(this);
+    }
+    ~MCUAsync() {
+        SOS::Behavior::Loop::destroy(_thread);
+    }
+    virtual void event_loop() final {
+        if (!read_status[0].ready.test_and_set()) {
+            if (read_status[0].result) {
+                //this->_sync.signal[0].sync_me.clear();
+            }
+        }
+        if (!write_status[0].ready.test_and_set()) {
+            if (!write_status[0].result) {
+                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+            }
+        }
     }
 private:
     std::thread _thread;
