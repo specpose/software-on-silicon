@@ -302,38 +302,15 @@ namespace Behavior {
         std::tuple<Objects...> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
     };*/
-    template <typename S, typename OtherBus>
-    class SerialDoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
-    public:
-        SerialDoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
-        : Controller<S>()
-        , Loop()
-        , EventSubController(signal)
-        , _passthru(passThru.signal)
-        , _other(other.signal)
-        , _child(passThru, other)
-        {
-        }
-        ~SerialDoublePassthruEventController() {
-            std::cout << "~SerialDoublePassthruEventController()" << std::endl;
-        }
-
-    protected:
-        typename S::bus_type::signal_type& _passthru;
-        typename OtherBus::signal_type& _other;
-
-    private:
-        S _child;
-    };
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SerialDoublePassthruEventController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SOS::Behavior::DoublePassthruEventController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : objects {}
             , descriptors(cpp11_static_descriptors(this->objects))
             , _sync(descriptors)
-            , SerialDoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
+            , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, passThru, _sync)
         {
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();

@@ -10,6 +10,7 @@
 #define UART1_BUFFER std::array<unsigned char, 1>
 #define UART2_BUFFER std::array<unsigned char, MAX_OBJ_SIZE+2>
 #include "software-on-silicon/rtos_helpers.hpp"
+#include "software-on-silicon/MemoryController.hpp"
 #include "software-on-silicon/DMADescriptor.hpp"
 #include "software-on-silicon/cpp11.hpp"
 #include "FPGAInitialisers.cpp"
