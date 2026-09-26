@@ -160,10 +160,10 @@ private:
     std::thread _thread;
 };
 
-class Stub : public SOS::Behavior::PassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
+class Stub : public SOS::Behavior::PassthruPreemptiveDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
 public:
     using bus_type = SOS::MemoryView::BusSequentialShaker<TrueColorClass, DMA, DMA>;
-    Stub(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& bus1) : SOS::Behavior::PassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, bus1) {}
+    Stub(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& bus1) : SOS::Behavior::PassthruPreemptiveDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, bus1) {}
     virtual void event_loop() final {
         //resolve
     }
@@ -175,17 +175,15 @@ public:
         : SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>(bus1)
     {
         _thread = SOS::Behavior::Loop::start(this);
+        write(0);
     }
     ~FPGAAsync() {
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
         SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>::event_loop();
-        if (!read_status[0].ready.test_and_set()) {
-            if (read_status[0].result) {
-                write(0);
-            }
-        }
+        if (read(0))
+            write(0);
         if (!write_status[0].ready.test_and_set()) {
             if (!write_status[0].result) {
                 std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;

@@ -36,15 +36,19 @@ namespace MemoryView {
         {
         }
     };
-    struct ComId : public SOS::MemoryView::TaskCable<unsigned char, 2> {
-        using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
-        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getReadId() { return std::get<0>(*this); }
-        typename SOS::MemoryView::TaskCable<unsigned char, 2>::value_type& getWriteId() { return std::get<1>(*this); }
+    struct ComId : public SOS::MemoryView::TaskCable<unsigned char, 6> {
+        using SOS::MemoryView::TaskCable<unsigned char, 6>::TaskCable;
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& readStartId() { return std::get<0>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& readEndId() { return std::get<1>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& readFailedId() { return std::get<2>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeStartId() { return std::get<3>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeEndId() { return std::get<4>(*this); }
+        typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeFailedId() { return std::get<5>(*this); }
     };
     template <typename... Objects>
     struct BusSequentialShaker : bus<
-    bus_shaker_tag,
-    SOS::MemoryView::HandShake,
+    bus_ring_tag,
+    SOS::MemoryView::Ring,
     std::tuple<ComId>,
     bus_traits<Bus>::const_cables_type>
     , private std::array<std::atomic_flag, 10> {
@@ -60,8 +64,13 @@ namespace MemoryView {
             std::get<7>(*this).test_and_set();
             std::get<8>(*this).test_and_set();
             std::get<9>(*this).test_and_set();
-            std::get<0>(cables).getReadId().store(NUM_IDS);
-            std::get<0>(cables).getWriteId().store(NUM_IDS);
+            std::get<0>(cables).readStartId().store(NUM_IDS);
+            std::get<0>(cables).readEndId().store(NUM_IDS);
+            std::get<0>(cables).readFailedId().store(NUM_IDS);
+            std::get<0>(cables).writeStartId().store(NUM_IDS);
+            std::get<0>(cables).writeEndId().store(NUM_IDS);
+            std::get<0>(cables).writeFailedId().store(NUM_IDS);
+
         }
         std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
         std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
@@ -76,6 +85,7 @@ namespace MemoryView {
         signal_type signal;
         cables_type cables {};
         std::tuple<Objects...> objects;
+        std::array<unsigned char, MAX_OBJ_SIZE> transfer {};
     };
     /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
@@ -164,12 +174,12 @@ namespace MemoryView {
         std::atomic_flag write_fault = ATOMIC_FLAG_INIT;
         std::atomic_flag sync_me = ATOMIC_FLAG_INIT;
     };
-    class SwitchBoard : private SOS::MemoryView::HandShake, public std::array<ResolverSwitch, NUM_IDS>
+    class SwitchBoard : private SOS::MemoryView::Notify, private SOS::MemoryView::Ring, public std::array<ResolverSwitch, NUM_IDS>
     {
     public:
-        SwitchBoard() : HandShake(), std::array<ResolverSwitch, NUM_IDS> {} {}
-        std::atomic_flag& triggerResolve() { return getUpdatedRef(); }
-        std::atomic_flag& descriptorsUpdated() { return getAcknowledgeRef(); }
+        SwitchBoard() : Notify(), Ring(), std::array<ResolverSwitch, NUM_IDS> {} {}
+        std::atomic_flag& triggerResolve() { return getNotifyRef(); }
+        std::atomic_flag& descriptorsUpdated() { return getRingRef(); }
         /*std::atomic_flag& readUpdated() { return getUpdatedRef(); }
         std::atomic_flag& readAcknowledge() { return getAcknowledgeRef(); }
         std::atomic_flag& writeUpdated() { return getAuxUpdatedRef(); }
@@ -293,20 +303,32 @@ namespace Behavior {
             //, descriptors(cpp11_static_descriptors(this->objects))
             , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(result, uart1)
         {
+            result.getWriteStartUpdatedRef().clear();
+            result.getReadEndUpdatedRef().clear();
         }
         ~Async() {
         }
         virtual void event_loop() {
             if (!result.getReadEndUpdatedRef().test_and_set()) {
-                auto id = std::get<0>(result.cables).getReadId().load();
+                auto id = std::get<0>(result.cables).readEndId().load();
+                if (id != NUM_IDS) {
                 read_status[id].result = true;
                 read_status[id].ready.clear();
+                }
                 result.getReadEndAcknowledgeRef().clear();
             }
         }
+        bool read(std::size_t id) {
+            if (!read_status[0].ready.test_and_set()) {
+                if (read_status[0].result) {
+                    return true;
+                }
+            }
+            return false;
+        }
         void write(std::size_t id) {
             if (!result.getWriteStartAcknowledgeRef().test_and_set()) {
-                std::get<0>(result.cables).getWriteId().store(id);
+                std::get<0>(result.cables).writeStartId().store(id);
                 result.getWriteStartUpdatedRef().clear();
             }
         }
@@ -341,13 +363,13 @@ namespace Behavior {
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
     };*/
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SOS::Behavior::DoublePassthruEventController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
             : descriptors(cpp11_static_descriptors(bus.objects))
             , _sync(descriptors)
-            , SOS::Behavior::DoublePassthruEventController<S, OtherBus>(bus.signal, _sync, passThru)
+            , SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus>(bus.signal, _sync, passThru)
             , result(bus)
         {
             //while (this->_sync.signal.descriptorsUpdated().test_and_set())
@@ -375,8 +397,9 @@ namespace Behavior {
                 resolve(0);
             }
             if (!result.getWriteStartUpdatedRef().test_and_set()) {
-                auto id = std::get<0>(result.cables).getWriteId().load();
-                this->_sync.signal[id].sync_me.clear();
+                auto id = std::get<0>(result.cables).writeStartId().load();
+                if (id != NUM_IDS)
+                    this->_sync.signal[id].sync_me.clear();
                 result.getWriteStartAcknowledgeRef().clear();
             }
             std::this_thread::yield();
@@ -387,7 +410,7 @@ namespace Behavior {
                     while (this->_sync.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     if (!result.getReadEndAcknowledgeRef().test_and_set()) {
-                        std::get<0>(result.cables).getReadId().store(id);
+                        std::get<0>(result.cables).readEndId().store(id);
                         result.getReadEndUpdatedRef().clear();
                     }
                     //unsigned long i = 0;
