@@ -297,38 +297,55 @@ namespace Protocol {
     }*/
 }
 namespace Behavior {
+    template <typename S, typename OtherBus>
+    class SerialDoublePassthruAsyncController : public Controller<S>, public Loop {
+    public:
+        SerialDoublePassthruAsyncController(OtherBus& other)
+        : Controller<S>()
+        , Loop()
+        , result{}
+        , _other(other.signal)
+        , _child(result, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type result; // CUSTOM
+        typename OtherBus::signal_type& _other;
+
+    private:
+        S _child;
+    };
     template <typename S, typename... Objects>
-    class Async  : public SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
+    class Async  : public SOS::Behavior::SerialDoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
     public:
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         Async(bus_type& uart1)
             : doubleBuffer{}
-            //, objects {}
-            //, descriptors(cpp11_static_descriptors(this->objects))
-            , result{}
-            , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(result, uart1)
+            , SOS::Behavior::SerialDoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
         {
-            // result.descriptors = cpp11_static_descriptors(result.objects);
-            // result.descriptors(result.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(result.descriptors, result.objects); // fold expression: cpp17
-            result.getWriteStartUpdatedRef().clear();
-            result.getReadEndUpdatedRef().clear();
+            // this->result.descriptors = cpp11_static_descriptors(this->result.objects);
+            // this->result.descriptors(this->result.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(this->result.descriptors, this->result.objects); // fold expression: cpp17
+            print_descriptors(this->result.descriptors);
+            this->result.getWriteStartUpdatedRef().clear();
+            this->result.getReadEndUpdatedRef().clear();
         }
         ~Async() {
-            result.descriptors.count = 0;
+            this->result.descriptors.count = 0;
             for (std::size_t i = 0; i < NUM_IDS; ++i){
-                result.descriptors.arr[i].obj = (void*)nullptr;
-                result.descriptors.arr[i].obj_size = 0;
+                this->result.descriptors.arr[i].obj = (void*)nullptr;
+                this->result.descriptors.arr[i].obj_size = 0;
             }
         }
         virtual void event_loop() {
-            if (!result.getReadEndUpdatedRef().test_and_set()) {
-                auto id = std::get<0>(result.cables).readEndId().load();
+            if (!this->result.getReadEndUpdatedRef().test_and_set()) {
+                auto id = std::get<0>(this->result.cables).readEndId().load();
                 if (id != NUM_IDS) {
                 read_status[id].result = true;
                 read_status[id].ready.clear();
                 }
-                result.getReadEndAcknowledgeRef().clear();
+                this->result.getReadEndAcknowledgeRef().clear();
             }
         }
         bool read(std::size_t id) {
@@ -340,16 +357,15 @@ namespace Behavior {
             return false;
         }
         void write(std::size_t id) {
-            if (!result.getWriteStartAcknowledgeRef().test_and_set()) {
-                std::get<0>(result.cables).writeStartId().store(id);
-                result.getWriteStartUpdatedRef().clear();
+            if (!this->result.getWriteStartAcknowledgeRef().test_and_set()) {
+                std::get<0>(this->result.cables).writeStartId().store(id);
+                this->result.getWriteStartUpdatedRef().clear();
             }
         }
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> doubleBuffer;
-        SOS::MemoryView::BusSequentialShaker<Objects...> result;
 
     private:
         //std::tuple<Objects...> objects;
