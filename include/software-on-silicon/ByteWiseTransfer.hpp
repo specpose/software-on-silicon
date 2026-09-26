@@ -1,39 +1,42 @@
 namespace SOS {
+namespace Behavior {
+}
 namespace Protocol {
     template<typename... Objects>
-    class SyncProcessor {
+    class SyncProcessor : public SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
     public:
-        SyncProcessor(SOS::MemoryView::SerialResolverBus& bus2)
-        : _sBus(bus2)
+        using bus_type = SOS::MemoryView::SerialResolverBus;
+        SyncProcessor(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other)
+        : SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, other)
+        , sBus(bus)
         {
         };
     protected:
         bool check_sync(std::size_t obj_id) {
-            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
-                _sBus.signal[obj_id].sync_me.clear();
+            if (!this->_intrinsic[obj_id].sync_me.test_and_set()) {
+                this->_intrinsic[obj_id].sync_me.clear();
                 return true;
             }
             return false;
         }
         void emit_init() {
-            while (_sBus.signal.descriptorsUpdated().test_and_set()) // run once with a wait then block
+            while (this->_intrinsic.descriptorsUpdated().test_and_set()) // run once with a wait then block
                 std::this_thread::yield();
-            for (std::size_t i = 0; i < _sBus.descriptors.size(); ++i) {
-                descriptors.arr[i].obj = _sBus.descriptors[i].obj;
-                descriptors.arr[i].obj_size = _sBus.descriptors[i].obj_size;
+            for (std::size_t i = 0; i < sBus.descriptors.size(); ++i) {
+                descriptors.arr[i].obj = sBus.descriptors[i].obj;
+                descriptors.arr[i].obj_size = sBus.descriptors[i].obj_size;
             }
-            descriptors.count = _sBus.descriptors.count;
-            _sBus.signal.descriptorsUpdated().clear();
-            //print_descriptors(descriptors);
+            descriptors.count = sBus.descriptors.count;
+            this->_intrinsic.descriptorsUpdated().clear();
         }
         void emit_interrupted()
         {
-            for (std::size_t i = 0; i < _sBus.signal.size(); ++i) {
+            for (std::size_t i = 0; i < this->_intrinsic.size(); ++i) {
                 if (read_started_id[i]) {
-                    _sBus.signal[i].read_op.getNotifyRef().test_and_set();
+                    this->_intrinsic[i].read_op.getNotifyRef().test_and_set();
                     std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
-                    _sBus.signal[i].read_fault.clear();
-                    _sBus.signal[i].read_ack.clear();
+                    this->_intrinsic[i].read_fault.clear();
+                    this->_intrinsic[i].read_ack.clear();
                     read_started_id[i] = false;
                 }
             }
@@ -41,48 +44,49 @@ namespace Protocol {
         void emit_readlocked(std::size_t obj_id)
         {
             //SFA::util::logic_error(SFA::util::error_code::ObjectSyncWasNeverRequested, __FILE__, __func__, typeid(*this).name());
-            _sBus.signal[obj_id].read_op.getNotifyRef().clear();
-            if (!_sBus.signal[obj_id].sync_me.test_and_set()) {
-                _sBus.signal[obj_id].write_op.getNotifyRef().test_and_set();
-                _sBus.signal[obj_id].write_fault.clear();
-                _sBus.signal[obj_id].write_ack.clear();
+            this->_intrinsic[obj_id].read_op.getNotifyRef().clear();
+            if (!this->_intrinsic[obj_id].sync_me.test_and_set()) {
+                this->_intrinsic[obj_id].write_op.getNotifyRef().test_and_set();
+                this->_intrinsic[obj_id].write_fault.clear();
+                this->_intrinsic[obj_id].write_ack.clear();
             }
             read_started_id[obj_id] = true;
         }
         void emit_transfer(std::size_t obj_id)
         {
-            _sBus.signal[obj_id].write_op.getNotifyRef().clear();
-            _sBus.signal[obj_id].sync_me.test_and_set();
+            this->_intrinsic[obj_id].write_op.getNotifyRef().clear();
+            this->_intrinsic[obj_id].sync_me.test_and_set();
         }
         void emit_received(std::size_t obj_id)
         {
-            _sBus.signal[obj_id].read_op.getNotifyRef().test_and_set();
+            this->_intrinsic[obj_id].read_op.getNotifyRef().test_and_set();
             read_started_id[obj_id] = false;
-            _sBus.signal[obj_id].read_ack.clear();
+            this->_intrinsic[obj_id].read_ack.clear();
         }
         void emit_sent(std::size_t obj_id)
         {
             if (obj_id == 1 || obj_id == 2) {
                 std::cout << typeid(*this).name() << ": write of object id " << obj_id << " succeeded" << std::endl;
             }
-            _sBus.signal[obj_id].write_op.getNotifyRef().test_and_set();
-            _sBus.signal[obj_id].write_ack.clear();
+            this->_intrinsic[obj_id].write_op.getNotifyRef().test_and_set();
+            this->_intrinsic[obj_id].write_ack.clear();
         }
-        void trigger_resolve() { _sBus.signal.triggerResolve().clear(); }
+        void trigger_resolve() { this->_intrinsic.triggerResolve().clear(); }
+
     protected:
         SOS::Protocol::DescriptorHelper descriptors;
 
-        SOS::MemoryView::SerialResolverBus& _sBus;
     private:
+        bus_type& sBus;
         std::bitset<NUM_IDS> read_started_id {};
     };
     template <typename... Objects>
-    class BlockWiseTransfer : protected SyncProcessor<Objects...> { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
+    class BlockWiseTransfer : public SyncProcessor<Objects...> { // write: 3 bytes in, 4 bytes out; read: 4 bytes in, 3 bytes out
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus;
-        BlockWiseTransfer(bus_type& bus2, SOS::MemoryView::ComBus<UART1_BUFFER>& bus)
-        : SyncProcessor<Objects...>(bus2)
-        , _com(bus)
+        using bus_type = typename SyncProcessor<Objects...>::bus_type;
+        BlockWiseTransfer(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other)
+        : SyncProcessor<Objects...>(bus, other)
+        , _com(other)
         {
             boot_time = std::chrono::high_resolution_clock::now();
         }
@@ -98,10 +102,10 @@ namespace Protocol {
             if (send_lock) {
                 if (write3plus1 < 3) {
                     unsigned char data;
-                    while (this->_sBus.signal.descriptorsUpdated().test_and_set())
+                    while (this->_intrinsic.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     data = reinterpret_cast<char*>(this->descriptors[writeOrigin].obj)[writeOriginPos++];
-                    this->_sBus.signal.descriptorsUpdated().clear();
+                    this->_intrinsic.descriptorsUpdated().clear();
                     write3plus1++;
                     write(data);
                     return true;
@@ -143,12 +147,12 @@ namespace Protocol {
                 } else if (read4minus1 == 3) {
                     auto read3bytes = read_flush();
                     if (readDestinationPos < this->descriptors[readDestination].obj_size) {
-                        while (this->_sBus.signal.descriptorsUpdated().test_and_set())
+                        while (this->_intrinsic.descriptorsUpdated().test_and_set())
                             std::this_thread::yield();
                         for (std::size_t i = 0; i < 3; i++) {
                             reinterpret_cast<char*>(this->descriptors[readDestination].obj)[readDestinationPos++] = read3bytes[i];
                         }
-                        this->_sBus.signal.descriptorsUpdated().clear();
+                        this->_intrinsic.descriptorsUpdated().clear();
                     }
                     if (readDestinationPos == this->descriptors[readDestination].obj_size) {
                         readLock[readDestination] = false;
@@ -201,10 +205,6 @@ namespace Protocol {
         std::size_t writeOriginPos = 0;
         unsigned int writeCount = 0; // write3plus1
         unsigned char writeOrigin = NUM_IDS;
-        //virtual void emit_received(std::size_t obj_id) = 0;
-        //virtual void emit_sent(std::size_t obj_id) = 0;
-        //SOS::MemoryView::SerialResolverBus bus2;
-        //SOS::MemoryView::SequentialBus bus3 {};
         SOS::MemoryView::ComBus<UART1_BUFFER>& _com;
         std::array<bool, NUM_IDS> readLock {false};
         std::array<bool, NUM_IDS> transfer {false};

@@ -148,7 +148,7 @@ public:
         : SOS::Behavior::SequentialResolverDSP<FPGA, SOS::MemoryView::ComBus<UART1_BUFFER>, TrueColorClass, DMA, DMA>(bus, passThru)
     {
         //std::cout << "FPGA Color " << std::get<0>(_foreign.objects) << std::endl;
-        this->_sync.signal[0].sync_me.clear();
+        //this->_sync.signal[0].sync_me.clear();
         _thread = SOS::Behavior::Loop::start(this);
     }
     ~FPGAResolver(){

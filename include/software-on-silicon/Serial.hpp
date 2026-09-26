@@ -38,11 +38,11 @@ namespace Behavior {
 }
 namespace Protocol {
     template <typename... Objects>
-    class Serial : protected SOS::Protocol::BlockWiseTransfer<Objects...>, public SOS::Behavior::EventDummy {
+    class Serial : public SOS::Protocol::BlockWiseTransfer<Objects...> {
     public:
-        Serial(SOS::MemoryView::SerialResolverBus& other, SOS::MemoryView::ComBus<UART1_BUFFER>& bus)
-            : SOS::Protocol::BlockWiseTransfer<Objects...>(other, bus)
-            , SOS::Behavior::EventDummy(bus.signal)
+        using bus_type = typename SOS::Protocol::BlockWiseTransfer<Objects...>::bus_type;
+        Serial(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other)
+            : SOS::Protocol::BlockWiseTransfer<Objects...>(bus, other)
         {
         }
         virtual ~Serial() { // request_shutdown_action
@@ -99,7 +99,7 @@ namespace Protocol {
     protected:
         virtual bool handshake()  final
         {
-            if (!SOS::Behavior::EventDummy::_intrinsic.getUpdatedRef().test_and_set()) {
+            if (!this->_other.getUpdatedRef().test_and_set()) {
                 return true;
             }
             return false;
@@ -107,7 +107,7 @@ namespace Protocol {
         virtual void handshake_ack() final
         {
             SyncProcessor<Objects...>::trigger_resolve();
-            SOS::Behavior::EventDummy::_intrinsic.getAcknowledgeRef().clear();
+            this->_other.getAcknowledgeRef().clear();
         }
         virtual void send_acknowledge() = 0; // 3
         virtual void send_request() = 0; // 1

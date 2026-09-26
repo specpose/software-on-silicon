@@ -52,7 +52,10 @@ namespace MemoryView {
     std::tuple<ComId>,
     bus_traits<Bus>::const_cables_type>
     , private std::array<std::atomic_flag, 10> {
-        BusSequentialShaker() : std::array<std::atomic_flag, 10> {}
+        BusSequentialShaker()
+            : std::array<std::atomic_flag, 10> {}
+            , objects{}
+            , descriptors(cpp11_static_descriptors(objects))
         {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
@@ -85,6 +88,7 @@ namespace MemoryView {
         signal_type signal;
         cables_type cables {};
         std::tuple<Objects...> objects;
+        SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive SequentialResolverDSP
         std::array<unsigned char, MAX_OBJ_SIZE> transfer {};
     };
     /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
@@ -200,9 +204,9 @@ namespace MemoryView {
             std::get<0>(*this).store(MAX_OBJ_SIZE+1);
         }
     };*/
-    struct switchboard_tag { };
+    struct bus_switchboard_tag { };
     struct SerialResolverBus : bus<
-        switchboard_tag,
+        bus_switchboard_tag,
         SOS::MemoryView::SwitchBoard,
         bus_traits<SOS::MemoryView::Bus>::cables_type,
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
@@ -210,7 +214,7 @@ namespace MemoryView {
     //public:
         SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {
             signal.triggerResolve().test_and_set();
-            signal.descriptorsUpdated().clear();
+            signal.descriptorsUpdated().test_and_set();
         }
         signal_type signal;
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
@@ -301,12 +305,21 @@ namespace Behavior {
             : doubleBuffer{}
             //, objects {}
             //, descriptors(cpp11_static_descriptors(this->objects))
+            , result{}
             , SOS::Behavior::DoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(result, uart1)
         {
+            // result.descriptors = cpp11_static_descriptors(result.objects);
+            // result.descriptors(result.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(result.descriptors, result.objects); // fold expression: cpp17
             result.getWriteStartUpdatedRef().clear();
             result.getReadEndUpdatedRef().clear();
         }
         ~Async() {
+            result.descriptors.count = 0;
+            for (std::size_t i = 0; i < NUM_IDS; ++i){
+                result.descriptors.arr[i].obj = (void*)nullptr;
+                result.descriptors.arr[i].obj_size = 0;
+            }
         }
         virtual void event_loop() {
             if (!result.getReadEndUpdatedRef().test_and_set()) {
@@ -336,7 +349,7 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         std::tuple<Objects...> doubleBuffer;
-        SOS::MemoryView::BusSequentialShaker<Objects...> result{};
+        SOS::MemoryView::BusSequentialShaker<Objects...> result;
 
     private:
         //std::tuple<Objects...> objects;
@@ -366,48 +379,39 @@ namespace Behavior {
     class SequentialResolverDSP : public SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
-        SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& passThru) // constexpr
-            : descriptors(cpp11_static_descriptors(bus.objects))
-            , _sync(descriptors)
-            , SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus>(bus.signal, _sync, passThru)
-            , result(bus)
+        SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
+            : result(bus)
+            , sync(result.descriptors)
+            , SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus>(result.signal, sync, other)
         {
-            //while (this->_sync.signal.descriptorsUpdated().test_and_set())
+            //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
-            //this->descriptors = cpp11_static_descriptors(this->objects);
-            // this->descriptors(this->objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(this->descriptors, this->objects); // fold expression: cpp17
-            //this->_sync.signal.descriptorsUpdated().clear();
+            this->_passthru.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() { // Superclass, then members, then base class
-            //while (this->_sync.signal.descriptorsUpdated().test_and_set())
+            //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
-            this->descriptors.count = 0;
-            for (std::size_t i = 0; i < NUM_IDS; ++i){
-                this->descriptors.arr[i].obj = (void*)nullptr;
-                this->descriptors.arr[i].obj_size = 0;
-            }
-            //this->_sync.signal.descriptorsUpdated().clear();
+            //this->_passthru.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void event_loop()
         {
-            if (!this->_sync.signal.triggerResolve().test_and_set()) {
+            if (!this->_passthru.triggerResolve().test_and_set()) {
                 resolve(0);
             }
             if (!result.getWriteStartUpdatedRef().test_and_set()) {
                 auto id = std::get<0>(result.cables).writeStartId().load();
                 if (id != NUM_IDS)
-                    this->_sync.signal[id].sync_me.clear();
+                    this->_passthru[id].sync_me.clear();
                 result.getWriteStartAcknowledgeRef().clear();
             }
             std::this_thread::yield();
         }
         void resolve(std::size_t id) {
-            if (!this->_sync.signal[id].read_ack.test_and_set()) {
-                if (this->_sync.signal[id].read_fault.test_and_set()) {
-                    while (this->_sync.signal.descriptorsUpdated().test_and_set())
+            if (!this->_passthru[id].read_ack.test_and_set()) {
+                if (this->_passthru[id].read_fault.test_and_set()) {
+                    while (this->_passthru.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     if (!result.getReadEndAcknowledgeRef().test_and_set()) {
                         std::get<0>(result.cables).readEndId().store(id);
@@ -424,7 +428,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    this->_sync.signal.descriptorsUpdated().clear();
+                    this->_passthru.descriptorsUpdated().clear();
                     //read_status[id].result = true;
                     //read_status[id].ready.clear();
                 } else
@@ -435,9 +439,9 @@ namespace Behavior {
                     //read_status[id].ready.clear();
                 }
             }
-            if (!this->_sync.signal[id].write_ack.test_and_set()) {
-                if (this->_sync.signal[id].write_fault.test_and_set()){
-                    while (this->_sync.signal.descriptorsUpdated().test_and_set())
+            if (!this->_passthru[id].write_ack.test_and_set()) {
+                if (this->_passthru[id].write_fault.test_and_set()){
+                    while (this->_passthru.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {
@@ -450,7 +454,7 @@ namespace Behavior {
                     //    }
                     //    std::this_thread::yield();
                     //}
-                    this->_sync.signal.descriptorsUpdated().clear();
+                    this->_passthru.descriptorsUpdated().clear();
                     //write_status[id].result = true;
                     //write_status[id].ready.clear();
                 } else
@@ -467,13 +471,38 @@ namespace Behavior {
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects;
-        SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
-        SOS::MemoryView::SerialResolverBus _sync;
+        SOS::MemoryView::SerialResolverBus sync;
 
     private:
         bus_type& result;
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
+    };
+    class SerialEventSubController : public SubController {
+    public:
+        using bus_type = SOS::MemoryView::SerialResolverBus;  // CUSTOM
+        constexpr SerialEventSubController(typename bus_type::signal_type& signal)
+        : SubController()
+        , _intrinsic(signal)
+        {
+        }
+
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
+    template <typename OtherBus>
+    class SerialPassthruEventDummy : public Loop, protected SerialEventSubController { // Useless: Refactoring only
+    public:
+        SerialPassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        : Loop()
+        , SerialEventSubController(signal)
+        , _other(other.signal)
+        {
+        }
+
+    protected:
+        typename OtherBus::signal_type& _other;
+
     };
 }
 }
