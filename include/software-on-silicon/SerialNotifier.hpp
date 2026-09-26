@@ -435,11 +435,13 @@ namespace Behavior {
         using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
             : result(bus)
-            , sync(result.descriptors)
+            , sync(bus.descriptors)
             , SOS::Behavior::SerialDoublePassthruPreemptiveController<S, OtherBus>(result.signal, sync, other)
         {
             //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
+            print_descriptors(result.descriptors);
+            print_descriptors(sync.descriptors);
             this->_passthru.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() { // Superclass, then members, then base class
