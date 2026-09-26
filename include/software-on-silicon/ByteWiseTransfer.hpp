@@ -33,6 +33,7 @@ namespace Protocol {
                     _sBus.signal[i].read_op.getNotifyRef().test_and_set();
                     std::cout << typeid(*this).name() << ": object id " << i << " enters inaccessible state" << std::endl;
                     _sBus.signal[i].read_fault.clear();
+                    _sBus.signal[i].read_ack.clear();
                     read_started_id[i] = false;
                 }
             }
