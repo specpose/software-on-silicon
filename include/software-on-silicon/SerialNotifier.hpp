@@ -45,17 +45,11 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeEndId() { return std::get<4>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeFailedId() { return std::get<5>(*this); }
     };
-    template <typename... Objects>
-    struct BusSequentialShaker : bus<
-    bus_ring_tag,
-    SOS::MemoryView::Ring,
-    std::tuple<ComId>,
-    bus_traits<Bus>::const_cables_type>
-    , private std::array<std::atomic_flag, 10> {
-        BusSequentialShaker()
+    struct bus_sequential_tag {};
+    class BusSequential : private std::array<std::atomic_flag, 10> {
+    public:
+        BusSequential()
             : std::array<std::atomic_flag, 10> {}
-            , objects{}
-            , descriptors(cpp11_static_descriptors(objects))
         {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
@@ -67,13 +61,6 @@ namespace MemoryView {
             std::get<7>(*this).test_and_set();
             std::get<8>(*this).test_and_set();
             std::get<9>(*this).test_and_set();
-            std::get<0>(cables).readStartId().store(NUM_IDS);
-            std::get<0>(cables).readEndId().store(NUM_IDS);
-            std::get<0>(cables).readFailedId().store(NUM_IDS);
-            std::get<0>(cables).writeStartId().store(NUM_IDS);
-            std::get<0>(cables).writeEndId().store(NUM_IDS);
-            std::get<0>(cables).writeFailedId().store(NUM_IDS);
-
         }
         std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
         std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
@@ -85,6 +72,26 @@ namespace MemoryView {
         std::atomic_flag& getWriteEndUpdatedRef() { return std::get<7>(*this); }
         std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(*this); }
         std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(*this); }
+    };
+    template <typename... Objects>
+    struct BusSequentialShaker : bus<
+    bus_sequential_tag,
+    SOS::MemoryView::BusSequential,
+    std::tuple<ComId>,
+    bus_traits<Bus>::const_cables_type>
+    {
+        BusSequentialShaker()
+            : objects{}
+            , descriptors(cpp11_static_descriptors(objects))
+        {
+            std::get<0>(cables).readStartId().store(NUM_IDS);
+            std::get<0>(cables).readEndId().store(NUM_IDS);
+            std::get<0>(cables).readFailedId().store(NUM_IDS);
+            std::get<0>(cables).writeStartId().store(NUM_IDS);
+            std::get<0>(cables).writeEndId().store(NUM_IDS);
+            std::get<0>(cables).writeFailedId().store(NUM_IDS);
+
+        }
         signal_type signal;
         cables_type cables {};
         std::tuple<Objects...> objects;
@@ -327,9 +334,8 @@ namespace Behavior {
             // this->result.descriptors = cpp11_static_descriptors(this->result.objects);
             // this->result.descriptors(this->result.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
             // apply(this->result.descriptors, this->result.objects); // fold expression: cpp17
-            print_descriptors(this->result.descriptors);
-            this->result.getWriteStartUpdatedRef().clear();
-            this->result.getReadEndUpdatedRef().clear();
+            this->result.signal.getWriteStartUpdatedRef().clear();
+            this->result.signal.getReadEndUpdatedRef().clear();
         }
         ~Async() {
             this->result.descriptors.count = 0;
@@ -339,13 +345,13 @@ namespace Behavior {
             }
         }
         virtual void event_loop() {
-            if (!this->result.getReadEndUpdatedRef().test_and_set()) {
+            if (!this->result.signal.getReadEndUpdatedRef().test_and_set()) {
                 auto id = std::get<0>(this->result.cables).readEndId().load();
                 if (id != NUM_IDS) {
                 read_status[id].result = true;
                 read_status[id].ready.clear();
                 }
-                this->result.getReadEndAcknowledgeRef().clear();
+                this->result.signal.getReadEndAcknowledgeRef().clear();
             }
         }
         bool read(std::size_t id) {
@@ -357,9 +363,9 @@ namespace Behavior {
             return false;
         }
         void write(std::size_t id) {
-            if (!this->result.getWriteStartAcknowledgeRef().test_and_set()) {
+            if (!this->result.signal.getWriteStartAcknowledgeRef().test_and_set()) {
                 std::get<0>(this->result.cables).writeStartId().store(id);
-                this->result.getWriteStartUpdatedRef().clear();
+                this->result.signal.getWriteStartUpdatedRef().clear();
             }
         }
     protected:
@@ -391,14 +397,46 @@ namespace Behavior {
         std::tuple<Objects...> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
     };*/
+    class SerialPreemptiveSubController : public SubController {
+    public:
+        using bus_type = SOS::MemoryView::BusSequentialShaker<TrueColorClass, DMA, DMA>; // REMOVE
+        constexpr SerialPreemptiveSubController(typename bus_type::signal_type& signal)
+        : SubController()
+        , _intrinsic(signal)
+        {
+        }
+
+    protected:
+        bus_type::signal_type& _intrinsic;
+    };
+    template <typename S, typename OtherBus>
+    class SerialDoublePassthruPreemptiveController : public Controller<S>, public Loop, protected SerialPreemptiveSubController {
+    public:
+        SerialDoublePassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        : Controller<S>()
+        , Loop()
+        , SerialPreemptiveSubController(signal)
+        , _passthru(passThru.signal)
+        , _other(other.signal)
+        , _child(passThru, other)
+        {
+        }
+
+    protected:
+        typename S::bus_type::signal_type& _passthru;
+        typename OtherBus::signal_type& _other;
+
+    private:
+        S _child;
+    };
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SOS::Behavior::SerialDoublePassthruPreemptiveController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
         using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
             : result(bus)
             , sync(result.descriptors)
-            , SOS::Behavior::DoublePassthruPreemptiveController<S, OtherBus>(result.signal, sync, other)
+            , SOS::Behavior::SerialDoublePassthruPreemptiveController<S, OtherBus>(result.signal, sync, other)
         {
             //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
@@ -416,11 +454,11 @@ namespace Behavior {
             if (!this->_passthru.triggerResolve().test_and_set()) {
                 resolve(0);
             }
-            if (!result.getWriteStartUpdatedRef().test_and_set()) {
+            if (!result.signal.getWriteStartUpdatedRef().test_and_set()) {
                 auto id = std::get<0>(result.cables).writeStartId().load();
                 if (id != NUM_IDS)
                     this->_passthru[id].sync_me.clear();
-                result.getWriteStartAcknowledgeRef().clear();
+                result.signal.getWriteStartAcknowledgeRef().clear();
             }
             std::this_thread::yield();
         }
@@ -429,9 +467,9 @@ namespace Behavior {
                 if (this->_passthru[id].read_fault.test_and_set()) {
                     while (this->_passthru.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
-                    if (!result.getReadEndAcknowledgeRef().test_and_set()) {
+                    if (!result.signal.getReadEndAcknowledgeRef().test_and_set()) {
                         std::get<0>(result.cables).readEndId().store(id);
-                        result.getReadEndUpdatedRef().clear();
+                        result.signal.getReadEndUpdatedRef().clear();
                     }
                     //unsigned long i = 0;
                     //while (i < this->_foreign.descriptors[id].obj_size) {

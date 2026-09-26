@@ -14,14 +14,14 @@
 #include "software-on-silicon/DMADescriptor.hpp"
 #include "software-on-silicon/cpp11.hpp"
 #include "FPGAInitialisers.cpp"
+#include "MCUFPGA/TrueColor.cpp"
+#include "MCUFPGA/DMA.cpp"
 #include "software-on-silicon/SerialNotifier.hpp"
 #include <future>
-#include "MCUFPGA/DMA.cpp"
 #include "software-on-silicon/mcufpga_helpers.hpp"
 #include "software-on-silicon/ByteWiseTransfer.hpp"
 #include "software-on-silicon/Serial.hpp"
 #include "software-on-silicon/MCUFPGA.hpp"
-#include "MCUFPGA/TrueColor.cpp"
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
@@ -160,14 +160,14 @@ private:
     std::thread _thread;
 };
 
-class Stub : public SOS::Behavior::PassthruPreemptiveDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
+/*class Stub : public SOS::Behavior::PassthruPreemptiveDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
 public:
     using bus_type = SOS::MemoryView::BusSequentialShaker<TrueColorClass, DMA, DMA>;
     Stub(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& bus1) : SOS::Behavior::PassthruPreemptiveDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, bus1) {}
     virtual void event_loop() final {
         //resolve
     }
-};
+};*/
 
 class FPGAAsync : public SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA> {
 public:
