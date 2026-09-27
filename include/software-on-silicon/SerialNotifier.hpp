@@ -304,54 +304,35 @@ namespace Protocol {
     }*/
 }
 namespace Behavior {
-    template <typename S, typename OtherBus>
-    class SerialDoublePassthruAsyncController : public Controller<S>, public Loop {
-    public:
-        SerialDoublePassthruAsyncController(OtherBus& other)
-        : Controller<S>()
-        , Loop()
-        , result{}
-        , _other(other.signal)
-        , _child(result, other)
-        {
-        }
-
-    protected:
-        typename S::bus_type result; // CUSTOM
-        typename OtherBus::signal_type& _other;
-
-    private:
-        S _child;
-    };
     template <typename S, typename... Objects>
-    class Async  : public SOS::Behavior::SerialDoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
+    class Async  : public SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
     public:
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
         Async(bus_type& uart1)
             : doubleBuffer{}
-            , SOS::Behavior::SerialDoublePassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
+            , SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
         {
-            // this->result.descriptors = cpp11_static_descriptors(this->result.objects);
-            // this->result.descriptors(this->result.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(this->result.descriptors, this->result.objects); // fold expression: cpp17
-            this->result.signal.getWriteStartUpdatedRef().clear();
-            this->result.signal.getReadEndUpdatedRef().clear();
+            // this->_foreign.descriptors = cpp11_static_descriptors(this->_foreign.objects);
+            // this->_foreign.descriptors(this->_foreign.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(this->_foreign.descriptors, this->_foreign.objects); // fold expression: cpp17
+            this->_foreign.signal.getWriteStartUpdatedRef().clear();
+            this->_foreign.signal.getReadEndUpdatedRef().clear();
         }
         ~Async() {
-            this->result.descriptors.count = 0;
+            this->_foreign.descriptors.count = 0;
             for (std::size_t i = 0; i < NUM_IDS; ++i){
-                this->result.descriptors.arr[i].obj = (void*)nullptr;
-                this->result.descriptors.arr[i].obj_size = 0;
+                this->_foreign.descriptors.arr[i].obj = (void*)nullptr;
+                this->_foreign.descriptors.arr[i].obj_size = 0;
             }
         }
         virtual void event_loop() {
-            if (!this->result.signal.getReadEndUpdatedRef().test_and_set()) {
-                auto id = std::get<0>(this->result.cables).readEndId().load();
+            if (!this->_foreign.signal.getReadEndUpdatedRef().test_and_set()) {
+                auto id = std::get<0>(this->_foreign.cables).readEndId().load();
                 if (id != NUM_IDS) {
                 read_status[id].result = true;
                 read_status[id].ready.clear();
                 }
-                this->result.signal.getReadEndAcknowledgeRef().clear();
+                this->_foreign.signal.getReadEndAcknowledgeRef().clear();
             }
         }
         bool read(std::size_t id) {
@@ -363,9 +344,9 @@ namespace Behavior {
             return false;
         }
         void write(std::size_t id) {
-            if (!this->result.signal.getWriteStartAcknowledgeRef().test_and_set()) {
-                std::get<0>(this->result.cables).writeStartId().store(id);
-                this->result.signal.getWriteStartUpdatedRef().clear();
+            if (!this->_foreign.signal.getWriteStartAcknowledgeRef().test_and_set()) {
+                std::get<0>(this->_foreign.cables).writeStartId().store(id);
+                this->_foreign.signal.getWriteStartUpdatedRef().clear();
             }
         }
     protected:

@@ -131,19 +131,20 @@ namespace Behavior {
         typename OtherBus::signal_type& _other;
 
     };
-    template <typename S>
+    template <typename S, typename OtherBus>
     class PassthruAsyncController : public Controller<S>, public Loop {
     public:
-        PassthruAsyncController(typename S::bus_type& passThru)
+        PassthruAsyncController(OtherBus& passthru)
         : Controller<S>()
         , Loop()
-        , _passthru(passThru.signal)
-        , _child(passThru)
+        , _passthru(passthru.signal)
+        , _child(_foreign, passthru)
         {
         }
 
     protected:
-        typename S::bus_type::signal_type& _passthru;
+        typename S::bus_type _foreign {};
+        typename OtherBus::signal_type& _passthru;
 
     private:
         S _child;
@@ -167,20 +168,21 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S>
+    template <typename S, typename OtherBus>
     class PassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        PassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        PassthruSimpleController(typename bus_type::signal_type& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , SimpleSubController(signal)
-        , _passthru(passThru.signal)
-        , _child(passThru)
+        , _passthru(passthru.signal)
+        , _child(_foreign, passthru)
         {
         }
 
     protected:
-        typename S::bus_type::signal_type& _passthru;
+        typename S::bus_type _foreign {};
+        typename OtherBus::signal_type& _passthru;
 
     private:
         S _child;
@@ -205,20 +207,21 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S>
+    template <typename S, typename OtherBus>
     class PassthruPreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
     public:
-        PassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        PassthruPreemptiveController(typename bus_type::signal_type& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , PreemptiveSubController(signal)
-        , _passthru(passThru.signal)
-        , _child(passThru)
+        , _passthru(passthru.signal)
+        , _child(_foreign, passthru)
         {
         }
 
     protected:
-        typename S::bus_type::signal_type& _passthru;
+        typename S::bus_type _foreign {};
+        typename OtherBus::signal_type& _passthru;
 
     private:
         S _child;
@@ -243,20 +246,21 @@ namespace Behavior {
     private:
         S _child;
     };
-    template <typename S>
+    template <typename S, typename OtherBus>
     class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        PassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru)
+        PassthruEventController(typename bus_type::signal_type& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , EventSubController(signal)
-        , _passthru(passThru.signal)
-        , _child(passThru)
+        , _passthru(passthru.signal)
+        , _child(_foreign, passthru)
         {
         }
 
     protected:
-        typename S::bus_type::signal_type& _passthru;
+        typename S::bus_type _foreign {};
+        typename OtherBus::signal_type& _passthru;
 
     private:
         S _child;
