@@ -13,29 +13,6 @@ namespace Protocol {
         bool descendants_notified = false;
     };
 }
-namespace Behavior {
-    /*class SerialEventSubController : public SubController {
-    public:
-        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-        constexpr SerialEventSubController(typename bus_type::signal_type& signal)
-        : SubController()
-        , _intrinsic(signal)
-        {
-        }
-
-    protected:
-        bus_type::signal_type& _intrinsic;
-    };
-    class SerialEventDummy : public SOS::Behavior::Loop, protected SOS::Behavior::SerialEventSubController {
-    public:
-        using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-        SerialEventDummy(typename bus_type::signal_type& signal)
-        : Loop()
-        , SerialEventSubController(signal)
-        {
-        }
-    };*/
-}
 namespace Protocol {
     template <typename... Objects>
     class Serial : public SOS::Protocol::BlockWiseTransfer<Objects...> {
@@ -361,7 +338,5 @@ namespace Protocol {
             return false;
         }
     };
-}
-namespace Behavior {
 }
 }

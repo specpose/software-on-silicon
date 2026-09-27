@@ -45,10 +45,9 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeEndId() { return std::get<4>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeFailedId() { return std::get<5>(*this); }
     };
-    struct bus_sequential_tag {};
-    class BusSequential : private std::array<std::atomic_flag, 10> {
+    class SerialSequential : private std::array<std::atomic_flag, 10> {
     public:
-        BusSequential()
+        SerialSequential()
             : std::array<std::atomic_flag, 10> {}
         {
             std::get<0>(*this).test_and_set();
@@ -73,14 +72,15 @@ namespace MemoryView {
         std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(*this); }
         std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(*this); }
     };
+    struct bus_sequential_tag {};
     template <typename... Objects>
-    struct BusSequentialShaker : bus<
+    struct BusSerialSequential : bus<
     bus_sequential_tag,
-    SOS::MemoryView::BusSequential,
+    SOS::MemoryView::SerialSequential,
     std::tuple<ComId>,
     bus_traits<Bus>::const_cables_type>
     {
-        BusSequentialShaker()
+        BusSerialSequential()
             : objects{}
             , descriptors(cpp11_static_descriptors(objects))
         {
@@ -378,25 +378,25 @@ namespace Behavior {
         std::tuple<Objects...> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive _sync
     };*/
-    class SerialPreemptiveSubController : public SubController {
+    class SerialSequentialSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusSequentialShaker<TrueColorClass, DMA, DMA>; // REMOVE
-        constexpr SerialPreemptiveSubController(typename bus_type::signal_type& signal)
+        using bus_type = SOS::MemoryView::BusSerialSequential<TrueColorClass, DMA, DMA>; // REMOVE
+        constexpr SerialSequentialSubController(SOS::MemoryView::SerialSequential& signal)
         : SubController()
         , _intrinsic(signal)
         {
         }
 
     protected:
-        bus_type::signal_type& _intrinsic;
+        SOS::MemoryView::SerialSequential& _intrinsic;
     };
     template <typename S, typename OtherBus>
-    class SerialDoublePassthruPreemptiveController : public Controller<S>, public Loop, protected SerialPreemptiveSubController {
+    class SerialDoublePassthruSerialSequentialController : public Controller<S>, public Loop, protected SerialSequentialSubController {
     public:
-        SerialDoublePassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        SerialDoublePassthruSerialSequentialController(SOS::MemoryView::SerialSequential& signal, typename S::bus_type& passThru, OtherBus& other)
         : Controller<S>()
         , Loop()
-        , SerialPreemptiveSubController(signal)
+        , SerialSequentialSubController(signal)
         , _passthru(passThru.signal)
         , _other(other.signal)
         , _child(passThru, other)
@@ -411,13 +411,13 @@ namespace Behavior {
         S _child;
     };
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SOS::Behavior::SerialDoublePassthruPreemptiveController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SOS::Behavior::SerialDoublePassthruSerialSequentialController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
-        using bus_type = SOS::MemoryView::BusSequentialShaker<Objects...>;
+        using bus_type = SOS::MemoryView::BusSerialSequential<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
             : result(bus)
             , sync(bus.descriptors)
-            , SOS::Behavior::SerialDoublePassthruPreemptiveController<S, OtherBus>(result.signal, sync, other)
+            , SOS::Behavior::SerialDoublePassthruSerialSequentialController<S, OtherBus>(result.signal, sync, other)
         {
             //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
