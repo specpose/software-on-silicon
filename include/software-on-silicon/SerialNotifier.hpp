@@ -305,37 +305,37 @@ namespace Protocol {
 }
 namespace Behavior {
     template <typename S, typename... Objects>
-    class Async  : public SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
+    class REST  : public SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>> {
     public:
         using bus_type = SOS::MemoryView::ComBus<UART1_BUFFER>;
-        Async(bus_type& uart1)
-            : doubleBuffer{}
-            , SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
+        REST(bus_type& uart1)
+            : SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
         {
             // this->_foreign.descriptors = cpp11_static_descriptors(this->_foreign.objects);
             // this->_foreign.descriptors(this->_foreign.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
             // apply(this->_foreign.descriptors, this->_foreign.objects); // fold expression: cpp17
-            this->_foreign.signal.getWriteStartUpdatedRef().clear();
-            this->_foreign.signal.getReadEndUpdatedRef().clear();
         }
-        ~Async() {
-            this->_foreign.descriptors.count = 0;
+        ~REST() {
+            /*this->_foreign.descriptors.count = 0;
             for (std::size_t i = 0; i < NUM_IDS; ++i){
                 this->_foreign.descriptors.arr[i].obj = (void*)nullptr;
                 this->_foreign.descriptors.arr[i].obj_size = 0;
-            }
+            }*/
         }
         virtual void event_loop() {
+            //COMMAND
             if (!this->_foreign.signal.getReadEndUpdatedRef().test_and_set()) {
                 auto id = std::get<0>(this->_foreign.cables).readEndId().load();
-                if (id != NUM_IDS) {
-                read_status[id].result = true;
-                read_status[id].ready.clear();
+                if (id < NUM_IDS) {
+                    read_status[id].result = true;
+                    read_status[id].ready.clear();
+                } else {
+                    SFA::util::logic_error(SFA::util::error_code::IllegalReadEndId, __FILE__, __func__, typeid(*this).name());
                 }
                 this->_foreign.signal.getReadEndAcknowledgeRef().clear();
             }
         }
-        bool read(std::size_t id) {
+        bool read_hook(std::size_t id) {
             if (!read_status[0].ready.test_and_set()) {
                 if (read_status[0].result) {
                     return true;
@@ -343,8 +343,33 @@ namespace Behavior {
             }
             return false;
         }
+        bool read_error_hook(std::size_t id) {
+            if (!read_status[0].ready.test_and_set()) {
+                if (!read_status[0].result) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        bool write_hook(std::size_t id) {
+            if (!write_status[0].ready.test_and_set()) {
+                if (write_status[0].result) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        bool write_error_hook(std::size_t id) {
+            if (!write_status[0].ready.test_and_set()) {
+                if (!write_status[0].result) {
+                    return true;
+                }
+            }
+            return false;
+        }
         void write(std::size_t id) {
-            if (!this->_foreign.signal.getWriteStartAcknowledgeRef().test_and_set()) {
+            if (!this->_foreign.signal.getWriteStartAcknowledgeRef().test_and_set() || initiate_write) {
+                initiate_write = false;
                 std::get<0>(this->_foreign.cables).writeStartId().store(id);
                 this->_foreign.signal.getWriteStartUpdatedRef().clear();
             }
@@ -352,11 +377,9 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
-        std::tuple<Objects...> doubleBuffer;
 
     private:
-        //std::tuple<Objects...> objects;
-        //SOS::Protocol::DescriptorHelper descriptors;
+        bool initiate_write =  true;
     };
     /*template <typename... Objects>
     class DestructorGuard {
@@ -416,31 +439,36 @@ namespace Behavior {
         using bus_type = SOS::MemoryView::BusSerialSequential<Objects...>;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
             : result(bus)
+            //, sync(result.descriptors) // BUG
             , sync(bus.descriptors)
             , SOS::Behavior::SerialDoublePassthruSerialSequentialController<S, OtherBus>(result.signal, sync, other)
         {
-            //while (this->_passthru.descriptorsUpdated().test_and_set())
-            //    std::this_thread::yield();
             print_descriptors(result.descriptors);
             print_descriptors(sync.descriptors);
             this->_passthru.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() { // Superclass, then members, then base class
-            //while (this->_passthru.descriptorsUpdated().test_and_set())
-            //    std::this_thread::yield();
-            //this->_passthru.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void event_loop()
         {
             if (!this->_passthru.triggerResolve().test_and_set()) {
-                resolve(0);
+                for (std::size_t i = 0; i < result.descriptors.size(); ++i)
+                    resolve(i);
             }
+            //COMMAND
             if (!result.signal.getWriteStartUpdatedRef().test_and_set()) {
                 auto id = std::get<0>(result.cables).writeStartId().load();
-                if (id != NUM_IDS)
-                    this->_passthru[id].sync_me.clear();
+                if (id < NUM_IDS)
+                    if (!pending_write_request[id]) {
+                        pending_write_request[id] = true;
+                        this->_passthru[id].sync_me.clear();
+                    } else {
+                        SFA::util::runtime_error(SFA::util::error_code::PendingWriteRequest, __FILE__, __func__, typeid(*this).name());
+                    }
+                else
+                    SFA::util::logic_error(SFA::util::error_code::IllegalWriteStartId, __FILE__, __func__, typeid(*this).name());
                 result.signal.getWriteStartAcknowledgeRef().clear();
             }
             std::this_thread::yield();
@@ -450,8 +478,11 @@ namespace Behavior {
                 if (this->_passthru[id].read_fault.test_and_set()) {
                     while (this->_passthru.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
-                    if (!result.signal.getReadEndAcknowledgeRef().test_and_set()) {
+                    if (!result.signal.getReadEndAcknowledgeRef().test_and_set() || initiate_read) {
+                        initiate_read = false;
                         std::get<0>(result.cables).readEndId().store(id);
+                        for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
+                            result.transfer[i] = *reinterpret_cast<unsigned char*>(result.descriptors[id].obj);
                         result.signal.getReadEndUpdatedRef().clear();
                     }
                     //unsigned long i = 0;
@@ -466,14 +497,14 @@ namespace Behavior {
                     //    std::this_thread::yield();
                     //}
                     this->_passthru.descriptorsUpdated().clear();
-                    //read_status[id].result = true;
-                    //read_status[id].ready.clear();
+                    read_status[id].result = true;
+                    read_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
-                    //read_status[id].result = false;
-                    //read_status[id].ready.clear();
+                    read_status[id].result = false;
+                    read_status[id].ready.clear();
                 }
             }
             if (!this->_passthru[id].write_ack.test_and_set()) {
@@ -492,14 +523,15 @@ namespace Behavior {
                     //    std::this_thread::yield();
                     //}
                     this->_passthru.descriptorsUpdated().clear();
-                    //write_status[id].result = true;
-                    //write_status[id].ready.clear();
+                    pending_write_request[id] = false;
+                    write_status[id].result = true;
+                    write_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                     objectWritesCanceled++;
-                    //write_status[id].result = false;
-                    //write_status[id].ready.clear();
+                    write_status[id].result = false;
+                    write_status[id].ready.clear();
                 }
             }
         }
@@ -507,13 +539,15 @@ namespace Behavior {
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
-        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects;
+        std::array<bool, NUM_IDS> pending_write_request { false };
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
         SOS::MemoryView::SerialResolverBus sync;
 
     private:
         bus_type& result;
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
+        bool initiate_read =  true;
     };
     class SerialEventSubController : public SubController {
     public:

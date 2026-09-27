@@ -51,6 +51,9 @@ enum SFA::util::error_code : unsigned char {
     TypeOfFutureHasBeenModifiedDuringEdit,
     ServiceInterruptedByComShutdown,
     ObjectWriteCanceledByIncomingRead,
+    PendingWriteRequest,
+    IllegalWriteStartId,
+    IllegalReadEndId,
     // SymbolRateCounter.cpp
     CounterMaxedOut,
     // RingBuffer.hpp
@@ -179,6 +182,12 @@ const std::string SFA::util::error_message(error_code what)
         return std::string("Service interrupted by com_shutdown");
     case error_code::ObjectWriteCanceledByIncomingRead:
         return std::string("Object write canceled by an incoming read of the same object");
+    case error_code::PendingWriteRequest:
+        return std::string("Pending write request");
+    case error_code::IllegalWriteStartId:
+        return std::string("Illegal write start id");
+    case error_code::IllegalReadEndId:
+        return std::string("Illegal read end id");
     case error_code::CounterMaxedOut:
         return std::string("Counter Maxed Out");
     case error_code::NoReadbufferSupplied:

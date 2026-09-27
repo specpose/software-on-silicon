@@ -169,26 +169,23 @@ public:
     }
 };*/
 
-class FPGAAsync : public SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA> {
+class FPGARest : public SOS::Behavior::REST<FPGAResolver, TrueColorClass, DMA, DMA> {
 public:
-    FPGAAsync(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
-        : SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>(bus1)
+    FPGARest(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
+        : SOS::Behavior::REST<FPGAResolver, TrueColorClass, DMA, DMA>(bus1)
     {
         _thread = SOS::Behavior::Loop::start(this);
         write(0);
     }
-    ~FPGAAsync() {
+    ~FPGARest() {
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
-        SOS::Behavior::Async<FPGAResolver, TrueColorClass, DMA, DMA>::event_loop();
-        if (read(0))
+        SOS::Behavior::REST<FPGAResolver, TrueColorClass, DMA, DMA>::event_loop();
+        if (read_hook(0))
             write(0);
-        if (!write_status[0].ready.test_and_set()) {
-            if (!write_status[0].result) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-            }
-        }
+        if (write_error_hook(0))
+            std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
     }
 private:
     std::thread _thread;
@@ -251,28 +248,22 @@ private:
     std::thread _thread;
 };
 
-class MCUAsync : public SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA> {
+class MCURest : public SOS::Behavior::REST<MCUResolver, TrueColorClass, DMA, DMA> {
 public:
-    MCUAsync(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
-    : SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA>(bus1)
+    MCURest(SOS::MemoryView::ComBus<UART1_BUFFER>& bus1)
+    : SOS::Behavior::REST<MCUResolver, TrueColorClass, DMA, DMA>(bus1)
     {
         _thread = SOS::Behavior::Loop::start(this);
     }
-    ~MCUAsync() {
+    ~MCURest() {
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
-        SOS::Behavior::Async<MCUResolver, TrueColorClass, DMA, DMA>::event_loop();
-        if (!read_status[0].ready.test_and_set()) {
-            if (read_status[0].result) {
-                write(0);
-            }
-        }
-        if (!write_status[0].ready.test_and_set()) {
-            if (!write_status[0].result) {
-                std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
-            }
-        }
+        SOS::Behavior::REST<MCUResolver, TrueColorClass, DMA, DMA>::event_loop();
+        if (read_hook(0))
+            write(0);
+        if (write_error_hook(0))
+            std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
     }
 private:
     std::thread _thread;
