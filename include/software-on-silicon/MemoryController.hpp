@@ -92,7 +92,7 @@ namespace Behavior {
     template <typename OtherBus>
     class PassthruSimpleDummy : public Loop, protected SimpleSubController { // Useless: Refactoring only
     public:
-        PassthruSimpleDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        PassthruSimpleDummy(SOS::MemoryView::Notify& signal, OtherBus& other)
         : Loop()
         , SimpleSubController(signal)
         , _other(other.signal)
@@ -106,7 +106,7 @@ namespace Behavior {
     template <typename OtherBus>
     class PassthruPreemptiveDummy : public Loop, protected PreemptiveSubController { // Useless: Refactoring only
     public:
-        PassthruPreemptiveDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        PassthruPreemptiveDummy(SOS::MemoryView::Ring& signal, OtherBus& other)
         : Loop()
         , PreemptiveSubController(signal)
         , _other(other.signal)
@@ -120,7 +120,7 @@ namespace Behavior {
     template <typename OtherBus>
     class PassthruEventDummy : public Loop, protected EventSubController { // Useless: Refactoring only
     public:
-        PassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
+        PassthruEventDummy(SOS::MemoryView::HandShake& signal, OtherBus& other)
         : Loop()
         , EventSubController(signal)
         , _other(other.signal)
@@ -171,7 +171,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class PassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        PassthruSimpleController(typename bus_type::signal_type& signal, OtherBus& passthru)
+        PassthruSimpleController(SOS::MemoryView::Notify& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , SimpleSubController(signal)
@@ -190,7 +190,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class DoublePassthruSimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        DoublePassthruSimpleController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        DoublePassthruSimpleController(SOS::MemoryView::Notify& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
@@ -210,7 +210,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class PassthruPreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
     public:
-        PassthruPreemptiveController(typename bus_type::signal_type& signal, OtherBus& passthru)
+        PassthruPreemptiveController(SOS::MemoryView::Ring& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , PreemptiveSubController(signal)
@@ -229,7 +229,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class DoublePassthruPreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
     public:
-        DoublePassthruPreemptiveController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        DoublePassthruPreemptiveController(SOS::MemoryView::Ring& signal, typename S::bus_type& passThru, OtherBus& other)
         : Controller<S>()
         , Loop()
         , PreemptiveSubController(signal)
@@ -249,7 +249,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class PassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        PassthruEventController(typename bus_type::signal_type& signal, OtherBus& passthru)
+        PassthruEventController(SOS::MemoryView::HandShake& signal, OtherBus& passthru)
         : Controller<S>()
         , Loop()
         , EventSubController(signal)
@@ -268,7 +268,7 @@ namespace Behavior {
     template <typename S, typename OtherBus>
     class DoublePassthruEventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        DoublePassthruEventController(typename bus_type::signal_type& signal, typename S::bus_type& passThru, OtherBus& other)
+        DoublePassthruEventController(SOS::MemoryView::HandShake& signal, typename S::bus_type& passThru, OtherBus& other)
             : Controller<S>()
             , Loop()
             , EventSubController(signal)

@@ -170,41 +170,38 @@ namespace Behavior {
     };
     class SimpleSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusNotifier; // REMOVE
-        constexpr SimpleSubController(typename bus_type::signal_type& signal)
+        constexpr SimpleSubController(SOS::MemoryView::Notify& signal)
             : SubController()
             , _intrinsic(signal)
         {
         }
 
     protected:
-        bus_type::signal_type& _intrinsic;
+        SOS::MemoryView::Notify& _intrinsic;
     };
     class PreemptiveSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusRing; // REMOVE
-        constexpr PreemptiveSubController(typename bus_type::signal_type& signal)
+        constexpr PreemptiveSubController(SOS::MemoryView::Ring& signal)
         : SubController()
         , _intrinsic(signal)
         {
         }
 
     protected:
-        bus_type::signal_type& _intrinsic;
+        SOS::MemoryView::Ring& _intrinsic;
     };
     class EventSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusShaker;  // REMOVE
-        constexpr EventSubController(typename bus_type::signal_type& signal)
+        constexpr EventSubController(SOS::MemoryView::HandShake& signal)
             : SubController()
             , _intrinsic(signal)
         {
         }
 
     protected:
-        bus_type::signal_type& _intrinsic;
+        SOS::MemoryView::HandShake& _intrinsic;
     };
-    class AsyncDummy : public Loop, public SubController { // protected
+    class AsyncDummy : public Loop, protected SubController {
     public:
         AsyncDummy()
             : Loop()
@@ -212,25 +209,25 @@ namespace Behavior {
         {
         }
     };
-    class SimpleDummy : public Loop, public SimpleSubController { // protected
+    class SimpleDummy : public Loop, protected SimpleSubController {
     public:
-        SimpleDummy(typename bus_type::signal_type& signal)
+        SimpleDummy(SOS::MemoryView::Notify& signal)
             : Loop()
             , SimpleSubController(signal)
         {
         }
     };
-    class PreemptiveDummy : public Loop, public PreemptiveSubController { // protected
+    class PreemptiveDummy : public Loop, protected PreemptiveSubController {
     public:
-        PreemptiveDummy(typename bus_type::signal_type& signal)
+        PreemptiveDummy(SOS::MemoryView::Ring& signal)
         : Loop()
         , PreemptiveSubController(signal)
         {
         }
     };
-    class EventDummy : public Loop, public EventSubController { // protected
+    class EventDummy : public Loop, protected EventSubController {
     public:
-        EventDummy(typename bus_type::signal_type& signal)
+        EventDummy(SOS::MemoryView::HandShake& signal)
             : Loop()
             , EventSubController(signal)
         {
@@ -262,9 +259,9 @@ namespace Behavior {
         S _child;
     };
     template <typename S>
-    class SimpleController : public Controller<S>, public Loop, public SimpleSubController { // protected
+    class SimpleController : public Controller<S>, public Loop, protected SimpleSubController {
     public:
-        SimpleController(typename bus_type::signal_type& signal)
+        SimpleController(SOS::MemoryView::Notify& signal)
             : Controller<S>()
             , Loop()
             , SimpleSubController(signal)
@@ -279,9 +276,9 @@ namespace Behavior {
         S _child;
     };
     template <typename S>
-    class PreemptiveController : public Controller<S>, public Loop, public PreemptiveSubController { // protected
+    class PreemptiveController : public Controller<S>, public Loop, protected PreemptiveSubController {
     public:
-        PreemptiveController(typename bus_type::signal_type& signal)
+        PreemptiveController(SOS::MemoryView::Ring& signal)
         : Controller<S>()
         , Loop()
         , PreemptiveSubController(signal)
@@ -296,9 +293,9 @@ namespace Behavior {
         S _child;
     };
     template <typename S>
-    class EventController : public Controller<S>, public Loop, public EventSubController { // protected
+    class EventController : public Controller<S>, public Loop, protected EventSubController {
     public:
-        EventController(typename bus_type::signal_type& signal)
+        EventController(SOS::MemoryView::HandShake& signal)
             : Controller<S>()
             , Loop()
             , EventSubController(signal)

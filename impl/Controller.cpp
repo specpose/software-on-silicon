@@ -74,7 +74,7 @@ private:
 template <typename S>
 class ControllerImpl : public SOS::Behavior::EventController<S> {
 public:
-    ControllerImpl(typename SOS::Behavior::EventController<S>::bus_type& bus)
+    ControllerImpl(SOS::MemoryView::BusShaker& bus)
     : SOS::Behavior::EventController<S>(bus.signal)
     , waiter(new SystemTimer<milliseconds, MEASUREMENT_UNIT_IN_MILLIS>(waiterBus.signal))
     {
