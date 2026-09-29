@@ -220,13 +220,30 @@ namespace MemoryView {
     //public:
         SerialResolverBus()
         {
+            descriptors = cpp11_static_descriptors(objects);
+            // descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(descriptors, objects); // fold expression: cpp17
+            print_descriptors(descriptors);
+            signal.descriptorsUpdated().clear();
             signal.triggerResolve().test_and_set();
-            signal.descriptorsUpdated().test_and_set();
+        }
+        ~SerialResolverBus()
+        {
+            while (signal.descriptorsUpdated().test_and_set())
+                std::this_thread::yield();
+            descriptors.count = 0;
+            for (std::size_t i = 0; i < NUM_IDS; ++i){
+                descriptors.arr[i].obj = (void*)nullptr;
+                descriptors.arr[i].obj_size = 0;
+            }
+            signal.descriptorsUpdated().clear();
         }
         signal_type signal;
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
         //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
     //private:
+        std::tuple<Objects...> objects {}; // REST
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
         SOS::Protocol::DescriptorHelper descriptors;
     };
 }
@@ -425,12 +442,13 @@ namespace Behavior {
         , Loop()
         , SerialSequentialSubController(signal)
         , _other(other.signal)
+        , _foreign()
         , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
         typename OtherBus::signal_type& _other;
 
     private:
@@ -444,21 +462,8 @@ namespace Behavior {
             : result(bus)
             , SOS::Behavior::SerialPassthruSerialSequentialController<S, OtherBus>(result.signal, other)
         {
-            this->_foreign.descriptors = cpp11_static_descriptors(objects);
-            // this->_foreign.descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(this->_foreign.descriptors, objects); // fold expression: cpp17
-            print_descriptors(this->_foreign.descriptors);
-            this->_foreign.signal.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() { // Superclass, then members, then base class
-            while (this->_foreign.signal.descriptorsUpdated().test_and_set())
-                std::this_thread::yield();
-            this->_foreign.descriptors.count = 0;
-            for (std::size_t i = 0; i < NUM_IDS; ++i){
-                this->_foreign.descriptors.arr[i].obj = (void*)nullptr;
-                this->_foreign.descriptors.arr[i].obj_size = 0;
-            }
-            this->_foreign.signal.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
@@ -546,8 +551,6 @@ namespace Behavior {
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
 
-        std::tuple<Objects...> objects {}; // REST
-        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
     };
     template <typename... Objects>
     class SerialEventSubController : public SubController {

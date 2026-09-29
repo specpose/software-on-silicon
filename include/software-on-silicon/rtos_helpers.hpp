@@ -261,6 +261,7 @@ namespace Behavior {
             : Controller<S>()
             , Stoppable()
             , StoppableAsyncSubController(signal)
+            , _foreign()
             , _child(new S { _foreign })
         {
         }
@@ -284,7 +285,7 @@ namespace Behavior {
         bool descendants_stopped() { return !_child; }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
 
     private:
         S* _child = nullptr;
@@ -296,6 +297,7 @@ namespace Behavior {
             : Controller<S>()
             , Stoppable()
             , StoppableSimpleSubController(signal)
+            , _foreign()
             , _child(new S { _foreign })
         {
         }
@@ -319,7 +321,7 @@ namespace Behavior {
         bool descendants_stopped() { return !_child; }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
 
     private:
         S* _child = nullptr;
@@ -331,6 +333,7 @@ namespace Behavior {
         : Controller<S>()
         , Stoppable()
         , StoppablePreemptiveSubController(signal)
+        , _foreign()
         , _child(new S { _foreign })
         {
         }
@@ -354,7 +357,7 @@ namespace Behavior {
         bool descendants_stopped() { return !_child; }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
 
     private:
         S* _child = nullptr;
@@ -366,6 +369,7 @@ namespace Behavior {
             : Controller<S>()
             , Stoppable()
             , StoppableEventSubController(signal)
+            , _foreign()
             , _child(new S { _foreign })
         {
         }
@@ -389,7 +393,7 @@ namespace Behavior {
         bool descendants_stopped() { return !_child; }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
 
     private:
         S* _child = nullptr;

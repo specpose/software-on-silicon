@@ -138,12 +138,13 @@ namespace Behavior {
         : Controller<S>()
         , Loop()
         , _other(other.signal)
+        , _foreign()
         , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
         typename OtherBus::signal_type& _other;
 
     private:
@@ -176,12 +177,13 @@ namespace Behavior {
         , Loop()
         , SimpleSubController(signal)
         , _other(other.signal)
+        , _foreign()
         , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
         typename OtherBus::signal_type& _other;
 
     private:
@@ -215,12 +217,13 @@ namespace Behavior {
         , Loop()
         , PreemptiveSubController(signal)
         , _other(other.signal)
+        , _foreign()
         , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
         typename OtherBus::signal_type& _other;
 
     private:
@@ -254,12 +257,13 @@ namespace Behavior {
         , Loop()
         , EventSubController(signal)
         , _other(other.signal)
+        , _foreign()
         , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type _foreign {};
+        typename S::bus_type _foreign;
         typename OtherBus::signal_type& _other;
 
     private:
