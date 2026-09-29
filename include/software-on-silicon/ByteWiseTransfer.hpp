@@ -3,11 +3,11 @@ namespace Behavior {
 }
 namespace Protocol {
     template<typename... Objects>
-    class SyncProcessor : public SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>> {
+    class SyncProcessor : public SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>, Objects...> {
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus;
+        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;
         SyncProcessor(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other)
-        : SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>>(bus.signal, other)
+        : SOS::Behavior::SerialPassthruEventDummy<SOS::MemoryView::ComBus<UART1_BUFFER>, Objects...>(bus.signal, other)
         , sBus(bus)
         {
         };

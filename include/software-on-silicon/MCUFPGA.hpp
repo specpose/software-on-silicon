@@ -3,8 +3,8 @@ namespace Behavior {
     template <typename... Objects>
     class FPGACrossover : public SOS::Protocol::Serial<Objects...> {
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus;
-        FPGACrossover(SOS::MemoryView::SerialResolverBus& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
+        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;
+        FPGACrossover(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
         : SOS::Protocol::Serial<Objects...>(other, myBus)
         {
         }
@@ -52,8 +52,8 @@ namespace Behavior {
     template <typename... Objects>
     class MCUCrossover : public SOS::Protocol::Serial<Objects...> {
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus;
-        MCUCrossover(SOS::MemoryView::SerialResolverBus& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
+        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;
+        MCUCrossover(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
         : SOS::Protocol::Serial<Objects...>(other, myBus)
         {
         }

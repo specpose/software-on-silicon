@@ -25,7 +25,7 @@
 
 class FPGA : public SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::SerialResolverBus;
+    using bus_type = typename SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>::bus_type;
     FPGA(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
         : SOS::Behavior::FPGACrossover<TrueColorClass, DMA, DMA>(other, myBus)
     {
@@ -83,7 +83,7 @@ private:
 };
 class MCU : public SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA> {
 public:
-    using bus_type = SOS::MemoryView::SerialResolverBus;
+    using bus_type = typename SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>::bus_type;
     MCU(bus_type& other, SOS::MemoryView::ComBus<UART1_BUFFER>& myBus)
         : SOS::Behavior::MCUCrossover<TrueColorClass, DMA, DMA>(other, myBus)
     {

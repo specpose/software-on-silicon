@@ -75,7 +75,6 @@ namespace MemoryView {
         std::atomic_flag& getWriteInProgressNotifyRef() { return std::get<10>(*this); }
     };
     struct bus_sequential_tag {};
-    template <typename... Objects>
     struct BusSerialSequential : bus<
     bus_sequential_tag,
     SOS::MemoryView::SerialSequential,
@@ -83,8 +82,6 @@ namespace MemoryView {
     bus_traits<Bus>::const_cables_type>
     {
         BusSerialSequential()
-            : objects{}
-            , descriptors(cpp11_static_descriptors(objects))
         {
             std::get<0>(cables).readStartId().store(NUM_IDS);
             std::get<0>(cables).readEndId().store(NUM_IDS);
@@ -96,8 +93,6 @@ namespace MemoryView {
         }
         signal_type signal;
         cables_type cables {};
-        std::tuple<Objects...> objects;
-        SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive SequentialResolverDSP
         std::array<unsigned char, MAX_OBJ_SIZE> transferReadEndIn {};
         std::array<unsigned char, MAX_OBJ_SIZE> transferWriteStartOut {};
     };
@@ -215,6 +210,7 @@ namespace MemoryView {
         }
     };*/
     struct bus_switchboard_tag { };
+    template <typename... Objects>
     struct SerialResolverBus : bus<
         bus_switchboard_tag,
         SOS::MemoryView::SwitchBoard,
@@ -222,7 +218,8 @@ namespace MemoryView {
         bus_traits<SOS::MemoryView::Bus>::const_cables_type>
     {
     //public:
-        SerialResolverBus(SOS::Protocol::DescriptorHelper& helpers) : descriptors(helpers) {
+        SerialResolverBus()
+        {
             signal.triggerResolve().test_and_set();
             signal.descriptorsUpdated().test_and_set();
         }
@@ -230,7 +227,7 @@ namespace MemoryView {
         //typename DescriptorInitObj::value_type& getObjPtr() { return std::get<0>(std::get<0>(cables)); }
         //typename DescriptorInitObj_Size::value_type& getObjSize() { return std::get<0>(std::get<1>(cables)); }
     //private:
-        SOS::Protocol::DescriptorHelper& descriptors; // Reference causes Segfault
+        SOS::Protocol::DescriptorHelper descriptors;
     };
 }
 namespace Protocol {
@@ -314,16 +311,10 @@ namespace Behavior {
         REST(bus_type& uart1)
             : SOS::Behavior::PassthruAsyncController<S,SOS::MemoryView::ComBus<UART1_BUFFER>>(uart1)
         {
-            // this->_foreign.descriptors = cpp11_static_descriptors(this->_foreign.objects);
-            // this->_foreign.descriptors(this->_foreign.objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
-            // apply(this->_foreign.descriptors, this->_foreign.objects); // fold expression: cpp17
+
         }
         ~REST() {
-            /*this->_foreign.descriptors.count = 0;
-            for (std::size_t i = 0; i < NUM_IDS; ++i){
-                this->_foreign.descriptors.arr[i].obj = (void*)nullptr;
-                this->_foreign.descriptors.arr[i].obj_size = 0;
-            }*/
+
         }
         virtual void event_loop() {
             //COMMAND
@@ -382,7 +373,7 @@ namespace Behavior {
             // FIX
             //while (this->_passthru.descriptorsUpdated().test_and_set())
             //    std::this_thread::yield();
-            for (std::size_t i = 0; i < this->_foreign.descriptors[id].obj_size; ++i)
+            for (std::size_t i = 0; i < sizeof(typename std::tuple_element<id, typename std::tuple<Objects...>>::type); ++i)
                 this->_foreign.transferWriteStartOut[i] = *reinterpret_cast<unsigned char*>(&writefrom);
             //this->_passthru.descriptorsUpdated().clear();
             this->_foreign.signal.getWriteStartUpdatedRef().clear();
@@ -416,7 +407,7 @@ namespace Behavior {
     };*/
     class SerialSequentialSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::BusSerialSequential<TrueColorClass, DMA, DMA>; // REMOVE
+        using bus_type = SOS::MemoryView::BusSerialSequential;
         constexpr SerialSequentialSubController(SOS::MemoryView::SerialSequential& signal)
         : SubController()
         , _intrinsic(signal)
@@ -427,47 +418,54 @@ namespace Behavior {
         SOS::MemoryView::SerialSequential& _intrinsic;
     };
     template <typename S, typename OtherBus>
-    class SerialDoublePassthruSerialSequentialController : public Controller<S>, public Loop, protected SerialSequentialSubController {
+    class SerialPassthruSerialSequentialController : public Controller<S>, public Loop, protected SerialSequentialSubController {
     public:
-        SerialDoublePassthruSerialSequentialController(SOS::MemoryView::SerialSequential& signal, typename S::bus_type& passThru, OtherBus& other)
+        SerialPassthruSerialSequentialController(SOS::MemoryView::SerialSequential& signal, OtherBus& other)
         : Controller<S>()
         , Loop()
         , SerialSequentialSubController(signal)
-        , _passthru(passThru.signal)
         , _other(other.signal)
-        , _child(passThru, other)
+        , _child(_foreign, other)
         {
         }
 
     protected:
-        typename S::bus_type::signal_type& _passthru;
+        typename S::bus_type _foreign {};
         typename OtherBus::signal_type& _other;
 
     private:
         S _child;
     };
     template <typename S, typename OtherBus, typename... Objects>
-    class SequentialResolverDSP : public SOS::Behavior::SerialDoublePassthruSerialSequentialController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
+    class SequentialResolverDSP : public SOS::Behavior::SerialPassthruSerialSequentialController<S, OtherBus> { // gcc bug: Debug target does not respect destruction order
     public:
-        using bus_type = SOS::MemoryView::BusSerialSequential<Objects...>;
+        using bus_type = SOS::MemoryView::BusSerialSequential;
         SequentialResolverDSP(bus_type& bus, SOS::MemoryView::ComBus<UART1_BUFFER>& other) // constexpr
             : result(bus)
-            //, sync(result.descriptors) // BUG
-            , sync(bus.descriptors)
-            , SOS::Behavior::SerialDoublePassthruSerialSequentialController<S, OtherBus>(result.signal, sync, other)
+            , SOS::Behavior::SerialPassthruSerialSequentialController<S, OtherBus>(result.signal, other)
         {
-            print_descriptors(result.descriptors);
-            print_descriptors(sync.descriptors);
-            this->_passthru.descriptorsUpdated().clear();
+            this->_foreign.descriptors = cpp11_static_descriptors(objects);
+            // this->_foreign.descriptors(objects, make_integer_sequence<std::size_t, std::tuple_size<std::tuple<Objects...>>::value> {}); // integer_sequence: cpp14
+            // apply(this->_foreign.descriptors, objects); // fold expression: cpp17
+            print_descriptors(this->_foreign.descriptors);
+            this->_foreign.signal.descriptorsUpdated().clear();
         }
         ~SequentialResolverDSP() { // Superclass, then members, then base class
+            while (this->_foreign.signal.descriptorsUpdated().test_and_set())
+                std::this_thread::yield();
+            this->_foreign.descriptors.count = 0;
+            for (std::size_t i = 0; i < NUM_IDS; ++i){
+                this->_foreign.descriptors.arr[i].obj = (void*)nullptr;
+                this->_foreign.descriptors.arr[i].obj_size = 0;
+            }
+            this->_foreign.signal.descriptorsUpdated().clear();
             std::cout << typeid(*this).name() << "ObjectReadsCanceled" << objectReadsCanceled << std::endl;
             std::cout << typeid(*this).name() << "ObjectWritesCanceled" << objectWritesCanceled << std::endl;
         }
         void event_loop()
         {
-            if (!this->_passthru.triggerResolve().test_and_set()) {
-                for (std::size_t i = 0; i < result.descriptors.size(); ++i)
+            if (!this->_foreign.signal.triggerResolve().test_and_set()) {
+                for (std::size_t i = 0; i < this->_foreign.descriptors.size(); ++i)
                     resolve(i);
             }
             //COMMAND
@@ -476,11 +474,11 @@ namespace Behavior {
                     std::this_thread::yield();
                 auto id = std::get<0>(result.cables).readEndId().load(); // from local
                 if (id < NUM_IDS) {
-                    while (this->_passthru.descriptorsUpdated().test_and_set())
+                    while (this->_foreign.signal.descriptorsUpdated().test_and_set())
                         std::this_thread::yield();
-                    for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
-                        result.transferReadEndIn[i] = *reinterpret_cast<unsigned char*>(result.descriptors[id].obj);
-                    this->_passthru.descriptorsUpdated().clear();
+                    for (std::size_t i = 0; i < this->_foreign.descriptors[id].obj_size; ++i)
+                        result.transferReadEndIn[i] = *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj);
+                    this->_foreign.signal.descriptorsUpdated().clear();
                 }
                 result.signal.getReadEndUpdatedRef().clear();
                 readend_command_queued = false;
@@ -493,13 +491,13 @@ namespace Behavior {
                 auto id = std::get<0>(result.cables).writeStartId().load();
                 if (id < NUM_IDS)
                     if (!pending_write_request[id]) {
-                        while (this->_passthru.descriptorsUpdated().test_and_set())
+                        while (this->_foreign.signal.descriptorsUpdated().test_and_set())
                             std::this_thread::yield();
-                        for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
-                            *reinterpret_cast<unsigned char*>(result.descriptors[id].obj) = result.transferWriteStartOut[i];
-                        this->_passthru.descriptorsUpdated().clear();
+                        for (std::size_t i = 0; i < this->_foreign.descriptors[id].obj_size; ++i)
+                            *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj) = result.transferWriteStartOut[i];
+                        this->_foreign.signal.descriptorsUpdated().clear();
                         pending_write_request[id] = true;
-                        this->_passthru[id].sync_me.clear();
+                        this->_foreign.signal[id].sync_me.clear();
                     } else {
                         SFA::util::runtime_error(SFA::util::error_code::PendingWriteRequest, __FILE__, __func__, typeid(*this).name());
                     }
@@ -510,8 +508,8 @@ namespace Behavior {
             std::this_thread::yield();
         }
         void resolve(std::size_t id) {
-            if (!this->_passthru[id].read_ack.test_and_set()) {
-                if (this->_passthru[id].read_fault.test_and_set()) {
+            if (!this->_foreign.signal[id].read_ack.test_and_set()) {
+                if (this->_foreign.signal[id].read_fault.test_and_set()) {
                     std::get<0>(result.cables).readEndId().store(id);
                     readend_command_queued = true;
                 } else
@@ -522,8 +520,8 @@ namespace Behavior {
                     //readfault_command_queued = true;
                 }
             }
-            if (!this->_passthru[id].write_ack.test_and_set()) {
-                if (this->_passthru[id].write_fault.test_and_set()){
+            if (!this->_foreign.signal[id].write_ack.test_and_set()) {
+                if (this->_foreign.signal[id].write_fault.test_and_set()){
                     std::get<0>(result.cables).writeEndId().store(id);
                     writend_command_queued = true;
                     pending_write_request[id] = false;
@@ -542,17 +540,19 @@ namespace Behavior {
         bool readend_command_queued = false;
         std::array<bool, NUM_IDS> readfault_command_queued { false };
         std::array<bool, NUM_IDS> pending_write_request { false };
-        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
-        SOS::MemoryView::SerialResolverBus sync;
 
     private:
         bus_type& result;
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
+
+        std::tuple<Objects...> objects {}; // REST
+        //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
     };
+    template <typename... Objects>
     class SerialEventSubController : public SubController {
     public:
-        using bus_type = SOS::MemoryView::SerialResolverBus;  // CUSTOM
+        using bus_type = SOS::MemoryView::SerialResolverBus<Objects...>;  // CUSTOM
         constexpr SerialEventSubController(typename bus_type::signal_type& signal)
         : SubController()
         , _intrinsic(signal)
@@ -560,14 +560,15 @@ namespace Behavior {
         }
 
     protected:
-        bus_type::signal_type& _intrinsic;
+        typename bus_type::signal_type& _intrinsic;
     };
-    template <typename OtherBus>
-    class SerialPassthruEventDummy : public Loop, protected SerialEventSubController { // Useless: Refactoring only
+    template <typename OtherBus, typename... Objects>
+    class SerialPassthruEventDummy : public Loop, protected SerialEventSubController<Objects...> { // Useless: Refactoring only
     public:
+        using bus_type = typename SerialEventSubController<Objects...>::bus_type;
         SerialPassthruEventDummy(typename bus_type::signal_type& signal, OtherBus& other)
         : Loop()
-        , SerialEventSubController(signal)
+        , SerialEventSubController<Objects...>(signal)
         , _other(other.signal)
         {
         }
