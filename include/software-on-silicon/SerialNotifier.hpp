@@ -45,21 +45,22 @@ namespace MemoryView {
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeEndId() { return std::get<4>(*this); }
         typename SOS::MemoryView::TaskCable<unsigned char, 6>::value_type& writeFailedId() { return std::get<5>(*this); }
     };
-    class SerialSequential : private std::array<std::atomic_flag, 10> {
+    class SerialSequential : private std::array<std::atomic_flag, 11> {
     public:
         SerialSequential()
-            : std::array<std::atomic_flag, 10> {}
+            : std::array<std::atomic_flag, 11> {}
         {
             std::get<0>(*this).test_and_set();
             std::get<1>(*this).test_and_set();
             std::get<2>(*this).test_and_set();
-            std::get<3>(*this).test_and_set();
+            std::get<3>(*this).clear();
             std::get<4>(*this).test_and_set();
             std::get<5>(*this).test_and_set();
-            std::get<6>(*this).test_and_set();
+            std::get<6>(*this).clear();
             std::get<7>(*this).test_and_set();
             std::get<8>(*this).test_and_set();
             std::get<9>(*this).test_and_set();
+            std::get<10>(*this).test_and_set();
         }
         std::atomic_flag& getReadStartUpdatedRef() { return std::get<0>(*this); }
         std::atomic_flag& getReadStartAcknowledgeRef() { return std::get<1>(*this); }
@@ -71,6 +72,7 @@ namespace MemoryView {
         std::atomic_flag& getWriteEndUpdatedRef() { return std::get<7>(*this); }
         std::atomic_flag& getWriteEndAcknowledgeRef() { return std::get<8>(*this); }
         std::atomic_flag& getWriteFailedNotifyRef() { return std::get<9>(*this); }
+        std::atomic_flag& getWriteInProgressNotifyRef() { return std::get<10>(*this); }
     };
     struct bus_sequential_tag {};
     template <typename... Objects>
@@ -96,7 +98,8 @@ namespace MemoryView {
         cables_type cables {};
         std::tuple<Objects...> objects;
         SOS::Protocol::DescriptorHelper descriptors; // descriptors has to outlive SequentialResolverDSP
-        std::array<unsigned char, MAX_OBJ_SIZE> transfer {};
+        std::array<unsigned char, MAX_OBJ_SIZE> transferReadEndIn {};
+        std::array<unsigned char, MAX_OBJ_SIZE> transferWriteStartOut {};
     };
     /*struct DMAInstructionCable : private SOS::MemoryView::TaskCable<unsigned char, 2> {
         using SOS::MemoryView::TaskCable<unsigned char, 2>::TaskCable;
@@ -324,7 +327,7 @@ namespace Behavior {
         }
         virtual void event_loop() {
             //COMMAND
-            if (!this->_foreign.signal.getReadEndUpdatedRef().test_and_set()) {
+            if (!this->_foreign.signal.getReadEndUpdatedRef().test_and_set()) { // receiver end
                 auto id = std::get<0>(this->_foreign.cables).readEndId().load();
                 if (id < NUM_IDS) {
                     read_status[id].result = true;
@@ -335,51 +338,61 @@ namespace Behavior {
                 this->_foreign.signal.getReadEndAcknowledgeRef().clear();
             }
         }
-        bool read_hook(std::size_t id) {
-            if (!read_status[0].ready.test_and_set()) {
-                if (read_status[0].result) {
-                    return true;
-                }
-            }
+        //does not receive any data, informs when getReadEnd
+        bool read_event(std::size_t id) {
+            if (!read_status[0].ready.test_and_set())
+                return true;
             return false;
         }
-        bool read_error_hook(std::size_t id) {
-            if (!read_status[0].ready.test_and_set()) {
-                if (!read_status[0].result) {
-                    return true;
-                }
-            }
+        bool read_success(std::size_t id) {
+            if (read_status[0].result)
+                return true;
             return false;
         }
-        bool write_hook(std::size_t id) {
-            if (!write_status[0].ready.test_and_set()) {
-                if (write_status[0].result) {
-                    return true;
-                }
-            }
+        /*bool write_event(std::size_t id) {
+            if (!write_status[0].ready.test_and_set())
+                return true;
             return false;
         }
-        bool write_error_hook(std::size_t id) {
-            if (!write_status[0].ready.test_and_set()) {
-                if (!write_status[0].result) {
-                    return true;
-                }
-            }
+        bool write_success(std::size_t id) {
+            if (write_status[0].result)
+                return true;
             return false;
-        }
-        void write(std::size_t id) {
-            if (!this->_foreign.signal.getWriteStartAcknowledgeRef().test_and_set() || initiate_write) {
-                initiate_write = false;
-                std::get<0>(this->_foreign.cables).writeStartId().store(id);
-                this->_foreign.signal.getWriteStartUpdatedRef().clear();
+        }*/
+        //getReadStartgets a copy of cache blocking, WAITS if readLock
+        /*template <unsigned char id>
+        char read(typename std::tuple_element<id, typename std::tuple<Objects...>>::type& readinto){
+            if (!read_status[id].ready.test_and_set()) {
+                if (read_status[id].result) {
+                    //readinto = transfer;
+                    return 1;
+                } else {
+                    return -1;
+                }
+            } else {
+                return 0;
             }
+        }*/
+        //getWriteStart writes a copy to cache, blocking, HARDFAILS if transfer: getWriteInProgress
+        template <unsigned char id>
+        void write(typename std::tuple_element<id, typename std::tuple<Objects...>>::type& writefrom) {
+            while (this->_foreign.signal.getWriteStartAcknowledgeRef().test_and_set()) // emitter side
+                std::this_thread::yield();
+            std::get<0>(this->_foreign.cables).writeStartId().store(id);
+            // FIX
+            //while (this->_passthru.descriptorsUpdated().test_and_set())
+            //    std::this_thread::yield();
+            for (std::size_t i = 0; i < this->_foreign.descriptors[id].obj_size; ++i)
+                this->_foreign.transferWriteStartOut[i] = *reinterpret_cast<unsigned char*>(&writefrom);
+            //this->_passthru.descriptorsUpdated().clear();
+            this->_foreign.signal.getWriteStartUpdatedRef().clear();
         }
+        //does a write and checks for write_event with write_success or incomingReadCanceledWrite
+        //await_write
     protected:
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
         std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
 
-    private:
-        bool initiate_write =  true;
     };
     /*template <typename... Objects>
     class DestructorGuard {
@@ -458,10 +471,33 @@ namespace Behavior {
                     resolve(i);
             }
             //COMMAND
-            if (!result.signal.getWriteStartUpdatedRef().test_and_set()) {
+            if (readend_command_queued) {
+                while (result.signal.getReadEndAcknowledgeRef().test_and_set()) // emitter side
+                    std::this_thread::yield();
+                auto id = std::get<0>(result.cables).readEndId().load(); // from local
+                if (id < NUM_IDS) {
+                    while (this->_passthru.descriptorsUpdated().test_and_set())
+                        std::this_thread::yield();
+                    for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
+                        result.transferReadEndIn[i] = *reinterpret_cast<unsigned char*>(result.descriptors[id].obj);
+                    this->_passthru.descriptorsUpdated().clear();
+                }
+                result.signal.getReadEndUpdatedRef().clear();
+                readend_command_queued = false;
+            }
+            //if (writend_command_queued)
+            //    if (!result.signal.getWriteEndAcknowledgeRef().test_and_set()) {
+            //        result.signal.getWriteEndUpdatedRef().clear();
+            //    }
+            if (!result.signal.getWriteStartUpdatedRef().test_and_set()) { // receiver end
                 auto id = std::get<0>(result.cables).writeStartId().load();
                 if (id < NUM_IDS)
                     if (!pending_write_request[id]) {
+                        while (this->_passthru.descriptorsUpdated().test_and_set())
+                            std::this_thread::yield();
+                        for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
+                            *reinterpret_cast<unsigned char*>(result.descriptors[id].obj) = result.transferWriteStartOut[i];
+                        this->_passthru.descriptorsUpdated().clear();
                         pending_write_request[id] = true;
                         this->_passthru[id].sync_me.clear();
                     } else {
@@ -476,69 +512,35 @@ namespace Behavior {
         void resolve(std::size_t id) {
             if (!this->_passthru[id].read_ack.test_and_set()) {
                 if (this->_passthru[id].read_fault.test_and_set()) {
-                    while (this->_passthru.descriptorsUpdated().test_and_set())
-                        std::this_thread::yield();
-                    if (!result.signal.getReadEndAcknowledgeRef().test_and_set() || initiate_read) {
-                        initiate_read = false;
-                        std::get<0>(result.cables).readEndId().store(id);
-                        for (std::size_t i = 0; i < result.descriptors[id].obj_size; ++i)
-                            result.transfer[i] = *reinterpret_cast<unsigned char*>(result.descriptors[id].obj);
-                        result.signal.getReadEndUpdatedRef().clear();
-                    }
-                    //unsigned long i = 0;
-                    //while (i < this->_foreign.descriptors[id].obj_size) {
-                    //    if (_intrinsic[id].read_op.getNotifyRef().test_and_set()) {
-                    //        i++;
-                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
-                    //    } else {
-                    //        i = 0;
-                    //        break;
-                    //    }
-                    //    std::this_thread::yield();
-                    //}
-                    this->_passthru.descriptorsUpdated().clear();
-                    read_status[id].result = true;
-                    read_status[id].ready.clear();
+                    std::get<0>(result.cables).readEndId().store(id);
+                    readend_command_queued = true;
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ServiceInterruptedByComShutdown, __FILE__, __func__, typeid(*this).name());
                     objectReadsCanceled++;
-                    read_status[id].result = false;
-                    read_status[id].ready.clear();
+                    //std::get<0>(result.cables).readFailedId().store(id);
+                    //readfault_command_queued = true;
                 }
             }
             if (!this->_passthru[id].write_ack.test_and_set()) {
                 if (this->_passthru[id].write_fault.test_and_set()){
-                    while (this->_passthru.descriptorsUpdated().test_and_set())
-                        std::this_thread::yield();
-                    //unsigned long i = 0;
-                    //while (i < this->_foreign.descriptors[id].obj_size) {
-                    //    if (_intrinsic[id].write_op.getNotifyRef().test_and_set()) {
-                    //        i++;
-                    //        doubleBuffer[id][i] = *reinterpret_cast<unsigned char*>(this->_foreign.descriptors[id].obj)+i;
-                    //    } else {
-                    //        i = 0;
-                    //        break;
-                    //    }
-                    //    std::this_thread::yield();
-                    //}
-                    this->_passthru.descriptorsUpdated().clear();
+                    std::get<0>(result.cables).writeEndId().store(id);
+                    writend_command_queued = true;
                     pending_write_request[id] = false;
-                    write_status[id].result = true;
-                    write_status[id].ready.clear();
                 } else
                 {
                     SFA::util::runtime_error(SFA::util::error_code::ObjectWriteCanceledByIncomingRead, __FILE__, __func__, typeid(*this).name());
                     objectWritesCanceled++;
-                    write_status[id].result = false;
-                    write_status[id].ready.clear();
+                    //std::get<0>(result.cables).writeFailedId().store(id);
+                    //writefault_command_queued = true;
                 }
             }
         }
 
     protected:
-        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> read_status {};
-        std::array<SOS::Protocol::ResolverStatus, NUM_IDS> write_status {};
+        bool writend_command_queued = false;
+        bool readend_command_queued = false;
+        std::array<bool, NUM_IDS> readfault_command_queued { false };
         std::array<bool, NUM_IDS> pending_write_request { false };
         //std::array<std::array<unsigned char, MAX_OBJ_SIZE>, NUM_IDS> objects; // AsyncIO
         SOS::MemoryView::SerialResolverBus sync;
@@ -547,7 +549,6 @@ namespace Behavior {
         bus_type& result;
         std::size_t objectReadsCanceled = 0;
         std::size_t objectWritesCanceled = 0;
-        bool initiate_read =  true;
     };
     class SerialEventSubController : public SubController {
     public:

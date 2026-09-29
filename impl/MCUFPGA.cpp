@@ -175,19 +175,22 @@ public:
         : SOS::Behavior::REST<FPGAResolver, TrueColorClass, DMA, DMA>(bus1)
     {
         _thread = SOS::Behavior::Loop::start(this);
-        write(0);
+        write<0>(current_color);
     }
     ~FPGARest() {
         SOS::Behavior::Loop::destroy(_thread);
     }
     virtual void event_loop() final {
         SOS::Behavior::REST<FPGAResolver, TrueColorClass, DMA, DMA>::event_loop();
-        if (read_hook(0))
-            write(0);
-        if (write_error_hook(0))
-            std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+        if (read_event(0))
+            if (read_success(0))
+                write<0>(current_color);
+        //if (write_event(0))
+        //    if (!write_success(0))
+        //        std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
     }
 private:
+    TrueColorClass current_color {};
     std::thread _thread;
 };
 
@@ -260,12 +263,15 @@ public:
     }
     virtual void event_loop() final {
         SOS::Behavior::REST<MCUResolver, TrueColorClass, DMA, DMA>::event_loop();
-        if (read_hook(0))
-            write(0);
-        if (write_error_hook(0))
-            std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
+        if (read_event(0))
+            if (read_success(0))
+                write<0>(current_color);
+        //if (write_event(0))
+        //    if (!write_success(0))
+        //        std::cout << typeid(*this).name() << ": write of object id " << 0 << " canceled" << std::endl;
     }
 private:
+    TrueColorClass current_color {};
     std::thread _thread;
 };
 
